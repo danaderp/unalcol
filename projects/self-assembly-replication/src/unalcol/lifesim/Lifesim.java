@@ -5,33 +5,43 @@
  */
 package unalcol.lifesim;
 
-import unalcol.lifesim.environment.EnvironmentControler;
+import unalcol.lifesim.environment.Environment;
 
 /**
- * <p>Self Assembly and Self replication  </p>
+ * <p>
+ * Self Assembly and Self replication  </p>
  *
- * <p>Description: </p>
+ * <p>
+ * Description: </p>
  *
- * <p>Copyright: Copyright (c) 2015</p>
+ * <p>
+ * Copyright: Copyright (c) 2015</p>
  *
- * <p>Company: Universidad Nacional de Colombia</p>
+ * <p>
+ * Company: Universidad Nacional de Colombia</p>
  *
  * @author Daniel Rodríguez
  * @version 1.0
  */
 public class Lifesim {
-    
+
+    //The Environment size
     public final int environmentSize = 100;
 
-    
-    public Lifesim(){
-       EnvironmentControler generator;
-       generator = new EnvironmentControler(environmentSize);
-       generator.controlPopulation();
+    public Lifesim() {
+
+       
+        Environment environment = new Environment(environmentSize);
+        environment.createInitialPop();
+
+        Thread thread = new Thread(environment);
+        thread.start();
+
+
     }
-    
-    public static void main(String [] args){
+
+    public static void main(String[] args) {
         Lifesim lifesim = new Lifesim();
-        
+
     }
 }
