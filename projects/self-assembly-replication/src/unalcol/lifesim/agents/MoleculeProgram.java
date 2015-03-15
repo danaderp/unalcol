@@ -27,37 +27,37 @@ public class MoleculeProgram implements AgentProgram {
         MoleculeAgent leftm, rightm;
         rightm = (MoleculeAgent) mp.get(MoleculeSenses.RIGHT_MOL);
         leftm = (MoleculeAgent) mp.get(MoleculeSenses.LEFT_MOL);
-        boolean isStable = (boolean) mp.get(MoleculeSenses.MOL_STATE);
-        boolean isBonded = (boolean) mp.get(MoleculeSenses.MOL_BONDED);
+        MoleculeAgent itself = (MoleculeAgent) mp.get(MoleculeSenses.MOL_SEFL);
+
         Action action = new Action("");
-        if(isStable){
+        if (itself.isStable()|| itself.getBonds().size()==MoleculeAgent.NEIGHTS) {
             return action;
         }
-        
-        
-        int sign = (valence < 0) ? -1 : 1;
-        
-        if (leftm != null) {
-            int sign2 = (leftm.getReminingV() < 0) ? -1 : 1;
 
-            if (sign + sign2 == 0) {
-                action = new Action("bondleft");
-                return action;
+        int sign = (valence < 0) ? -1 : 1;
+
+        if (leftm != null) {
+            if (!itself.getBonds().contains(leftm)) {
+                int sign2 = (leftm.getReminingV() < 0) ? -1 : 1;
+
+                if (sign + sign2 == 0) {
+                    action = new Action("bondleft");
+                    return action;
+                }
             }
         }
         if (rightm != null) {
-            int sign2 = (rightm.getReminingV() < 0) ? -1 : 1;
-            if (sign + sign2 == 0) {
-                action = new Action("bondright");
-                return action;
+            if (!itself.getBonds().contains(rightm)) {
+                int sign2 = (rightm.getReminingV() < 0) ? -1 : 1;
+                if (sign + sign2 == 0) {
+                    action = new Action("bondright");
+                    return action;
+                }
             }
         }
         //Program Logic to move the agent
-        
-        if(!isBonded){
-            action = new Action("jump");//new Action("left");
-        }
-        else if (leftDistance < rightDistance) {
+
+        if (leftDistance < rightDistance) {
             if ((leftValences[0] + valence) < valence) {
                 action = new Action("left");
             } else {
@@ -65,6 +65,15 @@ public class MoleculeProgram implements AgentProgram {
             }
         } else if (leftDistance > rightDistance) {
             if ((rightValences[0] + valence) < valence) {
+                action = new Action("right");
+            } else {
+                action = new Action("left");
+            }
+        } else if (!itself.isBonded()) {
+            action = new Action("jump");//new Action("left");
+        } else {
+            BooleanGenerator g = new BooleanGenerator(0.8);
+            if (g.next()) {
                 action = new Action("right");
             } else {
                 action = new Action("left");

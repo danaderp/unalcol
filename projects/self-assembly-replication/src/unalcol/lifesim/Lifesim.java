@@ -5,6 +5,7 @@
  */
 package unalcol.lifesim;
 
+import processing.core.PApplet;
 import unalcol.lifesim.environment.Environment;
 
 /**
@@ -25,23 +26,11 @@ import unalcol.lifesim.environment.Environment;
  */
 public class Lifesim {
 
-    //The Environment size
-    public final int environmentSize = 100;
-
-    public Lifesim() {
-
-       
-        Environment environment = new Environment(environmentSize);
-        environment.createInitialPop();
-
-        Thread thread = new Thread(environment);
-        thread.start();
-
-
-    }
+   
 
     public static void main(String[] args) {
-        Lifesim lifesim = new Lifesim();
+        
+        PApplet.main(new String[] { "--present", "unalcol.lifesim.environment.Environment" });
 
     }
 }

@@ -42,17 +42,15 @@ public class MoleculeAgent extends Agent {
     //The number of neightborhoods.
     public static final int NEIGHTS = 2;
 
-    
+    public int pixel_c;
     protected Vector<MoleculeAgent> bonds;
-    
-    private Space space;
 
-  
+    private final Space space;
 
     public MoleculeAgent(AgentArchitecture _architecture, AgentProgram _program, Space _space) {
         super(_architecture, _program);
-         bonds = new Vector<>();
-         this.space=_space;
+        bonds = new Vector<>();
+        this.space = _space;
     }
 
     public boolean isStable() {
@@ -67,21 +65,25 @@ public class MoleculeAgent extends Agent {
     public int getValence() {
         return valence;
     }
-    public void setPosition(int position){
-        this.position=position;
+
+    public synchronized void setPosition(int position) {
+        this.position = position;
     }
+
     public void changePosition(int _position) {
-        
-        for(MoleculeAgent m:this.bonds){
-           int dif = m.position-this.position;
-            this.space.remove(m.position);
-            m.setPosition(space.getValidPosition(_position+dif));
-            this.space.set(m.getPosition(), m);
+
+            //TODO: sync
+        for (MoleculeAgent m : this.bonds) {
+
+            int dif = m.position - this.position;
+            int validx = space.getValidPosition(_position + dif);
+            //m.setPosition(validx);
+            this.space.move(m.position, validx);
+
         }
-       
-        this.space.remove(this.position);
+        this.space.move(this.position, _position);
         this.position = _position;
-        this.space.set(_position, this);
+
     }
 
     public int getPosition() {
@@ -94,23 +96,25 @@ public class MoleculeAgent extends Agent {
 
     public void bond(MoleculeAgent m) {
         //Try catch occurs when the other molecule leves just when the bond is processing.
-        try{
-        if (!this.bonds.contains(m)&&this.bonds.size()<NEIGHTS&&!isStable) {
-            this.remaining_v += m.valence;
-            if(this.remaining_v<=0){
-                this.isStable=true;
+        try {
+            if (!this.bonds.contains(m) && this.bonds.size() < NEIGHTS && !isStable) {
+                this.remaining_v += m.valence;
+                if (this.remaining_v <= 0) {
+                    this.isStable = true;
+                }
+                this.bonds.add(m);
+                m.bond(this);
             }
-            this.bonds.add(m);
-            m.bond(this);
+        } catch (NullPointerException e) {
         }
-        }catch(NullPointerException e){}
 
     }
-    public Vector getBonds(){
+
+    public Vector getBonds() {
         return this.bonds;
-    } 
-    
-    public boolean isBonded(){
-        return (this.bonds.size()>0);
+    }
+
+    public boolean isBonded() {
+        return (this.bonds.size() > 0);
     }
 }

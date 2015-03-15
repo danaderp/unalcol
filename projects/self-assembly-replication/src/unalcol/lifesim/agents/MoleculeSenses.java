@@ -23,7 +23,6 @@ public enum MoleculeSenses {
     VALENCE_VALUE,
     LEFT_MOL,
     RIGHT_MOL,
-    MOL_STATE,
-    MOL_BONDED;
+    MOL_SEFL;
     
 }

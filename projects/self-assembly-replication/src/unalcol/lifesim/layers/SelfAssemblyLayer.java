@@ -10,6 +10,7 @@ import unalcol.lifesim.agents.MoleculeAgent;
 import unalcol.lifesim.agents.MoleculePercept;
 import unalcol.lifesim.agents.MoleculeSenses;
 import unalcol.lifesim.environment.Space;
+import unalcol.lifesim.layers.view.LayerView;
 
 /**
  *
@@ -18,10 +19,9 @@ import unalcol.lifesim.environment.Space;
 public class SelfAssemblyLayer extends Layer {
 
     public static int DISIPATE_FACTOR = 1;
-    public static int STEP_DISIPATE = 500;
+    public static int STEP_DISIPATE = 200;
     public static int INITIAL_VALUE = 0;
     private final int[] assemblyWeights;
-    private int time = 0;
 
     /**
      *
@@ -48,21 +48,23 @@ public class SelfAssemblyLayer extends Layer {
     public void updateLayer() {
         //TODO reduce weight, disipate energy
 
-        for (int a : this.assemblyWeights) {
+       /* for (int a : this.assemblyWeights) {
 
             System.out.print(a);
 
         }
-        System.out.println("");
-        if ((time % STEP_DISIPATE) == 0) {
+        System.out.println("");*/
+        if ((time_c % STEP_DISIPATE) == 0) {
             this.calculateAssemblyWeights();
         }
-        time++;
+        //this.display();
     }
 
     protected void calculateAssemblyWeights() {
         for (int i = 0; i < this.assemblyWeights.length; i++) {
             MoleculeAgent m = space.get(i);
+            if(m!=null) 
+                continue;
             if (this.assemblyWeights[i] > 0) {
                
                 this.assemblyWeights[i] -= DISIPATE_FACTOR;
@@ -106,7 +108,7 @@ public class SelfAssemblyLayer extends Layer {
     @Override
     protected boolean change(MoleculeAgent m, Action a) {
         this.irradiateWeight(m.getPosition(), m.getValence());
-        m.sleep(1000);
+        m.sleep(100);
         return true;
     }
 
@@ -133,5 +135,17 @@ public class SelfAssemblyLayer extends Layer {
         mp.setAttribute(MoleculeSenses.RIGHT_VALENCE_VALUE, right);
         return mp;
     }
+
+    @Override
+    public void display() {
+       for (int i = 0; i < space.spaceSize(); i++) {
+            
+          
+            viewer.fill((this.assemblyWeights[i]+5)*50);
+            
+            viewer.noStroke();
+            viewer.rect(i * LayerView.pixel_size, current_raw * LayerView.pixel_size, 
+                    LayerView.pixel_size, LayerView.pixel_size);
+        }    }
 
 }

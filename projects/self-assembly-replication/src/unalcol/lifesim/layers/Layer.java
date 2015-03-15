@@ -5,10 +5,12 @@
  */
 package unalcol.lifesim.layers;
 
+import processing.core.PApplet;
 import unalcol.agents.Action;
 import unalcol.lifesim.agents.MoleculeAgent;
 import unalcol.lifesim.agents.MoleculePercept;
 import unalcol.lifesim.environment.Space;
+import unalcol.lifesim.layers.view.LayerView;
 
 /**
  *
@@ -17,18 +19,24 @@ import unalcol.lifesim.environment.Space;
 public abstract class Layer{
 
     
-    private Layer nextLayer;
-    protected Space space;
+    private final Layer nextLayer;
+    protected final Space space;
+    protected int time_c=0;
     
-    public Layer(Layer _nextLayer){
-       nextLayer= _nextLayer;
-    }
+    protected int current_raw=0;
+    
+    protected PApplet viewer;
+        
+
+    
+    
+  
     public Layer(Space _space, Layer _nextLayer){
        nextLayer= _nextLayer;
        space = _space;
     }
     
-  
+    
     
     protected abstract boolean add( MoleculeAgent molecule );
     
@@ -48,6 +56,11 @@ public abstract class Layer{
          if(nextLayer!=null){
             nextLayer.update();
         }
+         this.time_c++;
+         this.current_raw++;
+         if(time_c%LayerView.height_visualizer==0){
+             current_raw=0;
+         }
     }
     
     /**
@@ -79,6 +92,7 @@ public abstract class Layer{
     /**
      * Used when a molecule moves, for example
      * @param m
+     * @param a
      * @return 
      */
     protected abstract boolean change(MoleculeAgent m, Action a);
@@ -90,5 +104,11 @@ public abstract class Layer{
      */
     protected abstract MoleculePercept operates(MoleculeAgent m);
     
+    public void setViewer(PApplet p){
+        this.viewer = p;
+      
+    }
+    
+    public abstract void display();
   
 }

@@ -7,6 +7,7 @@ package unalcol.lifesim.environment;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import processing.core.PApplet;
 import unalcol.agents.Action;
 import unalcol.agents.Agent;
 import unalcol.agents.AgentArchitecture;
@@ -15,10 +16,10 @@ import unalcol.lifesim.agents.MoleculeProgram;
 import unalcol.lifesim.agents.MoleculeAgent;
 import unalcol.lifesim.agents.MoleculePercept;
 import unalcol.lifesim.agents.MoleculeSenses;
-import unalcol.lifesim.layers.Layer;
 import unalcol.lifesim.layers.PhysicLayer;
 import unalcol.lifesim.layers.SelfAssemblyLayer;
 import unalcol.lifesim.layers.SelfReplicationLayer;
+import unalcol.lifesim.layers.view.LayerView;
 import unalcol.types.collection.vector.Vector;
 
 /**
@@ -28,7 +29,7 @@ import unalcol.types.collection.vector.Vector;
  *
  * @author daniel
  */
-public class Environment implements Runnable, AgentArchitecture {
+public class Environment extends PApplet implements AgentArchitecture {
 
     //an indicator to stop/ go thread
     private boolean flag = true;
@@ -43,26 +44,21 @@ public class Environment implements Runnable, AgentArchitecture {
     //Space where the agents live
     private final Space space;
 
-    private Vector<MoleculeAgent> molecules;
-
-    //Time
-    private int time;
     //Initial population rate
-    public final double initialPopPercent = 0.2;
+    public final double initialPopPercent = 0.4;
     //The number of population to maintain on the environment
     public final double totalPopConstan = 0.4;
 
+    public final int environmentSize = 1000;
+
     /**
      *
-     * @param size
      */
-    public Environment(int size) {
-        space = new Space(size);
+    public Environment() {
+        space = new Space(environmentSize);
         selfReplicationLayer = new SelfReplicationLayer(space, null);
         selfAssemblyLayer = new SelfAssemblyLayer(space, selfReplicationLayer);
         physicLayer = new PhysicLayer(space, selfAssemblyLayer);
-        molecules = new Vector();
-        time = 0;
 
     }
 
@@ -73,22 +69,20 @@ public class Environment implements Runnable, AgentArchitecture {
             int nMolecules = (int) (initialPopPercent * size);
             for (int i = 0; i < nMolecules; i++) {
                 MoleculeAgent a = createAgent();
-                molecules.add(a);
-
                 physicLayer.addMolecule(a);
             }
         }
     }
 
     public MoleculeAgent createAgent() {
-        MoleculeAgent mol = new MoleculeAgent(this, new MoleculeProgram(),this.space);
+        MoleculeAgent mol = new MoleculeAgent(this, new MoleculeProgram(), this.space);
 
         return mol;
     }
 
     public void add(MoleculeAgent molecule) {
         if (!space.contains(molecule)) {
-            molecules.add(molecule);
+
             //Applys physicLayer rules to add.
             physicLayer.addMolecule(molecule);
         }
@@ -97,28 +91,10 @@ public class Environment implements Runnable, AgentArchitecture {
 
     public void stop() {
         flag = false;
-        for (MoleculeAgent mol : space) {
+        for (MoleculeAgent mol : space.getBuffer()) {
             mol.die();
         }
-    }
-
-    @Override
-    public void run() {
-        flag = true;
-        Agent a;
-        for (int i = 0; i < molecules.size() && flag; i++) {
-            a = molecules.get(i);
-            a.live();
-            Thread t = new Thread(a);
-            a.setThread(t);
-            t.start();
-        }
-        while (flag) {
-
-            updateEnvironmentLayers();
-
-            time++;
-        }
+        super.stop();
     }
 
     @Override
@@ -129,11 +105,10 @@ public class Environment implements Runnable, AgentArchitecture {
         Percept p = new Percept();
         MoleculePercept mp = physicLayer.operate(a);
         mp.setAttribute(MoleculeSenses.VALENCE_VALUE, a.getValence());
-        mp.setAttribute(MoleculeSenses.MOL_STATE, a.isStable());
-        mp.setAttribute(MoleculeSenses.MOL_BONDED, a.isBonded());
+        mp.setAttribute(MoleculeSenses.MOL_SEFL, agent);
 
         p.setAttribute("Param", mp);
-        
+
         return p;
     }
 
@@ -143,9 +118,9 @@ public class Environment implements Runnable, AgentArchitecture {
         //System.out.println(agent.hashCode() +" actua");
         MoleculeAgent m = (MoleculeAgent) agent;
         if (action.getCode().equalsIgnoreCase("bondleft")) {
-            m.bond(space.get(m.getPosition() - 1));
+            m.bond(space.get(space.getValidPosition(m.getPosition() - 1)));
         } else if (action.getCode().equalsIgnoreCase("bondright")) {
-            m.bond(space.get(m.getPosition() + 1));
+            m.bond(space.get(space.getValidPosition(m.getPosition() + 1)));
         } else {
             physicLayer.reportChange((MoleculeAgent) agent, action);
         }
@@ -164,10 +139,40 @@ public class Environment implements Runnable, AgentArchitecture {
 
     private synchronized void updateEnvironmentLayers() {
         try {
-            wait(10);
+            wait(5);
         } catch (InterruptedException ex) {
             Logger.getLogger(Environment.class.getName()).log(Level.SEVERE, null, ex);
         }
         physicLayer.update();
+    }
+
+    @Override
+    public void setup() {
+        size(space.spaceSize() * LayerView.pixel_size, LayerView.height_visualizer);
+        background(255);
+        frameRate(30);
+        flag = true;
+        physicLayer.setViewer(this);
+        selfAssemblyLayer.setViewer(this);
+        this.createInitialPop();
+
+        Vector<MoleculeAgent> mols = space.getBuffer();
+        Agent a;
+        for (int i = 0; i < mols.size(); i++) {
+            a = mols.get(i);
+
+            a.live();
+            Thread t = new Thread(a);
+            a.setThread(t);
+            t.start();
+        }
+
+    }
+
+    @Override
+    public void draw() {
+
+        updateEnvironmentLayers();
+
     }
 }

@@ -10,6 +10,7 @@ import unalcol.lifesim.agents.MoleculeAgent;
 import unalcol.lifesim.agents.MoleculePercept;
 import unalcol.lifesim.agents.MoleculeSenses;
 import unalcol.lifesim.environment.Space;
+import unalcol.lifesim.layers.view.LayerView;
 import unalcol.random.integer.UniformIntegerGenerator;
 
 /**
@@ -27,10 +28,14 @@ public class PhysicLayer extends Layer {
     public static int MAX_VALENCE = 5;
 
     public UniformIntegerGenerator valenceGenerator;
+    
+    UniformIntegerGenerator g;
 
     public PhysicLayer(Space _space, Layer _nextLayer) {
         super(_space, _nextLayer);
         valenceGenerator = new UniformIntegerGenerator(MIN_VALENCE, MAX_VALENCE);
+        g = new UniformIntegerGenerator(space.spaceSize() - 1);
+        
     }
 
     /**
@@ -47,9 +52,10 @@ public class PhysicLayer extends Layer {
         //If the space is not full
         if (space.spaceSize() != space.usedSpaceSize()) {
             //Creates a random index number to put the molecule.
-            UniformIntegerGenerator g = new UniformIntegerGenerator(space.spaceSize() - 1);
+            
             int valence = valenceGenerator.next();
             molecule.setValence(valence);
+         
             int index = g.next();
             int n = 0;
             int counter = 0;
@@ -69,42 +75,69 @@ public class PhysicLayer extends Layer {
 
     @Override
     protected void updateLayer() {
-         /*for(MoleculeAgent a: this.space){
+       /* for(MoleculeAgent a: this.space){
          if(a!=null)
          System.out.print(a.isStable());
          else
          System.out.print("0");
          }
          System.out.println("");*/
-        
+        //System.out.println(this.space.usedSpaceSize());
+        this.display();
     }
 
     @Override
-    protected boolean change(MoleculeAgent m, Action a) {
+    protected synchronized boolean change(MoleculeAgent m, Action a) {
         int validIndex;
+        int counter=0;
         switch (a.getCode()) {
             case "left":
-                
+
                 validIndex = space.getValidPosition(m.getPosition() - 1);
-               
+                
                 m.changePosition(validIndex);
+                for(MoleculeAgent ma:this.space.getBuffer()){
+                    if(ma!=null)counter++;
+                }  if(counter<this.space.usedSpaceSize()){
+                                 System.out.println("left  "+counter);
+
+                    }
                 break;
             case "right":
                 validIndex = space.getValidPosition(m.getPosition() + 1);
-                m.changePosition(validIndex);
+                if(space.get(validIndex)==null)
+                    m.changePosition(validIndex);
+                 for(MoleculeAgent ma:this.space.getBuffer()){
+                    if(ma!=null)counter++;
+                    
+                }
+                 if(counter<this.space.usedSpaceSize()){
+                                 System.out.println("right  "+counter);
+
+                    }
                 break;
             case "jump":
-                UniformIntegerGenerator g = new UniformIntegerGenerator(space.spaceSize() - 1);
+                //UniformIntegerGenerator g = new UniformIntegerGenerator(space.spaceSize() - 1);
                 validIndex = g.next();
                 while (space.get(validIndex) != null) {
                     validIndex = g.next();
                 }
                 //TODO: put the chain in a valid position
                 m.changePosition(validIndex);
+                 for(MoleculeAgent ma:this.space.getBuffer()){
+                    if(ma!=null)counter++;
+                   
+                }
+                  if(counter<this.space.usedSpaceSize()){
+                                 System.out.println("jump  "+counter);
+
+                    }
                 break;
             default:
                 break;
         }
+        //notifyAll();
+        
         return true;
     }
 
@@ -118,17 +151,17 @@ public class PhysicLayer extends Layer {
         for (int i = index - 1; i >= initialIndex && left == m.vision_ratio; i--) {
             int realIndex = space.getValidPosition(i);
             left += (space.get(realIndex) != null) ? -1 : 0;
-            
+
             //TODO: Fix this code
-            if(i==index-1){
-                leftm=space.get(realIndex);
+            if (i == index - 1) {
+                leftm = space.get(realIndex);
             }
         }
         for (int i = index + 1; i <= finalIndex && right == m.vision_ratio; i++) {
             int realIndex = space.getValidPosition(i);
             right += (space.get(realIndex) != null) ? -1 : 0;
-            if(i==index+1){
-                rightm=space.get(realIndex);
+            if (i == index + 1) {
+                rightm = space.get(realIndex);
             }
         }
         MoleculePercept mp = new MoleculePercept();
@@ -139,6 +172,31 @@ public class PhysicLayer extends Layer {
 
         return mp;
 
+    }
+
+    @Override
+    public void display() {
+       
+        for (int i = 0; i < space.spaceSize(); i++) {
+            MoleculeAgent a = space.get(i);
+            if (a !=null) {
+               
+                viewer.fill(a.pixel_c);
+                if(a.getValence()==-5){
+                    viewer.fill(viewer.color(255,0,0));
+                }
+            } else {
+                viewer.fill(255);
+            }
+            viewer.noStroke();
+            viewer.rect(i * LayerView.pixel_size, current_raw * LayerView.pixel_size, 
+                    LayerView.pixel_size, LayerView.pixel_size);
+        }
+       
+       
+        /*if(current_raw==0){
+            viewer.background(255);
+        }*/
     }
 
 }
