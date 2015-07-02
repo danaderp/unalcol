@@ -1,7 +1,7 @@
 /**
  * 
  */
-package optimizationRefactoringStrand;
+package agentRefactoringStrand;
 
 /**
  * @author Daavid

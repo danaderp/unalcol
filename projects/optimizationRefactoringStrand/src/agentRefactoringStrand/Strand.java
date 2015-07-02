@@ -1,7 +1,7 @@
 /**
  * 
  */
-package optimizationRefactoringStrand;
+package agentRefactoringStrand;
 
 import java.util.ArrayList;
 import java.util.List;

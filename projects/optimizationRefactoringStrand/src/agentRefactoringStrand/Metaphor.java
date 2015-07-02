@@ -1,7 +1,7 @@
 /**
  * 
  */
-package optimizationRefactoringStrand;
+package agentRefactoringStrand;
 
 import neoAgents.NeoAgent;
 
