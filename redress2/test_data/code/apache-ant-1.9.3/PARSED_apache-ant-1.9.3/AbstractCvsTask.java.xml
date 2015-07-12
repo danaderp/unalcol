@@ -1,0 +1,874 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\AbstractCvsTask.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Commandline</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Environment</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * original Cvs.java 1.20
+ *
+ *  NOTE: This implementation has been moved here from Cvs.java with
+ *  the addition of some accessors for extensibility.  Another task
+ *  can extend this with some customized output processing.
+ *
+ * @since Ant 1.5
+ */</comment>
+<class><specifier>public</specifier> <specifier>abstract</specifier> class <name>AbstractCvsTask</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+    <comment type="javadoc">/**
+     * Default compression level to use, if compression is enabled via
+     * setCompression( true ).
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEFAULT_COMPRESSION_LEVEL</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAXIMUM_COMRESSION_LEVEL</name> =<init> <expr>9</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Commandline</name></type> <name>cmd</name> =<init> <expr>new <call><name>Commandline</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>ArrayList</name><argument_list>&lt;<argument><name>Module</name></argument>&gt;</argument_list></name></type> <name>modules</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>Module</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** list of Commandline children */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>Commandline</name></argument>&gt;</argument_list></name></type> <name>vecCommandlines</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>Commandline</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * the CVSROOT variable.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>cvsRoot</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * the CVS_RSH variable.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>cvsRsh</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * the package/module to check out.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>cvsPackage</name></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * the tag
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>tag</name></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * the default command.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_COMMAND</name> =<init> <expr>"checkout"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * the CVS command to execute.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>command</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * suppress information messages.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>quiet</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * suppress all messages.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>reallyquiet</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * compression level to use.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>compression</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * report only, don't change any files.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>noexec</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * CVS port
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>port</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * CVS password file
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>passFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * the directory where the checked out files should be placed.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>dest</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** whether or not to append stdout/stderr to existing files */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>append</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * the file to direct standard output from the command.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>output</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * the file to direct standard error from the command.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>error</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * If true it will stop the build if cvs exits with error.
+     * Default is false. (Iulian)
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>failOnError</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Create accessors for the following, to allow different handling of
+     * the output.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ExecuteStreamHandler</name></type> <name>executeStreamHandler</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>OutputStream</name></type> <name>outputStream</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>OutputStream</name></type> <name>errorStream</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** empty no-arg constructor*/</comment>
+    <constructor><specifier>public</specifier> <name>AbstractCvsTask</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * sets the handler
+     * @param handler a handler able of processing the output and error streams from the cvs exe
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setExecuteStreamHandler</name><parameter_list>(<param><decl><type><name>ExecuteStreamHandler</name></type> <name>handler</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>executeStreamHandler</name></name> = <name>handler</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * find the handler and instantiate it if it does not exist yet
+     * @return handler for output and error streams
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>ExecuteStreamHandler</name></type> <name>getExecuteStreamHandler</name><parameter_list>()</parameter_list> <block>{
+
+        <if>if <condition>(<expr><name><name>this</name>.<name>executeStreamHandler</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setExecuteStreamHandler</name><argument_list>(<argument><expr>new <call><name>PumpStreamHandler</name><argument_list>(<argument><expr><call><name>getOutputStream</name><argument_list>()</argument_list></call></expr></argument>,
+                                                          <argument><expr><call><name>getErrorStream</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <return>return <expr><name><name>this</name>.<name>executeStreamHandler</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * sets a stream to which the output from the cvs executable should be sent
+     * @param outputStream stream to which the stdout from cvs should go
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>setOutputStream</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>outputStream</name></decl></param>)</parameter_list> <block>{
+
+        <expr_stmt><expr><name><name>this</name>.<name>outputStream</name></name> = <name>outputStream</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * access the stream to which the stdout from cvs should go
+     * if this stream has already been set, it will be returned
+     * if the stream has not yet been set, if the attribute output
+     * has been set, the output stream will go to the output file
+     * otherwise the output will go to ant's logging system
+     * @return output stream to which cvs' stdout should go to
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>OutputStream</name></type> <name>getOutputStream</name><parameter_list>()</parameter_list> <block>{
+
+        <if>if <condition>(<expr><name><name>this</name>.<name>outputStream</name></name> == <name>null</name></expr>)</condition><then> <block>{
+
+            <if>if <condition>(<expr><name>output</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name>setOutputStream</name><argument_list>(<argument><expr>new <call><name>PrintStream</name><argument_list>(
+                                        <argument><expr>new <call><name>BufferedOutputStream</name><argument_list>(
+                                            <argument><expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><call><name><name>output</name>
+                                                                 .<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                                                 <argument><expr><name>append</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>setOutputStream</name><argument_list>(<argument><expr>new <call><name>LogOutputStream</name><argument_list>(<argument><expr><name>this</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+
+        <return>return <expr><name><name>this</name>.<name>outputStream</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * sets a stream to which the stderr from the cvs exe should go
+     * @param errorStream an output stream willing to process stderr
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>setErrorStream</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>errorStream</name></decl></param>)</parameter_list> <block>{
+
+        <expr_stmt><expr><name><name>this</name>.<name>errorStream</name></name> = <name>errorStream</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * access the stream to which the stderr from cvs should go
+     * if this stream has already been set, it will be returned
+     * if the stream has not yet been set, if the attribute error
+     * has been set, the output stream will go to the file denoted by the error attribute
+     * otherwise the stderr output will go to ant's logging system
+     * @return output stream to which cvs' stderr should go to
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>OutputStream</name></type> <name>getErrorStream</name><parameter_list>()</parameter_list> <block>{
+
+        <if>if <condition>(<expr><name><name>this</name>.<name>errorStream</name></name> == <name>null</name></expr>)</condition><then> <block>{
+
+            <if>if <condition>(<expr><name>error</name> != <name>null</name></expr>)</condition><then> <block>{
+
+                <try>try <block>{
+                    <expr_stmt><expr><call><name>setErrorStream</name><argument_list>(<argument><expr>new <call><name>PrintStream</name><argument_list>(
+                                       <argument><expr>new <call><name>BufferedOutputStream</name><argument_list>(
+                                           <argument><expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><call><name><name>error</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                                                <argument><expr><name>append</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>setErrorStream</name><argument_list>(<argument><expr>new <call><name>LogOutputStream</name><argument_list>(<argument><expr><name>this</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+
+        <return>return <expr><name><name>this</name>.<name>errorStream</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets up the environment for toExecute and then runs it.
+     * @param toExecute the command line to execute
+     * @throws BuildException if failonError is set to true and the cvs command fails
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>runCommand</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>toExecute</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="line">// TODO: we should use JCVS (www.ice.com/JCVS) instead of</comment>
+        <comment type="line">// command line execution so that we don't rely on having</comment>
+        <comment type="line">// native CVS stuff around (SM)</comment>
+
+        <comment type="line">// We can't do it ourselves as jCVS is GPLed, a third party task</comment>
+        <comment type="line">// outside of Apache repositories would be possible though (SB).</comment>
+
+        <decl_stmt><decl><type><name>Environment</name></type> <name>env</name> =<init> <expr>new <call><name>Environment</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>port</name> &gt; 0</expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name><name>Environment</name>.<name>Variable</name></name></type> <name>var</name> =<init> <expr>new <call><name><name>Environment</name>.<name>Variable</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>var</name>.<name>setKey</name></name><argument_list>(<argument><expr>"CVS_CLIENT_PORT"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>var</name>.<name>setValue</name></name><argument_list>(<argument><expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>port</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>env</name>.<name>addVariable</name></name><argument_list>(<argument><expr><name>var</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// non-standard environment variable used by CVSNT, WinCVS</comment>
+            <comment type="line">// and others</comment>
+            <expr_stmt><expr><name>var</name> = new <call><name><name>Environment</name>.<name>Variable</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>var</name>.<name>setKey</name></name><argument_list>(<argument><expr>"CVS_PSERVER_PORT"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>var</name>.<name>setValue</name></name><argument_list>(<argument><expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>port</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>env</name>.<name>addVariable</name></name><argument_list>(<argument><expr><name>var</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="javadoc">/**
+         * Need a better cross platform integration with &lt;cvspass&gt;, so
+         * use the same filename.
+         */</comment>
+        <if>if <condition>(<expr><name>passFile</name> == <name>null</name></expr>)</condition><then> <block>{
+
+            <decl_stmt><decl><type><name>File</name></type> <name>defaultPassFile</name> =<init> <expr>new <call><name>File</name><argument_list>(
+                <argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"cygwin.user.home"</expr></argument>,
+                    <argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"user.home"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                + <name><name>File</name>.<name>separatorChar</name></name> + ".cvspass"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><call><name><name>defaultPassFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>this</name>.<name>setPassfile</name></name><argument_list>(<argument><expr><name>defaultPassFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>passFile</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>passFile</name>.<name>isFile</name></name><argument_list>()</argument_list></call> &amp;&amp; <call><name><name>passFile</name>.<name>canRead</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name><name>Environment</name>.<name>Variable</name></name></type> <name>var</name> =<init> <expr>new <call><name><name>Environment</name>.<name>Variable</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>var</name>.<name>setKey</name></name><argument_list>(<argument><expr>"CVS_PASSFILE"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>var</name>.<name>setValue</name></name><argument_list>(<argument><expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>passFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>env</name>.<name>addVariable</name></name><argument_list>(<argument><expr><name>var</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Using cvs passfile: " + <call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>passFile</name></expr></argument>)</argument_list></call></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>passFile</name>.<name>canRead</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"cvs passfile: " + <call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>passFile</name></expr></argument>)</argument_list></call>
+                    + " ignored as it is not readable"</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"cvs passfile: " + <call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>passFile</name></expr></argument>)</argument_list></call>
+                    + " ignored as it is not a file"</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if></else></if>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>cvsRsh</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name><name>Environment</name>.<name>Variable</name></name></type> <name>var</name> =<init> <expr>new <call><name><name>Environment</name>.<name>Variable</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>var</name>.<name>setKey</name></name><argument_list>(<argument><expr>"CVS_RSH"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>var</name>.<name>setValue</name></name><argument_list>(<argument><expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>cvsRsh</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>env</name>.<name>addVariable</name></name><argument_list>(<argument><expr><name>var</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">//</comment>
+        <comment type="line">// Just call the getExecuteStreamHandler() and let it handle</comment>
+        <comment type="line">//     the semantics of instantiation or retrieval.</comment>
+        <comment type="line">//</comment>
+        <decl_stmt><decl><type><name>Execute</name></type> <name>exe</name> =<init> <expr>new <call><name>Execute</name><argument_list>(<argument><expr><call><name>getExecuteStreamHandler</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name><name>exe</name>.<name>setAntRun</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>dest</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>dest</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getBaseDir</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr>!<call><name><name>dest</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>dest</name>.<name>mkdirs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name><name>exe</name>.<name>setWorkingDirectory</name></name><argument_list>(<argument><expr><name>dest</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>exe</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><call><name><name>toExecute</name>.<name>getCommandline</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>exe</name>.<name>setEnvironment</name></name><argument_list>(<argument><expr><call><name><name>env</name>.<name>getVariables</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <try>try <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>actualCommandLine</name> =<init> <expr><call><name>executeToString</name><argument_list>(<argument><expr><name>exe</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>actualCommandLine</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>retCode</name> =<init> <expr><call><name><name>exe</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"retCode=" + <name>retCode</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>failOnError</name> &amp;&amp; <call><name><name>Execute</name>.<name>isFailure</name></name><argument_list>(<argument><expr><name>retCode</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"cvs exited with error code "
+                                         + <name>retCode</name>
+                                         + <name><name>StringUtils</name>.<name>LINE_SEP</name></name>
+                                         + "Command line was ["
+                                         + <name>actualCommandLine</name> + "]"</expr></argument>,
+                                         <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <if>if <condition>(<expr><name>failOnError</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Caught exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+            <if>if <condition>(<expr><name>failOnError</name></expr>)</condition><then> <block>{
+                <throw>throw<expr>(<name>e</name>)</expr>;</throw>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>Throwable</name></type> <name>t</name> =<init> <expr><call><name><name>e</name>.<name>getCause</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>t</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>t</name> = <name>e</name></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Caught exception: " + <call><name><name>t</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <if>if <condition>(<expr><name>failOnError</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Caught exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * do the work
+     * @throws BuildException if failonerror is set to true and the
+     * cvs command fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <decl_stmt><decl><type><name>String</name></type> <name>savedCommand</name> =<init> <expr><call><name>getCommand</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name><name>this</name>.<name>getCommand</name></name><argument_list>()</argument_list></call> == <name>null</name> &amp;&amp; <call><name><name>vecCommandlines</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <comment type="line">// re-implement legacy behaviour:</comment>
+            <expr_stmt><expr><call><name><name>this</name>.<name>setCommand</name></name><argument_list>(<argument><expr><name><name>AbstractCvsTask</name>.<name>DEFAULT_COMMAND</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>c</name> =<init> <expr><call><name><name>this</name>.<name>getCommand</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Commandline</name></type> <name>cloned</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>c</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>cloned</name> = (<name>Commandline</name>) <call><name><name>cmd</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>cloned</name>.<name>createArgument</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call>.<call><name>setLine</name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>this</name>.<name>addConfiguredCommandline</name></name><argument_list>(<argument><expr><name>cloned</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <try>try <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>vecCommandlines</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>this</name>.<name>runCommand</name></name><argument_list>(<argument><expr>(<name>Commandline</name>) <call><name><name>vecCommandlines</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>cloned</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>removeCommandline</name><argument_list>(<argument><expr><name>cloned</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>setCommand</name><argument_list>(<argument><expr><name>savedCommand</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>outputStream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>errorStream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>executeToString</name><parameter_list>(<param><decl><type><name>Execute</name></type> <name>execute</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>String</name></type> <name>cmdLine</name> =<init> <expr><call><name><name>Commandline</name>.<name>describeCommand</name></name><argument_list>(<argument><expr><call><name><name>execute</name>
+                .<name>getCommandline</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>stringBuffer</name> =<init> <expr><call><name>removeCvsPassword</name><argument_list>(<argument><expr><name>cmdLine</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>newLine</name> =<init> <expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>variableArray</name> =<init> <expr><call><name><name>execute</name>.<name>getEnvironment</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>variableArray</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>stringBuffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>newLine</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>stringBuffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>newLine</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>stringBuffer</name>.<name>append</name></name><argument_list>(<argument><expr>"environment:"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>stringBuffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>newLine</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>z</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>z</name> &lt; <name><name>variableArray</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>z</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>stringBuffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>newLine</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>stringBuffer</name>.<name>append</name></name><argument_list>(<argument><expr>"\t"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>stringBuffer</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>variableArray</name><index>[<expr><name>z</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+
+        <return>return <expr><call><name><name>stringBuffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Removes the cvs password from the command line, if given on the command
+     * line. This password can be given on the command line in the cvsRoot
+     * -d:pserver:user:password@server:path
+     * It has to be noted that the password may be omitted altogether.
+     * @param cmdLine the CVS command line
+     * @return a StringBuffer where the password has been removed (if available)
+     */</comment>
+    <function><type><specifier>private</specifier> <name>StringBuffer</name></type> <name>removeCvsPassword</name><parameter_list>(<param><decl><type><name>String</name></type> <name>cmdLine</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>stringBuffer</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><name>cmdLine</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>start</name> =<init> <expr><call><name><name>cmdLine</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"-d:"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>start</name> &gt;= 0</expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>stop</name> =<init> <expr><call><name><name>cmdLine</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"@"</expr></argument>, <argument><expr><name>start</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>startproto</name> =<init> <expr><call><name><name>cmdLine</name>.<name>indexOf</name></name><argument_list>(<argument><expr>":"</expr></argument>, <argument><expr><name>start</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>startuser</name> =<init> <expr><call><name><name>cmdLine</name>.<name>indexOf</name></name><argument_list>(<argument><expr>":"</expr></argument>, <argument><expr><name>startproto</name> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>startpass</name> =<init> <expr><call><name><name>cmdLine</name>.<name>indexOf</name></name><argument_list>(<argument><expr>":"</expr></argument>, <argument><expr><name>startuser</name> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>stop</name> = <call><name><name>cmdLine</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"@"</expr></argument>, <argument><expr><name>start</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>stop</name> &gt;= 0 &amp;&amp; <name>startpass</name> &gt; <name>startproto</name> &amp;&amp; <name>startpass</name> &lt; <name>stop</name></expr>)</condition><then> <block>{
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>startpass</name> + 1</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>stop</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <expr_stmt><expr><call><name><name>stringBuffer</name>.<name>replace</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>, <argument><expr><name>i</name> + 1</expr></argument>, <argument><expr>"*"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+            }</block></then></if>
+        }</block></then></if>
+        <return>return <expr><name>stringBuffer</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The CVSROOT variable.
+     *
+     * @param root
+     *            the CVSROOT variable
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCvsRoot</name><parameter_list>(<param><decl><type><name>String</name></type> <name>root</name></decl></param>)</parameter_list> <block>{
+
+        <comment type="line">// Check if not real cvsroot =&gt; set it to null</comment>
+        <if>if <condition>(<expr><name>root</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>root</name>.<name>trim</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>root</name> = <name>null</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+
+        <expr_stmt><expr><name><name>this</name>.<name>cvsRoot</name></name> = <name>root</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * access the CVSROOT variable
+     * @return CVSROOT
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getCvsRoot</name><parameter_list>()</parameter_list> <block>{
+
+        <return>return <expr><name><name>this</name>.<name>cvsRoot</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The CVS_RSH variable.
+     *
+     * @param rsh the CVS_RSH variable
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCvsRsh</name><parameter_list>(<param><decl><type><name>String</name></type> <name>rsh</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Check if not real cvsrsh =&gt; set it to null</comment>
+        <if>if <condition>(<expr><name>rsh</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>rsh</name>.<name>trim</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>rsh</name> = <name>null</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+
+        <expr_stmt><expr><name><name>this</name>.<name>cvsRsh</name></name> = <name>rsh</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * access the CVS_RSH variable
+     * @return the CVS_RSH variable
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getCvsRsh</name><parameter_list>()</parameter_list> <block>{
+
+        <return>return <expr><name><name>this</name>.<name>cvsRsh</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Port used by CVS to communicate with the server.
+     *
+     * @param port port of CVS
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPort</name><parameter_list>(<param><decl><type><name>int</name></type> <name>port</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>port</name></name> = <name>port</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * access the port of CVS
+     * @return the port of CVS
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getPort</name><parameter_list>()</parameter_list> <block>{
+
+        <return>return <expr><name><name>this</name>.<name>port</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Password file to read passwords from.
+     *
+     * @param passFile password file to read passwords from
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPassfile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>passFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>passFile</name></name> = <name>passFile</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * find the password file
+     * @return password file
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getPassFile</name><parameter_list>()</parameter_list> <block>{
+
+        <return>return <expr><name><name>this</name>.<name>passFile</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The directory where the checked out files should be placed.
+     *
+     * &lt;p&gt;Note that this is different from CVS's -d command line
+     * switch as Ant will never shorten pathnames to avoid empty
+     * directories.&lt;/p&gt;
+     *
+     * @param dest directory where the checked out files should be placed
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDest</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dest</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>dest</name></name> = <name>dest</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get the file where the checked out files should be placed
+     *
+     * @return directory where the checked out files should be placed
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getDest</name><parameter_list>()</parameter_list> <block>{
+
+        <return>return <expr><name><name>this</name>.<name>dest</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The package/module to operate upon.
+     *
+     * @param p package or module to operate upon
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPackage</name><parameter_list>(<param><decl><type><name>String</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>cvsPackage</name></name> = <name>p</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * access the package or module to operate upon
+     *
+     * @return package/module
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getPackage</name><parameter_list>()</parameter_list> <block>{
+
+        <return>return <expr><name><name>this</name>.<name>cvsPackage</name></name></expr>;</return>
+    }</block></function>
+    <comment type="javadoc">/**
+     * tag or branch
+     * @return tag or branch
+     * @since ant 1.6.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getTag</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>tag</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The tag of the package/module to operate upon.
+     * @param p tag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTag</name><parameter_list>(<param><decl><type><name>String</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Check if not real tag =&gt; set it to null</comment>
+        <if>if <condition>(<expr><name>p</name> != <name>null</name> &amp;&amp; <call><name><name>p</name>.<name>trim</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>tag</name> = <name>p</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-r" + <name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This needs to be public to allow configuration
+     *      of commands externally.
+     * @param arg command argument
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addCommandArgument</name><parameter_list>(<param><decl><type><name>String</name></type> <name>arg</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>this</name>.<name>addCommandArgument</name></name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This method adds a command line argument to an external command.
+     *
+     * I do not understand what this method does in this class ???
+     * particularly not why it is public ????
+     * AntoineLL July 23d 2003
+     *
+     * @param c  command line to which one argument should be added
+     * @param arg argument to add
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addCommandArgument</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>c</name></decl></param>, <param><decl><type><name>String</name></type> <name>arg</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>c</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name>arg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Use the most recent revision no later than the given date.
+     * @param p a date as string in a format that the CVS executable
+     * can understand see man cvs
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDate</name><parameter_list>(<param><decl><type><name>String</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>p</name> != <name>null</name> &amp;&amp; <call><name><name>p</name>.<name>trim</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-D"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The CVS command to execute.
+     *
+     * This should be deprecated, it is better to use the Commandline class ?
+     * AntoineLL July 23d 2003
+     *
+     * @param c a command as string
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCommand</name><parameter_list>(<param><decl><type><name>String</name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>command</name></name> = <name>c</name></expr>;</expr_stmt>
+    }</block></function>
+    <comment type="javadoc">/**
+     * accessor to a command line as string
+     *
+     * This should be deprecated
+     * AntoineLL July 23d 2003
+     *
+     * @return command line as string
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getCommand</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>command</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, suppress informational messages.
+     * @param q  if true, suppress informational messages
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setQuiet</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>q</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>quiet</name> = <name>q</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, suppress all messages.
+     * @param q  if true, suppress all messages
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setReallyquiet</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>q</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>reallyquiet</name> = <name>q</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * If true, report only and don't change any files.
+     *
+     * @param ne if true, report only and do not change any files.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNoexec</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>ne</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>noexec</name> = <name>ne</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The file to direct standard output from the command.
+     * @param output a file to which stdout should go
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutput</name><parameter_list>(<param><decl><type><name>File</name></type> <name>output</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>output</name></name> = <name>output</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The file to direct standard error from the command.
+     *
+     * @param error a file to which stderr should go
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setError</name><parameter_list>(<param><decl><type><name>File</name></type> <name>error</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>error</name></name> = <name>error</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether to append output/error when redirecting to a file.
+     * @param value true indicated you want to append
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAppend</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>append</name></name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Stop the build process if the command exits with
+     * a return code other than 0.
+     * Defaults to false.
+     * @param failOnError stop the build process if the command exits with
+     * a return code other than 0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFailOnError</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>failOnError</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>failOnError</name></name> = <name>failOnError</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Configure a commandline element for things like cvsRoot, quiet, etc.
+     * @param c the command line which will be configured
+     * if the commandline is initially null, the function is a noop
+     * otherwise the function append to the commandline arguments concerning
+     * &lt;ul&gt;
+     * &lt;li&gt;
+     * cvs package
+     * &lt;/li&gt;
+     * &lt;li&gt;
+     * compression
+     * &lt;/li&gt;
+     * &lt;li&gt;
+     * quiet or reallyquiet
+     * &lt;/li&gt;
+     * &lt;li&gt;cvsroot&lt;/li&gt;
+     * &lt;li&gt;noexec&lt;/li&gt;
+     * &lt;/ul&gt;
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>configureCommandline</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>c</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>c</name>.<name>setExecutable</name></name><argument_list>(<argument><expr>"cvs"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>cvsPackage</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>c</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setLine</name><argument_list>(<argument><expr><name>cvsPackage</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>Module</name></type> <name>m</name> :<range> <expr><name>modules</name></expr></range></decl></init>) <block>{
+            <expr_stmt><expr><call><name><name>c</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name><name>m</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <if>if <condition>(<expr><name><name>this</name>.<name>compression</name></name> &gt; 0
+            &amp;&amp; <name><name>this</name>.<name>compression</name></name> &lt;= <name>MAXIMUM_COMRESSION_LEVEL</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>c</name>.<name>createArgument</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-z" + <name><name>this</name>.<name>compression</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>quiet</name> &amp;&amp; !<name>reallyquiet</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>c</name>.<name>createArgument</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-q"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>reallyquiet</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>c</name>.<name>createArgument</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-Q"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>noexec</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>c</name>.<name>createArgument</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>cvsRoot</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>c</name>.<name>createArgument</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call>.<call><name>setLine</name><argument_list>(<argument><expr>"-d" + <name>cvsRoot</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * remove a particular command from a vector of command lines
+     * @param c command line which should be removed
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>removeCommandline</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>vecCommandlines</name>.<name>removeElement</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds direct command-line to execute.
+     * @param c command line to execute
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredCommandline</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>this</name>.<name>addConfiguredCommandline</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Configures and adds the given Commandline.
+     * @param c commandline to insert
+     * @param insertAtStart If true, c is
+     * inserted at the beginning of the vector of command lines
+    */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredCommandline</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>c</name></decl></param>,
+                                         <param><decl><type><name>boolean</name></type> <name>insertAtStart</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>c</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>this</name>.<name>configureCommandline</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>insertAtStart</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>vecCommandlines</name>.<name>insertElementAt</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>, <argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>vecCommandlines</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+    * If set to a value 1-9 it adds -zN to the cvs command line, else
+    * it disables compression.
+     * @param level compression level 1 to 9
+    */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCompressionLevel</name><parameter_list>(<param><decl><type><name>int</name></type> <name>level</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>compression</name></name> = <name>level</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, this is the same as compressionlevel="3".
+     *
+     * @param usecomp If true, turns on compression using default
+     * level, AbstractCvsTask.DEFAULT_COMPRESSION_LEVEL.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCompression</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>usecomp</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setCompressionLevel</name><argument_list>(<argument><expr><name>usecomp</name>
+            ? <name><name>AbstractCvsTask</name>.<name>DEFAULT_COMPRESSION_LEVEL</name></name> : 0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add a named module/package.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addModule</name><parameter_list>(<param><decl><type><name>Module</name></type> <name>m</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>modules</name>.<name>add</name></name><argument_list>(<argument><expr><name>m</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>protected</specifier> <name><name>List</name><argument_list>&lt;<argument><name>Module</name></argument>&gt;</argument_list></name></type> <name>getModules</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><annotation>@<name>SuppressWarnings</name><argument_list>("unchecked")</argument_list></annotation>
+        <specifier>final</specifier> <name><name>List</name><argument_list>&lt;<argument><name>Module</name></argument>&gt;</argument_list></name></type> <name>clone</name> =<init> <expr>(<name><name>List</name><argument_list>&lt;<argument><name>Module</name></argument>&gt;</argument_list></name>) <call><name><name>modules</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>clone</name></expr>;</return>
+    }</block></function>
+
+    <class><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> class <name>Module</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>name</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>name</name> = <name>s</name></expr>;</expr_stmt>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>name</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+}</block></class>
+</unit>

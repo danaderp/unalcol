@@ -1,0 +1,603 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Sync.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashSet</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedHashSet</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Set</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>AbstractFileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>PatternSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>ResourceCollection</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>Resources</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>Restrict</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>selectors</name>.<name>Exists</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>selectors</name>.<name>FileSelector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>selectors</name>.<name>NoneSelector</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Synchronize a local target directory from the files defined
+ * in one or more filesets.
+ *
+ * &lt;p&gt;Uses a &amp;lt;copy&amp;gt; task internally, but forbidding the use of
+ * mappers and filter chains. Files of the destination directory not
+ * present in any of the source fileset are removed.&lt;/p&gt;
+ *
+ * @since Ant 1.6
+ *
+ * revised by &lt;a href="mailto:daniel.armbrust@mayo.edu"&gt;Dan Armbrust&lt;/a&gt;
+ * to remove orphaned directories.
+ *
+ * @ant.task category="filesystem"
+ */</comment>
+<class><specifier>public</specifier> class <name>Sync</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+
+    <comment type="line">// Same as regular &lt;copy&gt; task... see at end-of-file!</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>MyCopy</name></type> <name>myCopy</name></decl>;</decl_stmt>
+
+    <comment type="line">// Similar to a fileset, but doesn't allow dir attribute to be set</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>SyncTarget</name></type> <name>syncTarget</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Resources</name></type> <name>resources</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// Override Task#init</comment>
+    <comment type="javadoc">/**
+     * Initialize the sync task.
+     * @throws BuildException if there is a problem.
+     * @see Task#init()
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>init</name><parameter_list>()</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="line">// Instantiate it</comment>
+        <expr_stmt><expr><name>myCopy</name> = new <call><name>MyCopy</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>configureTask</name><argument_list>(<argument><expr><name>myCopy</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// Default config of &lt;mycopy&gt; for our purposes.</comment>
+        <expr_stmt><expr><call><name><name>myCopy</name>.<name>setFiltering</name></name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>myCopy</name>.<name>setIncludeEmptyDirs</name></name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>myCopy</name>.<name>setPreserveLastModified</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>configureTask</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>helper</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>helper</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>helper</name>.<name>setTaskName</name></name><argument_list>(<argument><expr><call><name>getTaskName</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>helper</name>.<name>setOwningTarget</name></name><argument_list>(<argument><expr><call><name>getOwningTarget</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>helper</name>.<name>init</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="line">// Override Task#execute</comment>
+    <comment type="javadoc">/**
+     * Execute the sync task.
+     * @throws BuildException if there is an error.
+     * @see Task#execute()
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="line">// The destination of the files to copy</comment>
+        <decl_stmt><decl><type><name>File</name></type> <name>toDir</name> =<init> <expr><call><name><name>myCopy</name>.<name>getToDir</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// The complete list of files to copy</comment>
+        <decl_stmt><decl><type><name>Set</name></type> <name>allFiles</name> =<init> <expr><name><name>myCopy</name>.<name>nonOrphans</name></name></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// If the destination directory didn't already exist,</comment>
+        <comment type="line">// or was empty, then no previous file removal is necessary!</comment>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>noRemovalNecessary</name> =<init> <expr>!<call><name><name>toDir</name>.<name>exists</name></name><argument_list>()</argument_list></call> || <call><name><name>toDir</name>.<name>list</name></name><argument_list>()</argument_list></call>.<name>length</name> &lt; 1</expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// Copy all the necessary out-of-date files</comment>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"PASS#1: Copying files to " + <name>toDir</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>myCopy</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// Do we need to perform further processing?</comment>
+        <if>if <condition>(<expr><name>noRemovalNecessary</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"NO removing necessary in " + <name>toDir</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return> <comment type="line">// nope ;-)</comment>
+        }</block></then></if>
+
+        <comment type="line">// will hold the directories matched by SyncTarget in reversed</comment>
+        <comment type="line">// lexicographic order (order is important, that's why we use</comment>
+        <comment type="line">// a LinkedHashSet</comment>
+        <decl_stmt><decl><type><name>Set</name></type> <name>preservedDirectories</name> =<init> <expr>new <call><name>LinkedHashSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// Get rid of all files not listed in the source filesets.</comment>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"PASS#2: Removing orphan files from " + <name>toDir</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>removedFileCount</name> =<init> <expr><call><name>removeOrphanFiles</name><argument_list>(<argument><expr><name>allFiles</name></expr></argument>, <argument><expr><name>toDir</name></expr></argument>,
+                                                   <argument><expr><name>preservedDirectories</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>logRemovedCount</name><argument_list>(<argument><expr><name><name>removedFileCount</name><index>[<expr>0</expr>]</index></name></expr></argument>, <argument><expr>"dangling director"</expr></argument>, <argument><expr>"y"</expr></argument>, <argument><expr>"ies"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>logRemovedCount</name><argument_list>(<argument><expr><name><name>removedFileCount</name><index>[<expr>1</expr>]</index></name></expr></argument>, <argument><expr>"dangling file"</expr></argument>, <argument><expr>""</expr></argument>, <argument><expr>"s"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// Get rid of empty directories on the destination side</comment>
+        <if>if <condition>(<expr>!<call><name><name>myCopy</name>.<name>getIncludeEmptyDirs</name></name><argument_list>()</argument_list></call>
+            || <call><name>getExplicitPreserveEmptyDirs</name><argument_list>()</argument_list></call> == <name><name>Boolean</name>.<name>FALSE</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"PASS#3: Removing empty directories from " + <name>toDir</name></expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>int</name></type> <name>removedDirCount</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name><name>myCopy</name>.<name>getIncludeEmptyDirs</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>removedDirCount</name> =
+                    <call><name>removeEmptyDirectories</name><argument_list>(<argument><expr><name>toDir</name></expr></argument>, <argument><expr>false</expr></argument>, <argument><expr><name>preservedDirectories</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{ <comment type="line">// must be syncTarget.preserveEmptydirs == FALSE</comment>
+                <expr_stmt><expr><name>removedDirCount</name> =
+                    <call><name>removeEmptyDirectories</name><argument_list>(<argument><expr><name>preservedDirectories</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <expr_stmt><expr><call><name>logRemovedCount</name><argument_list>(<argument><expr><name>removedDirCount</name></expr></argument>, <argument><expr>"empty director"</expr></argument>, <argument><expr>"y"</expr></argument>, <argument><expr>"ies"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>logRemovedCount</name><parameter_list>(<param><decl><type><name>int</name></type> <name>count</name></decl></param>, <param><decl><type><name>String</name></type> <name>prefix</name></decl></param>,
+                                 <param><decl><type><name>String</name></type> <name>singularSuffix</name></decl></param>, <param><decl><type><name>String</name></type> <name>pluralSuffix</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>toDir</name> =<init> <expr><call><name><name>myCopy</name>.<name>getToDir</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>what</name> =<init> <expr>(<name>prefix</name> == <name>null</name>) ? "" : <name>prefix</name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>what</name> += (<name>count</name> &lt; 2) ? <name>singularSuffix</name> : <name>pluralSuffix</name></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>count</name> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Removed " + <name>count</name> + " " + <name>what</name> + " from " + <name>toDir</name></expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"NO " + <name>what</name> + " to remove from " + <name>toDir</name></expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Removes all files and folders not found as keys of a table
+     * (used as a set!).
+     *
+     * &lt;p&gt;If the provided file is a directory, it is recursively
+     * scanned for orphaned files which will be removed as well.&lt;/p&gt;
+     *
+     * &lt;p&gt;If the directory is an orphan, it will also be removed.&lt;/p&gt;
+     *
+     * @param  nonOrphans the table of all non-orphan &lt;code&gt;File&lt;/code&gt;s.
+     * @param  file the initial file or directory to scan or test.
+     * @param  preservedDirectories will be filled with the directories
+     *         matched by preserveInTarget - if any.  Will not be
+     *         filled unless preserveEmptyDirs and includeEmptyDirs
+     *         conflict.
+     * @return the number of orphaned files and directories actually removed.
+     * Position 0 of the array is the number of orphaned directories.
+     * Position 1 of the array is the number or orphaned files.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>int</name><index>[]</index></type> <name>removeOrphanFiles</name><parameter_list>(<param><decl><type><name>Set</name></type> <name>nonOrphans</name></decl></param>, <param><decl><type><name>File</name></type> <name>toDir</name></decl></param>,
+                                    <param><decl><type><name>Set</name></type> <name>preservedDirectories</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>removedCount</name> =<init> <expr>new <name><name>int</name><index>[]</index></name> <block>{<expr>0</expr>, <expr>0</expr>}</block></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>excls</name> =<init>
+            <expr>(<name><name>String</name><index>[]</index></name>) <call><name><name>nonOrphans</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>nonOrphans</name>.<name>size</name></name><argument_list>()</argument_list></call> + 1</expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// want to keep toDir itself</comment>
+        <expr_stmt><expr><name><name>excls</name><index>[<expr><call><name><name>nonOrphans</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name> = ""</expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>syncTarget</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>FileSet</name></type> <name>fs</name> =<init> <expr><call><name><name>syncTarget</name>.<name>toFileSet</name></name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>fs</name>.<name>setDir</name></name><argument_list>(<argument><expr><name>toDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// preserveInTarget would find all files we want to keep,</comment>
+            <comment type="line">// but we need to find all that we want to delete - so the</comment>
+            <comment type="line">// meaning of all patterns and selectors must be inverted</comment>
+            <decl_stmt><decl><type><name>PatternSet</name></type> <name>ps</name> =<init> <expr><call><name><name>syncTarget</name>.<name>mergePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>fs</name>.<name>appendExcludes</name></name><argument_list>(<argument><expr><call><name><name>ps</name>.<name>getIncludePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>fs</name>.<name>appendIncludes</name></name><argument_list>(<argument><expr><call><name><name>ps</name>.<name>getExcludePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>fs</name>.<name>setDefaultexcludes</name></name><argument_list>(<argument><expr>!<call><name><name>syncTarget</name>.<name>getDefaultexcludes</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// selectors are implicitly ANDed in DirectoryScanner.  To</comment>
+            <comment type="line">// revert their logic we wrap them into a &lt;none&gt; selector</comment>
+            <comment type="line">// instead.</comment>
+            <decl_stmt><decl><type><name>FileSelector</name><index>[]</index></type> <name>s</name> =<init> <expr><call><name><name>syncTarget</name>.<name>getSelectors</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name><name>s</name>.<name>length</name></name> &gt; 0</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>NoneSelector</name></type> <name>ns</name> =<init> <expr>new <call><name>NoneSelector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>s</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <expr_stmt><expr><call><name><name>ns</name>.<name>appendSelector</name></name><argument_list>(<argument><expr><name><name>s</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+                <expr_stmt><expr><call><name><name>fs</name>.<name>appendSelector</name></name><argument_list>(<argument><expr><name>ns</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><name>ds</name> = <call><name><name>fs</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>ds</name> = new <call><name>DirectoryScanner</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ds</name>.<name>setBasedir</name></name><argument_list>(<argument><expr><name>toDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <expr_stmt><expr><call><name><name>ds</name>.<name>addExcludes</name></name><argument_list>(<argument><expr><name>excls</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>ds</name>.<name>scan</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>files</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>toDir</name></expr></argument>, <argument><expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Removing orphan file: " + <name>f</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>f</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr>++<name><name>removedCount</name><index>[<expr>1</expr>]</index></name></expr>;</expr_stmt>
+        }</block></for>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>dirs</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedDirectories</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// ds returns the directories in lexicographic order.</comment>
+        <comment type="line">// iterating through the array backwards means we are deleting</comment>
+        <comment type="line">// leaves before their parent nodes - thus making sure (well,</comment>
+        <comment type="line">// more likely) that the directories are empty when we try to</comment>
+        <comment type="line">// delete them.</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name><name>dirs</name>.<name>length</name></name> - 1</expr></init></decl>;</init> <condition><expr><name>i</name> &gt;= 0</expr>;</condition> <incr><expr>--<name>i</name></expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>toDir</name></expr></argument>, <argument><expr><name><name>dirs</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>children</name> =<init> <expr><call><name><name>f</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>children</name> == <name>null</name> || <name><name>children</name>.<name>length</name></name> &lt; 1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Removing orphan directory: " + <name>f</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>f</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr>++<name><name>removedCount</name><index>[<expr>0</expr>]</index></name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+
+        <decl_stmt><decl><type><name>Boolean</name></type> <name>ped</name> =<init> <expr><call><name>getExplicitPreserveEmptyDirs</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>ped</name> != <name>null</name> &amp;&amp; <call><name><name>ped</name>.<name>booleanValue</name></name><argument_list>()</argument_list></call> != <call><name><name>myCopy</name>.<name>getIncludeEmptyDirs</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>FileSet</name></type> <name>fs</name> =<init> <expr><call><name><name>syncTarget</name>.<name>toFileSet</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>fs</name>.<name>setDir</name></name><argument_list>(<argument><expr><name>toDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>preservedDirs</name> =<init>
+                <expr><call><name><name>fs</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>getIncludedDirectories</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name><name>preservedDirs</name>.<name>length</name></name> - 1</expr></init></decl>;</init> <condition><expr><name>i</name> &gt;= 0</expr>;</condition> <incr><expr>--<name>i</name></expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>preservedDirectories</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>toDir</name></expr></argument>, <argument><expr><name><name>preservedDirs</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+
+        <return>return <expr><name>removedCount</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Removes all empty directories from a directory.
+     *
+     * &lt;p&gt;&lt;em&gt;Note that a directory that contains only empty
+     * directories, directly or not, will be removed!&lt;/em&gt;&lt;/p&gt;
+     *
+     * &lt;p&gt;Recurses depth-first to find the leaf directories
+     * which are empty and removes them, then unwinds the
+     * recursion stack, removing directories which have
+     * become empty themselves, etc...&lt;/p&gt;
+     *
+     * @param  dir the root directory to scan for empty directories.
+     * @param  removeIfEmpty whether to remove the root directory
+     *         itself if it becomes empty.
+     * @param  preservedEmptyDirectories directories matched by
+     *         syncTarget
+     * @return the number of empty directories actually removed.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>int</name></type> <name>removeEmptyDirectories</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dir</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>removeIfEmpty</name></decl></param>,
+                                       <param><decl><type><name>Set</name></type> <name>preservedEmptyDirectories</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>removedCount</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>dir</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>children</name> =<init> <expr><call><name><name>dir</name>.<name>listFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>children</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>file</name> =<init> <expr><name><name>children</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <comment type="line">// Test here again to avoid method call for non-directories!</comment>
+                <if>if <condition>(<expr><call><name><name>file</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>removedCount</name> +=
+                        <call><name>removeEmptyDirectories</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr>true</expr></argument>,
+                                               <argument><expr><name>preservedEmptyDirectories</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+            <if>if <condition>(<expr><name><name>children</name>.<name>length</name></name> &gt; 0</expr>)</condition><then> <block>{
+                <comment type="line">// This directory may have become empty...</comment>
+                <comment type="line">// We need to re-query its children list!</comment>
+                <expr_stmt><expr><name>children</name> = <call><name><name>dir</name>.<name>listFiles</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name><name>children</name>.<name>length</name></name> &lt; 1 &amp;&amp; <name>removeIfEmpty</name>
+                &amp;&amp; !<call><name><name>preservedEmptyDirectories</name>.<name>contains</name></name><argument_list>(<argument><expr><name>dir</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Removing empty directory: " + <name>dir</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>dir</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr>++<name>removedCount</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+        <return>return <expr><name>removedCount</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Removes all empty directories preserved by preserveInTarget in
+     * the preserveEmptyDirs == FALSE case.
+     *
+     * &lt;p&gt;Relies on the set to be ordered in reversed lexicographic
+     * order so that directories will be removed depth-first.&lt;/p&gt;
+     *
+     * @param  preservedEmptyDirectories directories matched by
+     *         syncTarget
+     * @return the number of empty directories actually removed.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>private</specifier> <name>int</name></type> <name>removeEmptyDirectories</name><parameter_list>(<param><decl><type><name>Set</name></type> <name>preservedEmptyDirectories</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>removedCount</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>Iterator</name></type> <name>iter</name> =<init> <expr><call><name><name>preservedEmptyDirectories</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init>
+             <condition><expr><call><name><name>iter</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr/>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>(<name>File</name>) <call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>s</name> =<init> <expr><call><name><name>f</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>s</name> == <name>null</name> || <name><name>s</name>.<name>length</name></name> == 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Removing empty directory: " + <name>f</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>f</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr>++<name>removedCount</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr><name>removedCount</name></expr>;</return>
+    }</block></function>
+
+    <comment type="line">//</comment>
+    <comment type="line">// Various copy attributes/subelements of &lt;copy&gt; passed thru to &lt;mycopy&gt;</comment>
+    <comment type="line">//</comment>
+
+    <comment type="javadoc">/**
+     * Sets the destination directory.
+     * @param destDir the destination directory
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTodir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>destDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>myCopy</name>.<name>setTodir</name></name><argument_list>(<argument><expr><name>destDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Used to force listing of all names of copied files.
+     * @param verbose if true force listing of all names of copied files.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVerbose</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>verbose</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>myCopy</name>.<name>setVerbose</name></name><argument_list>(<argument><expr><name>verbose</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Overwrite any existing destination file(s).
+     * @param overwrite if true overwrite any existing destination file(s).
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOverwrite</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>myCopy</name>.<name>setOverwrite</name></name><argument_list>(<argument><expr><name>overwrite</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Used to copy empty directories.
+     * @param includeEmpty If true copy empty directories.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIncludeEmptyDirs</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>includeEmpty</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>myCopy</name>.<name>setIncludeEmptyDirs</name></name><argument_list>(<argument><expr><name>includeEmpty</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If false, note errors to the output but keep going.
+     * @param failonerror true or false
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFailOnError</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>failonerror</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>myCopy</name>.<name>setFailOnError</name></name><argument_list>(<argument><expr><name>failonerror</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a set of files to copy.
+     * @param set a fileset
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileset</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>set</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>set</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a collection of filesystem resources to copy.
+     * @param rc a resource collection
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>ResourceCollection</name></type> <name>rc</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>rc</name> <name>instanceof</name> <name>FileSet</name> &amp;&amp; <call><name><name>rc</name>.<name>isFilesystemOnly</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// receives special treatment in copy that this task relies on</comment>
+            <expr_stmt><expr><call><name><name>myCopy</name>.<name>add</name></name><argument_list>(<argument><expr><name>rc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <if>if <condition>(<expr><name>resources</name> == <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>Restrict</name></type> <name>r</name> =<init> <expr>new <call><name>Restrict</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt> 
+                <expr_stmt><expr><call><name><name>r</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name>Exists</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>r</name>.<name>add</name></name><argument_list>(<argument><expr><name>resources</name> = new <call><name>Resources</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>myCopy</name>.<name>add</name></name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>resources</name>.<name>add</name></name><argument_list>(<argument><expr><name>rc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The number of milliseconds leeway to give before deciding a
+     * target is out of date.
+     *
+     * &lt;p&gt;Default is 0 milliseconds, or 2 seconds on DOS systems.&lt;/p&gt;
+     * @param granularity a &lt;code&gt;long&lt;/code&gt; value
+     * @since Ant 1.6.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setGranularity</name><parameter_list>(<param><decl><type><name>long</name></type> <name>granularity</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>myCopy</name>.<name>setGranularity</name></name><argument_list>(<argument><expr><name>granularity</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A container for patterns and selectors that can be used to
+     * specify files that should be kept in the target even if they
+     * are not present in any source directory.
+     *
+     * &lt;p&gt;You must not invoke this method more than once.&lt;/p&gt;
+     * @param s a preserveintarget nested element
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addPreserveInTarget</name><parameter_list>(<param><decl><type><name>SyncTarget</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>syncTarget</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"you must not specify multiple "
+                                     + "preserveintarget elements."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>syncTarget</name> = <name>s</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The value of preserveTarget's preserveEmptyDirs attribute if
+     * specified and preserveTarget has been used in the first place.
+     *
+     * @since Ant 1.8.0.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Boolean</name></type> <name>getExplicitPreserveEmptyDirs</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>syncTarget</name> == <name>null</name> ? <name>null</name> : <call><name><name>syncTarget</name>.<name>getPreserveEmptyDirs</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Subclass Copy in order to access it's file/dir maps.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>MyCopy</name> <super><extends>extends <name>Copy</name></extends></super> <block>{
+
+        <comment type="line">// List of files that must be copied, irrelevant from the</comment>
+        <comment type="line">// fact that they are newer or not than the destination.</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Set</name></type> <name>nonOrphans</name> =<init> <expr>new <call><name>HashSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** Constructor for MyCopy. */</comment>
+        <constructor><specifier>public</specifier> <name>MyCopy</name><parameter_list>()</parameter_list> <block>{
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * @see Copy#scan(File, File, String[], String[])
+         */</comment>
+        <comment type="javadoc">/** {@inheritDoc} */</comment>
+        <function><type><specifier>protected</specifier> <name>void</name></type> <name>scan</name><parameter_list>(<param><decl><type><name>File</name></type> <name>fromDir</name></decl></param>, <param><decl><type><name>File</name></type> <name>toDir</name></decl></param>, <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>files</name></decl></param>,
+                            <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>dirs</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>assertTrue</name><argument_list>(<argument><expr>"No mapper"</expr></argument>, <argument><expr><name>mapperElement</name> == <name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><call><name><name>super</name>.<name>scan</name></name><argument_list>(<argument><expr><name>fromDir</name></expr></argument>, <argument><expr><name>toDir</name></expr></argument>, <argument><expr><name>files</name></expr></argument>, <argument><expr><name>dirs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>files</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>nonOrphans</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>dirs</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>nonOrphans</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>dirs</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @see Copy#scan(Resource[], File)
+         */</comment>
+        <comment type="javadoc">/** {@inheritDoc} */</comment>
+        <function><type><specifier>protected</specifier> <name>Map</name></type> <name>scan</name><parameter_list>(<param><decl><type><name><name>Resource</name><index>[]</index></name></type> <name>resources</name></decl></param>, <param><decl><type><name>File</name></type> <name>toDir</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>assertTrue</name><argument_list>(<argument><expr>"No mapper"</expr></argument>, <argument><expr><name>mapperElement</name> == <name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>resources</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>nonOrphans</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>resources</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getName</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <return>return <expr><call><name><name>super</name>.<name>scan</name></name><argument_list>(<argument><expr><name>resources</name></expr></argument>, <argument><expr><name>toDir</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the destination directory.
+         * @return the destination directory
+         */</comment>
+        <function><type><specifier>public</specifier> <name>File</name></type> <name>getToDir</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>destDir</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the includeEmptyDirs attribute.
+         * @return true if emptyDirs are to be included
+         */</comment>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getIncludeEmptyDirs</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>includeEmpty</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Yes, we can.
+         * @return true always.
+         * @since Ant 1.7
+         */</comment>
+        <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>supportsNonFileResources</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Inner class used to hold exclude patterns and selectors to save
+     * stuff that happens to live in the target directory but should
+     * not get removed.
+     *
+     * @since Ant 1.7
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>SyncTarget</name> <super><extends>extends <name>AbstractFileSet</name></extends></super> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Boolean</name></type> <name>preserveEmptyDirs</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Constructor for SyncTarget.
+         * This just changes the default value of "defaultexcludes" from
+         * true to false.
+         */</comment>
+        <constructor><specifier>public</specifier> <name>SyncTarget</name><parameter_list>()</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Override AbstractFileSet#setDir(File) to disallow
+         * setting the directory.
+         * @param dir ignored
+         * @throws BuildException always
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dir</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"preserveintarget doesn't support the dir "
+                                     + "attribute"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Whether empty directories matched by this fileset should be
+         * preserved.
+         *
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setPreserveEmptyDirs</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>preserveEmptyDirs</name> = <call><name><name>Boolean</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Whether empty directories matched by this fileset should be
+         * preserved.
+         *
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>Boolean</name></type> <name>getPreserveEmptyDirs</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>preserveEmptyDirs</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>private</specifier> <name>FileSet</name></type> <name>toFileSet</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>withPatterns</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>FileSet</name></type> <name>fs</name> =<init> <expr>new <call><name>FileSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>fs</name>.<name>setCaseSensitive</name></name><argument_list>(<argument><expr><call><name>isCaseSensitive</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>fs</name>.<name>setFollowSymlinks</name></name><argument_list>(<argument><expr><call><name>isFollowSymlinks</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>fs</name>.<name>setMaxLevelsOfSymlinks</name></name><argument_list>(<argument><expr><call><name>getMaxLevelsOfSymlinks</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>fs</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>withPatterns</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>PatternSet</name></type> <name>ps</name> =<init> <expr><call><name>mergePatterns</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>fs</name>.<name>appendIncludes</name></name><argument_list>(<argument><expr><call><name><name>ps</name>.<name>getIncludePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>fs</name>.<name>appendExcludes</name></name><argument_list>(<argument><expr><call><name><name>ps</name>.<name>getExcludePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <for>for (<init><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name>selectorElements</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr/>) <block>{
+                    <expr_stmt><expr><call><name><name>fs</name>.<name>appendSelector</name></name><argument_list>(<argument><expr>(<name>FileSelector</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+                <expr_stmt><expr><call><name><name>fs</name>.<name>setDefaultexcludes</name></name><argument_list>(<argument><expr><call><name>getDefaultexcludes</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return <expr><name>fs</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Pseudo-assert method.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>assertTrue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>message</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>condition</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<name>condition</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Assertion Error: " + <name>message</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+}</block></class>
+</unit>

@@ -1,0 +1,722 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\compilers\DefaultCompilerAdapter.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>compilers</name></name>;</package>
+
+<comment type="line">//Java5 style</comment>
+<comment type="line">//import static org.apache.tools.ant.util.StringUtils.LINE_SEP;</comment>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Location</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Execute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Javac</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>LogStreamHandler</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Commandline</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>JavaEnvUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>Os</name></name>;</import>
+
+<comment type="javadoc">/**
+ * This is the default implementation for the CompilerAdapter interface.
+ * Currently, this is a cut-and-paste of the original javac task.
+ *
+ * @since Ant 1.3
+ */</comment>
+<class><specifier>public</specifier> <specifier>abstract</specifier> class <name>DefaultCompilerAdapter</name>
+    <super><implements>implements <name>CompilerAdapter</name>, <name>CompilerAdapterExtension</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>COMMAND_LINE_LIMIT</name></decl>;</decl_stmt>
+    static <block>{
+        <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"os/2"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// OS/2 CMD.EXE has a much smaller limit around 1K</comment>
+            <expr_stmt><expr><name>COMMAND_LINE_LIMIT</name> = 1000</expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>COMMAND_LINE_LIMIT</name> = 4096</expr>;</expr_stmt>  <comment type="line">// 4K</comment>
+        }</block></else></if>
+    }</block>
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Path</name></type> <name>src</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>File</name></type> <name>destDir</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>encoding</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>debug</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>optimize</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>deprecation</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>depend</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>verbose</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>target</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Path</name></type> <name>bootclasspath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Path</name></type> <name>extdirs</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Path</name></type> <name>compileClasspath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Path</name></type> <name>compileSourcepath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Project</name></type> <name>project</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Location</name></type> <name>location</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>includeAntRuntime</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>includeJavaRuntime</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>memoryInitialSize</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>memoryMaximumSize</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>File</name><index>[]</index></type> <name>compileList</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Javac</name></type> <name>attributes</name></decl>;</decl_stmt>
+
+    <comment type="line">//must keep for subclass BC, though unused:</comment>
+    <comment type="line">// CheckStyle:ConstantNameCheck OFF - bc</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>lSep</name> =<init> <expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:ConstantNameCheck ON</comment>
+    <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+
+    <comment type="javadoc">/**
+     * Set the Javac instance which contains the configured compilation
+     * attributes.
+     *
+     * @param attributes a configured Javac task.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setJavac</name><parameter_list>(<param><decl><type><name>Javac</name></type> <name>attributes</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>attributes</name></name> = <name>attributes</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>src</name> = <call><name><name>attributes</name>.<name>getSrcdir</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>destDir</name> = <call><name><name>attributes</name>.<name>getDestdir</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>encoding</name> = <call><name><name>attributes</name>.<name>getEncoding</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>debug</name> = <call><name><name>attributes</name>.<name>getDebug</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>optimize</name> = <call><name><name>attributes</name>.<name>getOptimize</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>deprecation</name> = <call><name><name>attributes</name>.<name>getDeprecation</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>depend</name> = <call><name><name>attributes</name>.<name>getDepend</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>verbose</name> = <call><name><name>attributes</name>.<name>getVerbose</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>target</name> = <call><name><name>attributes</name>.<name>getTarget</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>bootclasspath</name> = <call><name><name>attributes</name>.<name>getBootclasspath</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>extdirs</name> = <call><name><name>attributes</name>.<name>getExtdirs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>compileList</name> = <call><name><name>attributes</name>.<name>getFileList</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>compileClasspath</name> = <call><name><name>attributes</name>.<name>getClasspath</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>compileSourcepath</name> = <call><name><name>attributes</name>.<name>getSourcepath</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>project</name> = <call><name><name>attributes</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>location</name> = <call><name><name>attributes</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>includeAntRuntime</name> = <call><name><name>attributes</name>.<name>getIncludeantruntime</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>includeJavaRuntime</name> = <call><name><name>attributes</name>.<name>getIncludejavaruntime</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>memoryInitialSize</name> = <call><name><name>attributes</name>.<name>getMemoryInitialSize</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>memoryMaximumSize</name> = <call><name><name>attributes</name>.<name>getMemoryMaximumSize</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the Javac task instance associated with this compiler adapter
+     *
+     * @return the configured Javac task instance used by this adapter.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Javac</name></type> <name>getJavac</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>attributes</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * By default, only recognize files with a Java extension,
+     * but specialized compilers can recognize multiple kinds
+     * of files.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getSupportedFileExtensions</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{ <expr>"java"</expr> }</block></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the project this compiler adapter was created in.
+     * @return the owner project
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Project</name></type> <name>getProject</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>project</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Builds the compilation classpath.
+     * @return the compilation class path
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Path</name></type> <name>getCompileClasspath</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Path</name></type> <name>classpath</name> =<init> <expr>new <call><name>Path</name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// add dest dir to classpath so that previously compiled and</comment>
+        <comment type="line">// untouched classes are on classpath</comment>
+
+        <if>if <condition>(<expr><name>destDir</name> != <name>null</name> &amp;&amp; <call><name>getJavac</name><argument_list>()</argument_list></call>.<call><name>isIncludeDestClasses</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>classpath</name>.<name>setLocation</name></name><argument_list>(<argument><expr><name>destDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// Combine the build classpath with the system classpath, in an</comment>
+        <comment type="line">// order determined by the value of build.sysclasspath</comment>
+
+        <decl_stmt><decl><type><name>Path</name></type> <name>cp</name> =<init> <expr><name>compileClasspath</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>cp</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>cp</name> = new <call><name>Path</name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>includeAntRuntime</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>classpath</name>.<name>addExisting</name></name><argument_list>(<argument><expr><call><name><name>cp</name>.<name>concatSystemClasspath</name></name><argument_list>(<argument><expr>"last"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>classpath</name>.<name>addExisting</name></name><argument_list>(<argument><expr><call><name><name>cp</name>.<name>concatSystemClasspath</name></name><argument_list>(<argument><expr>"ignore"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <if>if <condition>(<expr><name>includeJavaRuntime</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>classpath</name>.<name>addJavaRuntime</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <return>return <expr><name>classpath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the command line arguments for the switches.
+     * @param cmd the command line
+     * @return the command line
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Commandline</name></type> <name>setupJavacCommandlineSwitches</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>cmd</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>setupJavacCommandlineSwitches</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Does the command line argument processing common to classic and
+     * modern.  Doesn't add the files to compile.
+     * @param cmd the command line
+     * @param useDebugLevel if true set set the debug level with the -g switch
+     * @return the command line
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Commandline</name></type> <name>setupJavacCommandlineSwitches</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>cmd</name></decl></param>,
+                                                        <param><decl><type><name>boolean</name></type> <name>useDebugLevel</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Path</name></type> <name>classpath</name> =<init> <expr><call><name>getCompileClasspath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// For -sourcepath, use the "sourcepath" value if present.</comment>
+        <comment type="line">// Otherwise default to the "srcdir" value.</comment>
+        <decl_stmt><decl><type><name>Path</name></type> <name>sourcepath</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>compileSourcepath</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>sourcepath</name> = <name>compileSourcepath</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>sourcepath</name> = <name>src</name></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>memoryParameterPrefix</name> =<init> <expr><call><name>assumeJava11</name><argument_list>()</argument_list></call> ? "-J-" : "-J-X"</expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>memoryInitialSize</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr>!<call><name><name>attributes</name>.<name>isForkedJavac</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr>"Since fork is false, ignoring "
+                               + "memoryInitialSize setting."</expr></argument>,
+                               <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name>memoryParameterPrefix</name>
+                                              + "ms" + <name>memoryInitialSize</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>memoryMaximumSize</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr>!<call><name><name>attributes</name>.<name>isForkedJavac</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr>"Since fork is false, ignoring "
+                               + "memoryMaximumSize setting."</expr></argument>,
+                               <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name>memoryParameterPrefix</name>
+                                              + "mx" + <name>memoryMaximumSize</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name><name>attributes</name>.<name>getNowarn</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-nowarn"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>deprecation</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-deprecation"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>destDir</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-d"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setFile</name><argument_list>(<argument><expr><name>destDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-classpath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// Just add "sourcepath" to classpath ( for JDK1.1 )</comment>
+        <comment type="line">// as well as "bootclasspath" and "extdirs"</comment>
+        <if>if <condition>(<expr><call><name>assumeJava11</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Path</name></type> <name>cp</name> =<init> <expr>new <call><name>Path</name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>Path</name></type> <name>bp</name> =<init> <expr><call><name>getBootClassPath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>bp</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>cp</name>.<name>append</name></name><argument_list>(<argument><expr><name>bp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>extdirs</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>cp</name>.<name>addExtdirs</name></name><argument_list>(<argument><expr><name>extdirs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>cp</name>.<name>append</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>cp</name>.<name>append</name></name><argument_list>(<argument><expr><name>sourcepath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setPath</name><argument_list>(<argument><expr><name>cp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setPath</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// If the buildfile specifies sourcepath="", then don't</comment>
+            <comment type="line">// output any sourcepath.</comment>
+            <if>if <condition>(<expr><call><name><name>sourcepath</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-sourcepath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setPath</name><argument_list>(<argument><expr><name>sourcepath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>target</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-target"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name>target</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>Path</name></type> <name>bp</name> =<init> <expr><call><name>getBootClassPath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>bp</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-bootclasspath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setPath</name><argument_list>(<argument><expr><name>bp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>extdirs</name> != <name>null</name> &amp;&amp; <call><name><name>extdirs</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-extdirs"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setPath</name><argument_list>(<argument><expr><name>extdirs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></else></if>
+
+        <if>if <condition>(<expr><name>encoding</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-encoding"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>debug</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>useDebugLevel</name> &amp;&amp; !<call><name>assumeJava11</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>debugLevel</name> =<init> <expr><call><name><name>attributes</name>.<name>getDebugLevel</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>debugLevel</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-g:" + <name>debugLevel</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-g"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-g"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name>getNoDebugArgument</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name>getNoDebugArgument</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if></else></if>
+        <if>if <condition>(<expr><name>optimize</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-O"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>depend</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name>assumeJava11</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-depend"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name>assumeJava12</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-Xdepend"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr>"depend attribute is not supported by the "
+                               + "modern compiler"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if></else></if>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>verbose</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-verbose"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>addCurrentCompilerArgs</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <return>return <expr><name>cmd</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Does the command line argument processing for modern.  Doesn't
+     * add the files to compile.
+     * @param cmd the command line
+     * @return the command line
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Commandline</name></type> <name>setupModernJavacCommandlineSwitches</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>cmd</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setupJavacCommandlineSwitches</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr>!<call><name>assumeJava13</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{ <comment type="line">// -source added with JDK 1.4</comment>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>t</name> =<init> <expr><call><name><name>attributes</name>.<name>getTarget</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>attributes</name>.<name>getSource</name></name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-source"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>
+                    .<call><name>setValue</name><argument_list>(<argument><expr><call><name>adjustSourceValue</name><argument_list>(<argument><expr><call><name><name>attributes</name>.<name>getSource</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            }</block></then> <else>else <if>if <condition>(<expr><name>t</name> != <name>null</name> &amp;&amp; <call><name>mustSetSourceForTarget</name><argument_list>(<argument><expr><name>t</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>setImplicitSourceSwitch</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><name>t</name></expr></argument>, <argument><expr><call><name>adjustSourceValue</name><argument_list>(<argument><expr><name>t</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if>
+        }</block></then></if>
+        <return>return <expr><name>cmd</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Does the command line argument processing for modern and adds
+     * the files to compile as well.
+     * @return the command line
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Commandline</name></type> <name>setupModernJavacCommand</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Commandline</name></type> <name>cmd</name> =<init> <expr>new <call><name>Commandline</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>setupModernJavacCommandlineSwitches</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>logAndAddFilesToCompile</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>cmd</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set up the command line.
+     * @return the command line
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Commandline</name></type> <name>setupJavacCommand</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>setupJavacCommand</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Does the command line argument processing for classic and adds
+     * the files to compile as well.
+     * @param debugLevelCheck if true set the debug level with the -g switch
+     * @return the command line
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Commandline</name></type> <name>setupJavacCommand</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>debugLevelCheck</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Commandline</name></type> <name>cmd</name> =<init> <expr>new <call><name>Commandline</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>setupJavacCommandlineSwitches</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><name>debugLevelCheck</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>logAndAddFilesToCompile</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>cmd</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Logs the compilation parameters, adds the files to compile and logs the
+     * &amp;quot;niceSourceList&amp;quot;
+     * @param cmd the command line
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>logAndAddFilesToCompile</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>cmd</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr>"Compilation " + <call><name><name>cmd</name>.<name>describeArguments</name></name><argument_list>()</argument_list></call></expr></argument>,
+                       <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>niceSourceList</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr>"File"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name><name>compileList</name>.<name>length</name></name> != 1</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>niceSourceList</name>.<name>append</name></name><argument_list>(<argument><expr>"s"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>niceSourceList</name>.<name>append</name></name><argument_list>(<argument><expr>" to be compiled:"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>niceSourceList</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>compileList</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>arg</name> =<init> <expr><name><name>compileList</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name>arg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>niceSourceList</name>.<name>append</name></name><argument_list>(<argument><expr>"    "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>niceSourceList</name>.<name>append</name></name><argument_list>(<argument><expr><name>arg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>niceSourceList</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr><call><name><name>niceSourceList</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Do the compile with the specified arguments.
+     * @param args - arguments to pass to process on command line
+     * @param firstFileName - index of the first source file in args,
+     * if the index is negative, no temporary file will ever be
+     * created, but this may hit the command line length limit on your
+     * system.
+     * @return the exit code of the compilation
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>int</name></type> <name>executeExternalCompile</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>args</name></decl></param>, <param><decl><type><name>int</name></type> <name>firstFileName</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>executeExternalCompile</name><argument_list>(<argument><expr><name>args</name></expr></argument>, <argument><expr><name>firstFileName</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Do the compile with the specified arguments.
+     *
+     * &lt;p&gt;The working directory if the executed process will be the
+     * project's base directory.&lt;/p&gt;
+     *
+     * @param args - arguments to pass to process on command line
+     * @param firstFileName - index of the first source file in args,
+     * if the index is negative, no temporary file will ever be
+     * created, but this may hit the command line length limit on your
+     * system.
+     * @param quoteFiles - if set to true, filenames containing
+     * spaces will be quoted when they appear in the external file.
+     * This is necessary when running JDK 1.4's javac and probably
+     * others.
+     * @return the exit code of the compilation
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>int</name></type> <name>executeExternalCompile</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>args</name></decl></param>, <param><decl><type><name>int</name></type> <name>firstFileName</name></decl></param>,
+                                         <param><decl><type><name>boolean</name></type> <name>quoteFiles</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>commandArray</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>tmpFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <try>try <block>{
+            <comment type="block">/*
+             * Many system have been reported to get into trouble with
+             * long command lines - no, not only Windows ;-).
+             *
+             * POSIX seems to define a lower limit of 4k, so use a temporary
+             * file if the total length of the command line exceeds this limit.
+             */</comment>
+            <if>if <condition>(<expr><call><name><name>Commandline</name>.<name>toString</name></name><argument_list>(<argument><expr><name>args</name></expr></argument>)</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; <name>COMMAND_LINE_LIMIT</name>
+                &amp;&amp; <name>firstFileName</name> &gt;= 0</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>BufferedWriter</name></type> <name>out</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                <try>try <block>{
+                    <expr_stmt><expr><name>tmpFile</name> = <call><name><name>FILE_UTILS</name>.<name>createTempFile</name></name><argument_list>(
+                        <argument><expr>"files"</expr></argument>, <argument><expr>""</expr></argument>, <argument><expr><call><name>getJavac</name><argument_list>()</argument_list></call>.<call><name>getTempdir</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr>true</expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>out</name> = new <call><name>BufferedWriter</name><argument_list>(<argument><expr>new <call><name>FileWriter</name><argument_list>(<argument><expr><name>tmpFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>firstFileName</name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>args</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                        <if>if <condition>(<expr><name>quoteFiles</name> &amp;&amp; <name><name>args</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>indexOf</name><argument_list>(<argument><expr>" "</expr></argument>)</argument_list></call> &gt; -1</expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name><name>args</name><index>[<expr><name>i</name></expr>]</index></name> = <name><name>args</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>replace</name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"\"" + <name><name>args</name><index>[<expr><name>i</name></expr>]</index></name> + "\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then> <else>else <block>{
+                            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name><name>args</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></else></if>
+                        <expr_stmt><expr><call><name><name>out</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></for>
+                    <expr_stmt><expr><call><name><name>out</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>commandArray</name> = new <name><name>String</name><index>[<expr><name>firstFileName</name> + 1</expr>]</index></name></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>args</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>commandArray</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>firstFileName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name><name>commandArray</name><index>[<expr><name>firstFileName</name></expr>]</index></name> = "@" + <name>tmpFile</name></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Error creating temporary file"</expr></argument>,
+                                             <argument><expr><name>e</name></expr></argument>, <argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch> <finally>finally <block>{
+                    <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></finally></try>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>commandArray</name> = <name>args</name></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <try>try <block>{
+                <decl_stmt><decl><type><name>Execute</name></type> <name>exe</name> =<init> <expr>new <call><name>Execute</name><argument_list>(
+                                  <argument><expr>new <call><name>LogStreamHandler</name><argument_list>(<argument><expr><name>attributes</name></expr></argument>,
+                                                       <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>,
+                                                       <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"openvms"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <comment type="line">//Use the VM launcher instead of shell launcher on VMS</comment>
+                    <comment type="line">//for java</comment>
+                    <expr_stmt><expr><call><name><name>exe</name>.<name>setVMLauncher</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>exe</name>.<name>setAntRun</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>exe</name>.<name>setWorkingDirectory</name></name><argument_list>(<argument><expr><call><name><name>project</name>.<name>getBaseDir</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>exe</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><name>commandArray</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>exe</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><call><name><name>exe</name>.<name>getExitValue</name></name><argument_list>()</argument_list></call></expr>;</return>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Error running " + <name><name>args</name><index>[<expr>0</expr>]</index></name>
+                        + " compiler"</expr></argument>, <argument><expr><name>e</name></expr></argument>, <argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>tmpFile</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>tmpFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add extdirs to classpath
+     * @param classpath the classpath to use
+     * @deprecated since 1.5.x.
+     *             Use org.apache.tools.ant.types.Path#addExtdirs instead.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addExtdirsToClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>classpath</name>.<name>addExtdirs</name></name><argument_list>(<argument><expr><name>extdirs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds the command line arguments specific to the current implementation.
+     * @param cmd the command line to use
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addCurrentCompilerArgs</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>cmd</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>cmd</name>.<name>addArguments</name></name><argument_list>(<argument><expr><call><name>getJavac</name><argument_list>()</argument_list></call>.<call><name>getCurrentCompilerArgs</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Shall we assume JDK 1.1 command line switches?
+     * @return true if jdk 1.1
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>assumeJava11</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>"javac1.1".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>attributes</name>.<name>getCompilerVersion</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Shall we assume JDK 1.2 command line switches?
+     * @return true if jdk 1.2
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>assumeJava12</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>"javac1.2".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>attributes</name>.<name>getCompilerVersion</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Shall we assume JDK 1.3 command line switches?
+     * @return true if jdk 1.3
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>assumeJava13</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>"javac1.3".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>attributes</name>.<name>getCompilerVersion</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Shall we assume JDK 1.4 command line switches?
+     * @return true if jdk 1.4
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>assumeJava14</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>assumeJavaXY</name><argument_list>(<argument><expr>"javac1.4"</expr></argument>, <argument><expr><name><name>JavaEnvUtils</name>.<name>JAVA_1_4</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Shall we assume JDK 1.5 command line switches?
+     * @return true if JDK 1.5
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>assumeJava15</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>assumeJavaXY</name><argument_list>(<argument><expr>"javac1.5"</expr></argument>, <argument><expr><name><name>JavaEnvUtils</name>.<name>JAVA_1_5</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Shall we assume JDK 1.6 command line switches?
+     * @return true if JDK 1.6
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>assumeJava16</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>assumeJavaXY</name><argument_list>(<argument><expr>"javac1.6"</expr></argument>, <argument><expr><name><name>JavaEnvUtils</name>.<name>JAVA_1_6</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Shall we assume JDK 1.7 command line switches?
+     * @return true if JDK 1.7
+     * @since Ant 1.8.2
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>assumeJava17</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>assumeJavaXY</name><argument_list>(<argument><expr>"javac1.7"</expr></argument>, <argument><expr><name><name>JavaEnvUtils</name>.<name>JAVA_1_7</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Shall we assume JDK 1.8 command line switches?
+     * @return true if JDK 1.8
+     * @since Ant 1.8.3
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>assumeJava18</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>assumeJavaXY</name><argument_list>(<argument><expr>"javac1.8"</expr></argument>, <argument><expr><name><name>JavaEnvUtils</name>.<name>JAVA_1_8</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Shall we assume command line switches for the given version of Java?
+     * @since Ant 1.8.3
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>assumeJavaXY</name><parameter_list>(<param><decl><type><name>String</name></type> <name>javacXY</name></decl></param>, <param><decl><type><name>String</name></type> <name>javaEnvVersionXY</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>javacXY</name>.<name>equals</name></name><argument_list>(<argument><expr><call><name><name>attributes</name>.<name>getCompilerVersion</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+            || ("classic".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>attributes</name>.<name>getCompilerVersion</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+                &amp;&amp; <call><name><name>JavaEnvUtils</name>.<name>isJavaVersion</name></name><argument_list>(<argument><expr><name>javaEnvVersionXY</name></expr></argument>)</argument_list></call>)
+            || ("modern".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>attributes</name>.<name>getCompilerVersion</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+                &amp;&amp; <call><name><name>JavaEnvUtils</name>.<name>isJavaVersion</name></name><argument_list>(<argument><expr><name>javaEnvVersionXY</name></expr></argument>)</argument_list></call>)
+            || ("extJavac".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>attributes</name>.<name>getCompilerVersion</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+                &amp;&amp; <call><name><name>JavaEnvUtils</name>.<name>isJavaVersion</name></name><argument_list>(<argument><expr><name>javaEnvVersionXY</name></expr></argument>)</argument_list></call>)</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Combines a user specified bootclasspath with the system
+     * bootclasspath taking build.sysclasspath into account.
+     *
+     * @return a non-null Path instance that combines the user
+     * specified and the system bootclasspath.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Path</name></type> <name>getBootClassPath</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Path</name></type> <name>bp</name> =<init> <expr>new <call><name>Path</name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>bootclasspath</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>bp</name>.<name>append</name></name><argument_list>(<argument><expr><name>bootclasspath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>bp</name>.<name>concatSystemBootClasspath</name></name><argument_list>(<argument><expr>"ignore"</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The argument the compiler wants to see if the debug attribute
+     * has been set to false.
+     *
+     * &lt;p&gt;A return value of &lt;code&gt;null&lt;/code&gt; means no argument at all.&lt;/p&gt;
+     *
+     * @return "-g:none" unless we expect to invoke a JDK 1.1 compiler.
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getNoDebugArgument</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>assumeJava11</name><argument_list>()</argument_list></call> ? <name>null</name> : "-g:none"</expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setImplicitSourceSwitch</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>cmd</name></decl></param>,
+                                         <param><decl><type><name>String</name></type> <name>target</name></decl></param>, <param><decl><type><name>String</name></type> <name>source</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr>""</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr>"          WARNING"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr>""</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr>"The -source switch defaults to " + <call><name>getDefaultSource</name><argument_list>()</argument_list></call>
+                       + "."</expr></argument>,
+                       <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr>"If you specify -target " + <name>target</name>
+                       + " you now must also specify -source " + <name>source</name>
+                       + "."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr>"Ant will implicitly add -source " + <name>source</name>
+                       + " for you.  Please change your build file."</expr></argument>,
+                       <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-source"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name>source</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A string that describes the default value for -source of the
+     * selected JDK's javac.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>getDefaultSource</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>assumeJava15</name><argument_list>()</argument_list></call> || <call><name>assumeJava16</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>"1.5 in JDK 1.5 and 1.6"</expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>assumeJava17</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>"1.7 in JDK 1.7"</expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>assumeJava18</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>"1.8 in JDK 1.8"</expr>;</return>
+        }</block></then></if>
+        <return>return <expr>""</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether the selected -target is known to be incompatible with
+     * the default -source value of the selected JDK's javac.
+     *
+     * &lt;p&gt;Assumes it will never be called unless the selected JDK is
+     * at least Java 1.5.&lt;/p&gt;
+     *
+     * @param t the -target value, must not be null
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>mustSetSourceForTarget</name><parameter_list>(<param><decl><type><name>String</name></type> <name>t</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>assumeJava14</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>t</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"1."</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>t</name> = <call><name><name>t</name>.<name>substring</name></name><argument_list>(<argument><expr>2</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>t</name>.<name>equals</name></name><argument_list>(<argument><expr>"1"</expr></argument>)</argument_list></call> || <call><name><name>t</name>.<name>equals</name></name><argument_list>(<argument><expr>"2"</expr></argument>)</argument_list></call> || <call><name><name>t</name>.<name>equals</name></name><argument_list>(<argument><expr>"3"</expr></argument>)</argument_list></call> || <call><name><name>t</name>.<name>equals</name></name><argument_list>(<argument><expr>"4"</expr></argument>)</argument_list></call>
+            || ((<call><name><name>t</name>.<name>equals</name></name><argument_list>(<argument><expr>"5"</expr></argument>)</argument_list></call> || <call><name><name>t</name>.<name>equals</name></name><argument_list>(<argument><expr>"6"</expr></argument>)</argument_list></call>)
+                &amp;&amp; !<call><name>assumeJava15</name><argument_list>()</argument_list></call> &amp;&amp; !<call><name>assumeJava16</name><argument_list>()</argument_list></call>)
+            || (<call><name><name>t</name>.<name>equals</name></name><argument_list>(<argument><expr>"7"</expr></argument>)</argument_list></call> &amp;&amp; !<call><name>assumeJava17</name><argument_list>()</argument_list></call>)</expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Turn the task's attribute for -source into soemthing that is
+     * understood by all javac's after 1.4.
+     *
+     * &lt;p&gt;support for -source 1.1 and -source 1.2 has been added with
+     * JDK 1.4.2 but isn't present in 1.5.0+&lt;/p&gt;
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>adjustSourceValue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>source</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>(<call><name><name>source</name>.<name>equals</name></name><argument_list>(<argument><expr>"1.1"</expr></argument>)</argument_list></call> || <call><name><name>source</name>.<name>equals</name></name><argument_list>(<argument><expr>"1.2"</expr></argument>)</argument_list></call>) ? "1.3" : <name>source</name></expr>;</return>
+    }</block></function>
+}</block></class>
+
+</unit>

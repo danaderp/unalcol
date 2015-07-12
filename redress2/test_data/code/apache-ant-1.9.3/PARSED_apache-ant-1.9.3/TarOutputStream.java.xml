@@ -1,0 +1,635 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\tar\TarOutputStream.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<comment type="block">/*
+ * This package is based on the work done by Timothy Gerard Endres
+ * (time@ice.com) to whom the Ant project is very grateful for his great code.
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>tar</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FilterOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>StringWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>nio</name>.<name>ByteBuffer</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name>.<name>ZipEncoding</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name>.<name>ZipEncodingHelper</name></name>;</import>
+
+<comment type="javadoc">/**
+ * The TarOutputStream writes a UNIX tar archive as an OutputStream.
+ * Methods are provided to put entries, and then write their contents
+ * by writing to this stream using write().
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>TarOutputStream</name> <super><extends>extends <name>FilterOutputStream</name></extends></super> <block>{
+    <comment type="javadoc">/** Fail if a long file name is required in the archive. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>LONGFILE_ERROR</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Long paths will be truncated in the archive. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>LONGFILE_TRUNCATE</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** GNU tar extensions are used to store long file names in the archive. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>LONGFILE_GNU</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** POSIX/PAX extensions are used to store long file names in the archive. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>LONGFILE_POSIX</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Fail if a big number (e.g. size &amp;gt; 8GiB) is required in the archive. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BIGNUMBER_ERROR</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** star/GNU tar/BSD tar extensions are used to store big number in the archive. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BIGNUMBER_STAR</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** POSIX/PAX extensions are used to store big numbers in the archive. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BIGNUMBER_POSIX</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type>   <name>debug</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>long</name></type>      <name>currSize</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type>    <name>currName</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>long</name></type>      <name>currBytes</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>byte</name><index>[]</index></type>    <name>oneBuf</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>byte</name><index>[]</index></type>    <name>recordBuf</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>int</name></type>       <name>assemLen</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>byte</name><index>[]</index></type>    <name>assemBuf</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>TarBuffer</name></type> <name>buffer</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>int</name></type>       <name>longFileMode</name> =<init> <expr><name>LONGFILE_ERROR</name></expr></init></decl>;</decl_stmt>
+    <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type>       <name>bigNumberMode</name> =<init> <expr><name>BIGNUMBER_ERROR</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>closed</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Indicates if putNextEntry has been called without closeEntry */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>haveUnclosedEntry</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** indicates if this archive is finished */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>finished</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>ZipEncoding</name></type> <name>encoding</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>addPaxHeadersForNonAsciiNames</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>ZipEncoding</name></type> <name>ASCII</name> =<init>
+        <expr><call><name><name>ZipEncodingHelper</name>.<name>getZipEncoding</name></name><argument_list>(<argument><expr>"ASCII"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Constructor for TarInputStream.
+     * @param os the output stream to use
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarOutputStream</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>os</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>os</name></expr></argument>, <argument><expr><name><name>TarBuffer</name>.<name>DEFAULT_BLKSIZE</name></name></expr></argument>, <argument><expr><name><name>TarBuffer</name>.<name>DEFAULT_RCDSIZE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor for TarInputStream.
+     * @param os the output stream to use
+     * @param encoding name of the encoding to use for file names
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarOutputStream</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>os</name></decl></param>, <param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>os</name></expr></argument>, <argument><expr><name><name>TarBuffer</name>.<name>DEFAULT_BLKSIZE</name></name></expr></argument>, <argument><expr><name><name>TarBuffer</name>.<name>DEFAULT_RCDSIZE</name></name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor for TarInputStream.
+     * @param os the output stream to use
+     * @param blockSize the block size to use
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarOutputStream</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>os</name></decl></param>, <param><decl><type><name>int</name></type> <name>blockSize</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>os</name></expr></argument>, <argument><expr><name>blockSize</name></expr></argument>, <argument><expr><name><name>TarBuffer</name>.<name>DEFAULT_RCDSIZE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor for TarInputStream.
+     * @param os the output stream to use
+     * @param blockSize the block size to use
+     * @param encoding name of the encoding to use for file names
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarOutputStream</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>os</name></decl></param>, <param><decl><type><name>int</name></type> <name>blockSize</name></decl></param>, <param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>os</name></expr></argument>, <argument><expr><name>blockSize</name></expr></argument>, <argument><expr><name><name>TarBuffer</name>.<name>DEFAULT_RCDSIZE</name></name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor for TarInputStream.
+     * @param os the output stream to use
+     * @param blockSize the block size to use
+     * @param recordSize the record size to use
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarOutputStream</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>os</name></decl></param>, <param><decl><type><name>int</name></type> <name>blockSize</name></decl></param>, <param><decl><type><name>int</name></type> <name>recordSize</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>os</name></expr></argument>, <argument><expr><name>blockSize</name></expr></argument>, <argument><expr><name>recordSize</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor for TarInputStream.
+     * @param os the output stream to use
+     * @param blockSize the block size to use
+     * @param recordSize the record size to use
+     * @param encoding name of the encoding to use for file names
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarOutputStream</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>os</name></decl></param>, <param><decl><type><name>int</name></type> <name>blockSize</name></decl></param>, <param><decl><type><name>int</name></type> <name>recordSize</name></decl></param>,
+                           <param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>os</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>encoding</name></name> = <call><name><name>ZipEncodingHelper</name>.<name>getZipEncoding</name></name><argument_list>(<argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name><name>this</name>.<name>buffer</name></name> = new <call><name>TarBuffer</name><argument_list>(<argument><expr><name>os</name></expr></argument>, <argument><expr><name>blockSize</name></expr></argument>, <argument><expr><name>recordSize</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>debug</name></name> = false</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>assemLen</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>assemBuf</name></name> = new <name><name>byte</name><index>[<expr><name>recordSize</name></expr>]</index></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>recordBuf</name></name> = new <name><name>byte</name><index>[<expr><name>recordSize</name></expr>]</index></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>oneBuf</name></name> = new <name><name>byte</name><index>[<expr>1</expr>]</index></name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Set the long file mode.
+     * This can be LONGFILE_ERROR(0), LONGFILE_TRUNCATE(1) or LONGFILE_GNU(2).
+     * This specifies the treatment of long file names (names &gt;= TarConstants.NAMELEN).
+     * Default is LONGFILE_ERROR.
+     * @param longFileMode the mode to use
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLongFileMode</name><parameter_list>(<param><decl><type><name>int</name></type> <name>longFileMode</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>longFileMode</name></name> = <name>longFileMode</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the big number mode.
+     * This can be BIGNUMBER_ERROR(0), BIGNUMBER_POSIX(1) or BIGNUMBER_STAR(2).
+     * This specifies the treatment of big files (sizes &amp;gt; TarConstants.MAXSIZE) and other numeric values to big to fit into a traditional tar header.
+     * Default is BIGNUMBER_ERROR.
+     * @param bigNumberMode the mode to use
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBigNumberMode</name><parameter_list>(<param><decl><type><name>int</name></type> <name>bigNumberMode</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>bigNumberMode</name></name> = <name>bigNumberMode</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether to add a PAX extension header for non-ASCII file names.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAddPaxHeadersForNonAsciiNames</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>addPaxHeadersForNonAsciiNames</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the debugging flag.
+     *
+     * @param debugF True to turn on debugging.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDebug</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>debugF</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>debug</name></name> = <name>debugF</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the debugging flag in this stream's TarBuffer.
+     *
+     * @param debug True to turn on debugging.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBufferDebug</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>debug</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>buffer</name>.<name>setDebug</name></name><argument_list>(<argument><expr><name>debug</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Ends the TAR archive without closing the underlying OutputStream.
+     * 
+     * An archive consists of a series of file entries terminated by an
+     * end-of-archive entry, which consists of two 512 blocks of zero bytes. 
+     * POSIX.1 requires two EOF records, like some other implementations.
+     * 
+     * @throws IOException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>finish</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>finished</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"This archive has already been finished"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>haveUnclosedEntry</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"This archives contains unclosed entries."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>writeEOFRecord</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>writeEOFRecord</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>buffer</name>.<name>flushBlock</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>finished</name> = true</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Ends the TAR archive and closes the underlying OutputStream.
+     * This means that finish() is called followed by calling the
+     * TarBuffer's close().
+     * @throws IOException on error
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>void</name></type> <name>close</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if<condition>(<expr>!<name>finished</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>finish</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr>!<name>closed</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>closed</name> = true</expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the record size being used by this stream's TarBuffer.
+     *
+     * @return The TarBuffer record size.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getRecordSize</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>buffer</name>.<name>getRecordSize</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Put an entry on the output stream. This writes the entry's
+     * header record and positions the output stream for writing
+     * the contents of the entry. Once this method is called, the
+     * stream is ready for calls to write() to write the entry's
+     * contents. Once the contents are written, closeEntry()
+     * &lt;B&gt;MUST&lt;/B&gt; be called to ensure that all buffered data
+     * is completely written to the output stream.
+     *
+     * @param entry The TarEntry to be written to the archive.
+     * @throws IOException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>putNextEntry</name><parameter_list>(<param><decl><type><name>TarEntry</name></type> <name>entry</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if<condition>(<expr><name>finished</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Stream has already been finished"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>paxHeaders</name> =<init> <expr>new <call><name><name>HashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>entryName</name> =<init> <expr><call><name><name>entry</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>paxHeaderContainsPath</name> =<init> <expr><call><name>handleLongName</name><argument_list>(<argument><expr><name>entryName</name></expr></argument>, <argument><expr><name>paxHeaders</name></expr></argument>, <argument><expr>"path"</expr></argument>,
+                                                       <argument><expr><name><name>TarConstants</name>.<name>LF_GNUTYPE_LONGNAME</name></name></expr></argument>, <argument><expr>"file name"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>linkName</name> =<init> <expr><call><name><name>entry</name>.<name>getLinkName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>paxHeaderContainsLinkPath</name> =<init> <expr><name>linkName</name> != <name>null</name>
+            &amp;&amp; <call><name>handleLongName</name><argument_list>(<argument><expr><name>linkName</name></expr></argument>, <argument><expr><name>paxHeaders</name></expr></argument>, <argument><expr>"linkpath"</expr></argument>,
+                              <argument><expr><name><name>TarConstants</name>.<name>LF_GNUTYPE_LONGLINK</name></name></expr></argument>, <argument><expr>"link name"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>bigNumberMode</name> == <name>BIGNUMBER_POSIX</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addPaxHeadersForBigNumbers</name><argument_list>(<argument><expr><name>paxHeaders</name></expr></argument>, <argument><expr><name>entry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>bigNumberMode</name> != <name>BIGNUMBER_STAR</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>failForBigNumbers</name><argument_list>(<argument><expr><name>entry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if></else></if>
+
+        <if>if <condition>(<expr><name>addPaxHeadersForNonAsciiNames</name> &amp;&amp; !<name>paxHeaderContainsPath</name>
+            &amp;&amp; !<call><name><name>ASCII</name>.<name>canEncode</name></name><argument_list>(<argument><expr><name>entryName</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>paxHeaders</name>.<name>put</name></name><argument_list>(<argument><expr>"path"</expr></argument>, <argument><expr><name>entryName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>addPaxHeadersForNonAsciiNames</name> &amp;&amp; !<name>paxHeaderContainsLinkPath</name>
+            &amp;&amp; (<call><name><name>entry</name>.<name>isLink</name></name><argument_list>()</argument_list></call> || <call><name><name>entry</name>.<name>isSymbolicLink</name></name><argument_list>()</argument_list></call>)
+            &amp;&amp; !<call><name><name>ASCII</name>.<name>canEncode</name></name><argument_list>(<argument><expr><name>linkName</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>paxHeaders</name>.<name>put</name></name><argument_list>(<argument><expr>"linkpath"</expr></argument>, <argument><expr><name>linkName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name><name>paxHeaders</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>writePaxHeaders</name><argument_list>(<argument><expr><name>entryName</name></expr></argument>, <argument><expr><name>paxHeaders</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name><name>entry</name>.<name>writeEntryHeader</name></name><argument_list>(<argument><expr><name>recordBuf</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>,
+                               <argument><expr><name>bigNumberMode</name> == <name>BIGNUMBER_STAR</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>buffer</name>.<name>writeRecord</name></name><argument_list>(<argument><expr><name>recordBuf</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>currBytes</name> = 0</expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name><name>entry</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>currSize</name> = 0</expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>currSize</name> = <call><name><name>entry</name>.<name>getSize</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <expr_stmt><expr><name>currName</name> = <name>entryName</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>haveUnclosedEntry</name> = true</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Close an entry. This method MUST be called for all file
+     * entries that contain data. The reason is that we must
+     * buffer data written to the stream in order to satisfy
+     * the buffer's record based writes. Thus, there may be
+     * data fragments still being assembled that must be written
+     * to the output stream before this entry is closed and the
+     * next entry written.
+     * @throws IOException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>closeEntry</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>finished</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Stream has already been finished"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<name>haveUnclosedEntry</name></expr>)</condition><then><block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"No current entry to close"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>assemLen</name> &gt; 0</expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>assemLen</name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>assemBuf</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                <expr_stmt><expr><name><name>assemBuf</name><index>[<expr><name>i</name></expr>]</index></name> = 0</expr>;</expr_stmt>
+            }</block></for>
+
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>writeRecord</name></name><argument_list>(<argument><expr><name>assemBuf</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><name>currBytes</name> += <name>assemLen</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>assemLen</name> = 0</expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>currBytes</name> &lt; <name>currSize</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"entry '" + <name>currName</name> + "' closed at '"
+                                  + <name>currBytes</name>
+                                  + "' before the '" + <name>currSize</name>
+                                  + "' bytes specified in the header were written"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>haveUnclosedEntry</name> = false</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes a byte to the current tar archive entry.
+     *
+     * This method simply calls read( byte[], int, int ).
+     *
+     * @param b The byte written.
+     * @throws IOException on error
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>int</name></type> <name>b</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name><name>oneBuf</name><index>[<expr>0</expr>]</index></name> = (<name>byte</name>) <name>b</name></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr><name>oneBuf</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr>1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes bytes to the current tar archive entry.
+     *
+     * This method simply calls write( byte[], int, int ).
+     *
+     * @param wBuf The buffer to write to the archive.
+     * @throws IOException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>wBuf</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr><name>wBuf</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>wBuf</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes bytes to the current tar archive entry. This method
+     * is aware of the current entry and will throw an exception if
+     * you attempt to write bytes past the length specified for the
+     * current entry. The method is also (painfully) aware of the
+     * record buffering required by TarBuffer, and manages buffers
+     * that are not a multiple of recordsize in length, including
+     * assembling records from small buffers.
+     *
+     * @param wBuf The buffer to write to the archive.
+     * @param wOffset The offset in the buffer from which to get bytes.
+     * @param numToWrite The number of bytes to write.
+     * @throws IOException on error
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>wBuf</name></decl></param>, <param><decl><type><name>int</name></type> <name>wOffset</name></decl></param>, <param><decl><type><name>int</name></type> <name>numToWrite</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr>(<name>currBytes</name> + <name>numToWrite</name>) &gt; <name>currSize</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"request to write '" + <name>numToWrite</name>
+                                  + "' bytes exceeds size in header of '"
+                                  + <name>currSize</name> + "' bytes for entry '"
+                                  + <name>currName</name> + "'"</expr></argument>)</argument_list></call></expr>;</throw>
+
+            <comment type="line">//</comment>
+            <comment type="line">// We have to deal with assembly!!!</comment>
+            <comment type="line">// The programmer can be writing little 32 byte chunks for all</comment>
+            <comment type="line">// we know, and we must assemble complete records for writing.</comment>
+            <comment type="line">// REVIEW Maybe this should be in TarBuffer? Could that help to</comment>
+            <comment type="line">// eliminate some of the buffer copying.</comment>
+            <comment type="line">//</comment>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>assemLen</name> &gt; 0</expr>)</condition><then> <block>{
+            <if>if <condition>(<expr>(<name>assemLen</name> + <name>numToWrite</name>) &gt;= <name><name>recordBuf</name>.<name>length</name></name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>aLen</name> =<init> <expr><name><name>recordBuf</name>.<name>length</name></name> - <name>assemLen</name></expr></init></decl>;</decl_stmt>
+
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>assemBuf</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>recordBuf</name></expr></argument>, <argument><expr>0</expr></argument>,
+                                 <argument><expr><name>assemLen</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>wBuf</name></expr></argument>, <argument><expr><name>wOffset</name></expr></argument>, <argument><expr><name>recordBuf</name></expr></argument>,
+                                 <argument><expr><name>assemLen</name></expr></argument>, <argument><expr><name>aLen</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>buffer</name>.<name>writeRecord</name></name><argument_list>(<argument><expr><name>recordBuf</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>currBytes</name> += <name><name>recordBuf</name>.<name>length</name></name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>wOffset</name> += <name>aLen</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>numToWrite</name> -= <name>aLen</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>assemLen</name> = 0</expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>wBuf</name></expr></argument>, <argument><expr><name>wOffset</name></expr></argument>, <argument><expr><name>assemBuf</name></expr></argument>, <argument><expr><name>assemLen</name></expr></argument>,
+                                 <argument><expr><name>numToWrite</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>wOffset</name> += <name>numToWrite</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>assemLen</name> += <name>numToWrite</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>numToWrite</name> = 0</expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+
+        <comment type="line">//</comment>
+        <comment type="line">// When we get here we have EITHER:</comment>
+        <comment type="line">// o An empty "assemble" buffer.</comment>
+        <comment type="line">// o No bytes to write (numToWrite == 0)</comment>
+        <comment type="line">//</comment>
+        <while>while <condition>(<expr><name>numToWrite</name> &gt; 0</expr>)</condition> <block>{
+            <if>if <condition>(<expr><name>numToWrite</name> &lt; <name><name>recordBuf</name>.<name>length</name></name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>wBuf</name></expr></argument>, <argument><expr><name>wOffset</name></expr></argument>, <argument><expr><name>assemBuf</name></expr></argument>, <argument><expr><name>assemLen</name></expr></argument>,
+                                 <argument><expr><name>numToWrite</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>assemLen</name> += <name>numToWrite</name></expr>;</expr_stmt>
+
+                <break>break;</break>
+            }</block></then></if>
+
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>writeRecord</name></name><argument_list>(<argument><expr><name>wBuf</name></expr></argument>, <argument><expr><name>wOffset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>int</name></type> <name>num</name> =<init> <expr><name><name>recordBuf</name>.<name>length</name></name></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><name>currBytes</name> += <name>num</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>numToWrite</name> -= <name>num</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>wOffset</name> += <name>num</name></expr>;</expr_stmt>
+        }</block></while>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes a PAX extended header with the given map as contents.
+     */</comment>
+    <function><type><name>void</name></type> <name>writePaxHeaders</name><parameter_list>(<param><decl><type><name>String</name></type> <name>entryName</name></decl></param>,
+                         <param><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>headers</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr>"./PaxHeaders.X/" + <call><name>stripTo7Bits</name><argument_list>(<argument><expr><name>entryName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>name</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt;= <name><name>TarConstants</name>.<name>NAMELEN</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>name</name> = <call><name><name>name</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name><name>TarConstants</name>.<name>NAMELEN</name></name> - 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <while>while <condition>(<expr><call><name><name>name</name>.<name>endsWith</name></name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call></expr>)</condition> <block>{
+            <comment type="line">// TarEntry's constructor would think this is a directory</comment>
+            <comment type="line">// and not allow any data to be written</comment>
+            <expr_stmt><expr><name>name</name> = <call><name><name>name</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>name</name>.<name>length</name></name><argument_list>()</argument_list></call> - 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <decl_stmt><decl><type><name>TarEntry</name></type> <name>pex</name> =<init> <expr>new <call><name>TarEntry</name><argument_list>(<argument><expr><name>name</name></expr></argument>,
+                                    <argument><expr><name><name>TarConstants</name>.<name>LF_PAX_EXTENDED_HEADER_LC</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>StringWriter</name></type> <name>w</name> =<init> <expr>new <call><name>StringWriter</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name><name>Map</name>.<name><name>Entry</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></name></type> <name>h</name> :<range> <expr><call><name><name>headers</name>.<name>entrySet</name></name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr><call><name><name>h</name>.<name>getKey</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name><name>h</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>len</name> =<init> <expr><call><name><name>key</name>.<name>length</name></name><argument_list>()</argument_list></call> + <call><name><name>value</name>.<name>length</name></name><argument_list>()</argument_list></call>
+                + 3 <comment type="block">/* blank, equals and newline */</comment>
+                + 2</expr></init></decl> <comment type="block">/* guess 9 &lt; actual length &lt; 100 */</comment>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><name>len</name> + " " + <name>key</name> + "=" + <name>value</name> + "\n"</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>actualLength</name> =<init> <expr><call><name><name>line</name>.<name>getBytes</name></name><argument_list>(<argument><expr>"UTF-8"</expr></argument>)</argument_list></call>.<name>length</name></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><name>len</name> != <name>actualLength</name></expr>)</condition> <block>{
+                <comment type="line">// Adjust for cases where length &lt; 10 or &gt; 100</comment>
+                <comment type="line">// or where UTF-8 encoding isn't a single octet</comment>
+                <comment type="line">// per character.</comment>
+                <comment type="line">// Must be in loop as size may go from 99 to 100 in</comment>
+                <comment type="line">// first pass so we'd need a second.</comment>
+                <expr_stmt><expr><name>len</name> = <name>actualLength</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>line</name> = <name>len</name> + " " + <name>key</name> + "=" + <name>value</name> + "\n"</expr>;</expr_stmt>
+                <expr_stmt><expr><name>actualLength</name> = <call><name><name>line</name>.<name>getBytes</name></name><argument_list>(<argument><expr>"UTF-8"</expr></argument>)</argument_list></call>.<name>length</name></expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><call><name><name>w</name>.<name>write</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>data</name> =<init> <expr><call><name><name>w</name>.<name>toString</name></name><argument_list>()</argument_list></call>.<call><name>getBytes</name><argument_list>(<argument><expr>"UTF-8"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>pex</name>.<name>setSize</name></name><argument_list>(<argument><expr><name><name>data</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>putNextEntry</name><argument_list>(<argument><expr><name>pex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr><name>data</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>closeEntry</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>stripTo7Bits</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>length</name> =<init> <expr><call><name><name>name</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>result</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><name>length</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>length</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>char</name></type> <name>stripped</name> =<init> <expr><call>(<name>char</name>) <argument_list>(<argument><expr><call><name><name>name</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call> &amp; 0x7F</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>stripped</name> != 0</expr>)</condition><then> <block>{ <comment type="line">// would be read as Trailing null</comment>
+                <expr_stmt><expr><call><name><name>result</name>.<name>append</name></name><argument_list>(<argument><expr><name>stripped</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr><call><name><name>result</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Write an EOF (end of archive) record to the tar archive.
+     * An EOF record consists of a record of all zeros.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>writeEOFRecord</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>recordBuf</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+            <expr_stmt><expr><name><name>recordBuf</name><index>[<expr><name>i</name></expr>]</index></name> = 0</expr>;</expr_stmt>
+        }</block></for>
+
+        <expr_stmt><expr><call><name><name>buffer</name>.<name>writeRecord</name></name><argument_list>(<argument><expr><name>recordBuf</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>addPaxHeadersForBigNumbers</name><parameter_list>(<param><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>paxHeaders</name></decl></param>,
+                                            <param><decl><type><name>TarEntry</name></type> <name>entry</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>addPaxHeaderForBigNumber</name><argument_list>(<argument><expr><name>paxHeaders</name></expr></argument>, <argument><expr>"size"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getSize</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                 <argument><expr><name><name>TarConstants</name>.<name>MAXSIZE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>addPaxHeaderForBigNumber</name><argument_list>(<argument><expr><name>paxHeaders</name></expr></argument>, <argument><expr>"gid"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getGroupId</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                 <argument><expr><name><name>TarConstants</name>.<name>MAXID</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>addPaxHeaderForBigNumber</name><argument_list>(<argument><expr><name>paxHeaders</name></expr></argument>, <argument><expr>"mtime"</expr></argument>,                                 <argument><expr><call><name><name>entry</name>.<name>getModTime</name></name><argument_list>()</argument_list></call>.<call><name>getTime</name><argument_list>()</argument_list></call> / 1000</expr></argument>,
+                                 <argument><expr><name><name>TarConstants</name>.<name>MAXSIZE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>addPaxHeaderForBigNumber</name><argument_list>(<argument><expr><name>paxHeaders</name></expr></argument>, <argument><expr>"uid"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getUserId</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                 <argument><expr><name><name>TarConstants</name>.<name>MAXID</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// star extensions by J\u00f6rg Schilling</comment>
+        <expr_stmt><expr><call><name>addPaxHeaderForBigNumber</name><argument_list>(<argument><expr><name>paxHeaders</name></expr></argument>, <argument><expr>"SCHILY.devmajor"</expr></argument>,
+                                 <argument><expr><call><name><name>entry</name>.<name>getDevMajor</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>TarConstants</name>.<name>MAXID</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>addPaxHeaderForBigNumber</name><argument_list>(<argument><expr><name>paxHeaders</name></expr></argument>, <argument><expr>"SCHILY.devminor"</expr></argument>,
+                                 <argument><expr><call><name><name>entry</name>.<name>getDevMinor</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>TarConstants</name>.<name>MAXID</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// there is no PAX header for file mode</comment>
+        <expr_stmt><expr><call><name>failForBigNumber</name><argument_list>(<argument><expr>"mode"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getMode</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>TarConstants</name>.<name>MAXID</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>addPaxHeaderForBigNumber</name><parameter_list>(<param><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>paxHeaders</name></decl></param>,
+                                          <param><decl><type><name>String</name></type> <name>header</name></decl></param>, <param><decl><type><name>long</name></type> <name>value</name></decl></param>,
+                                          <param><decl><type><name>long</name></type> <name>maxValue</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>value</name> &lt; 0 || <name>value</name> &gt; <name>maxValue</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>paxHeaders</name>.<name>put</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>failForBigNumbers</name><parameter_list>(<param><decl><type><name>TarEntry</name></type> <name>entry</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>failForBigNumber</name><argument_list>(<argument><expr>"entry size"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getSize</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>TarConstants</name>.<name>MAXSIZE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>failForBigNumber</name><argument_list>(<argument><expr>"group id"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getGroupId</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>TarConstants</name>.<name>MAXID</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>failForBigNumber</name><argument_list>(<argument><expr>"last modification time"</expr></argument>,
+                         <argument><expr><call><name><name>entry</name>.<name>getModTime</name></name><argument_list>()</argument_list></call>.<call><name>getTime</name><argument_list>()</argument_list></call> / 1000</expr></argument>,
+                         <argument><expr><name><name>TarConstants</name>.<name>MAXSIZE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>failForBigNumber</name><argument_list>(<argument><expr>"user id"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getUserId</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>TarConstants</name>.<name>MAXID</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>failForBigNumber</name><argument_list>(<argument><expr>"mode"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getMode</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>TarConstants</name>.<name>MAXID</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>failForBigNumber</name><argument_list>(<argument><expr>"major device number"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getDevMajor</name></name><argument_list>()</argument_list></call></expr></argument>,
+                         <argument><expr><name><name>TarConstants</name>.<name>MAXID</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>failForBigNumber</name><argument_list>(<argument><expr>"minor device number"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getDevMinor</name></name><argument_list>()</argument_list></call></expr></argument>,
+                         <argument><expr><name><name>TarConstants</name>.<name>MAXID</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>failForBigNumber</name><parameter_list>(<param><decl><type><name>String</name></type> <name>field</name></decl></param>, <param><decl><type><name>long</name></type> <name>value</name></decl></param>, <param><decl><type><name>long</name></type> <name>maxValue</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>value</name> &lt; 0 || <name>value</name> &gt; <name>maxValue</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>RuntimeException</name><argument_list>(<argument><expr><name>field</name> + " '" + <name>value</name>
+                                       + "' is too big ( &gt; "
+                                       + <name>maxValue</name> + " )"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Handles long file or link names according to the longFileMode setting.
+     *
+     * &lt;p&gt;I.e. if the given name is too long to be written to a plain
+     * tar header then
+     * &lt;ul&gt;
+     *   &lt;li&gt;it creates a pax header who's name is given by the
+     *   paxHeaderName parameter if longFileMode is POSIX&lt;/li&gt;
+     *   &lt;li&gt;it creates a GNU longlink entry who's type is given by
+     *   the linkType parameter if longFileMode is GNU&lt;/li&gt;
+     *   &lt;li&gt;it throws an exception if longFileMode is ERROR&lt;/li&gt;
+     *   &lt;li&gt;it truncates the name if longFileMode is TRUNCATE&lt;/li&gt;
+     * &lt;/ul&gt;&lt;/p&gt;
+     *
+     * @param name the name to write
+     * @param paxHeaders current map of pax headers
+     * @param paxHeaderName name of the pax header to write
+     * @param linkType type of the GNU entry to write
+     * @param fieldName the name of the field
+     * @return whether a pax header has been written.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>handleLongName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>,
+                                   <param><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>paxHeaders</name></decl></param>,
+                                   <param><decl><type><name>String</name></type> <name>paxHeaderName</name></decl></param>, <param><decl><type><name>byte</name></type> <name>linkType</name></decl></param>, <param><decl><type><name>String</name></type> <name>fieldName</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>ByteBuffer</name></type> <name>encodedName</name> =<init> <expr><call><name><name>encoding</name>.<name>encode</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>len</name> =<init> <expr><call><name><name>encodedName</name>.<name>limit</name></name><argument_list>()</argument_list></call> - <call><name><name>encodedName</name>.<name>position</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>len</name> &gt;= <name><name>TarConstants</name>.<name>NAMELEN</name></name></expr>)</condition><then> <block>{
+
+            <if>if <condition>(<expr><name>longFileMode</name> == <name>LONGFILE_POSIX</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>paxHeaders</name>.<name>put</name></name><argument_list>(<argument><expr><name>paxHeaderName</name></expr></argument>, <argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>true</expr>;</return>
+            }</block></then> <else>else <if>if <condition>(<expr><name>longFileMode</name> == <name>LONGFILE_GNU</name></expr>)</condition><then> <block>{
+                <comment type="line">// create a TarEntry for the LongLink, the contents</comment>
+                <comment type="line">// of which are the link's name</comment>
+                <decl_stmt><decl><type><name>TarEntry</name></type> <name>longLinkEntry</name> =<init>
+                    <expr>new <call><name>TarEntry</name><argument_list>(<argument><expr><name><name>TarConstants</name>.<name>GNU_LONGLINK</name></name></expr></argument>, <argument><expr><name>linkType</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <expr_stmt><expr><call><name><name>longLinkEntry</name>.<name>setSize</name></name><argument_list>(<argument><expr><name>len</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt> <comment type="line">// +1 for NUL</comment>
+                <expr_stmt><expr><call><name>putNextEntry</name><argument_list>(<argument><expr><name>longLinkEntry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr><call><name><name>encodedName</name>.<name>array</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>encodedName</name>.<name>arrayOffset</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>len</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt> <comment type="line">// NUL terminator</comment>
+                <expr_stmt><expr><call><name>closeEntry</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name>longFileMode</name> != <name>LONGFILE_TRUNCATE</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>RuntimeException</name><argument_list>(<argument><expr><name>fieldName</name> + " '" + <name>name</name>
+                                           + "' is too long ( &gt; "
+                                           + <name><name>TarConstants</name>.<name>NAMELEN</name></name> + " bytes)"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if></else></if></else></if>
+        }</block></then></if>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

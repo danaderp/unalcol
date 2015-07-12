@@ -1,0 +1,473 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\XmlLogger.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStreamWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Writer</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Stack</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>DocumentBuilder</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>DocumentBuilderFactory</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>DOMElementWriter</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Document</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Element</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Node</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Text</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Generates a file in the current directory with
+ * an XML description of what happened during a build.
+ * The default filename is "log.xml", but this can be overridden
+ * with the property &lt;code&gt;XmlLogger.file&lt;/code&gt;.
+ *
+ * This implementation assumes in its sanity checking that only one
+ * thread runs a particular target/task at a time. This is enforced
+ * by the way that parallel builds and antcalls are done - and
+ * indeed all but the simplest of tasks could run into problems
+ * if executed in parallel.
+ *
+ * @see Project#addBuildListener(BuildListener)
+ */</comment>
+<class><specifier>public</specifier> class <name>XmlLogger</name> <super><implements>implements <name>BuildLogger</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>msgOutputLevel</name> =<init> <expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>PrintStream</name></type> <name>outStream</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** DocumentBuilder to use when creating the document to start with. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>DocumentBuilder</name></type> <name>builder</name> =<init> <expr><call><name>getDocumentBuilder</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Returns a default DocumentBuilder instance or throws an
+     * ExceptionInInitializerError if it can't be created.
+     *
+     * @return a default DocumentBuilder instance.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>DocumentBuilder</name></type> <name>getDocumentBuilder</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <return>return <expr><call><name><name>DocumentBuilderFactory</name>.<name>newInstance</name></name><argument_list>()</argument_list></call>.<call><name>newDocumentBuilder</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>exc</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>ExceptionInInitializerError</name><argument_list>(<argument><expr><name>exc</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/** XML element name for a build. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>BUILD_TAG</name> =<init> <expr>"build"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** XML element name for a target. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>TARGET_TAG</name> =<init> <expr>"target"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** XML element name for a task. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>TASK_TAG</name> =<init> <expr>"task"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** XML element name for a message. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>MESSAGE_TAG</name> =<init> <expr>"message"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** XML attribute name for a name. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>NAME_ATTR</name> =<init> <expr>"name"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** XML attribute name for a time. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>TIME_ATTR</name> =<init> <expr>"time"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** XML attribute name for a message priority. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>PRIORITY_ATTR</name> =<init> <expr>"priority"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** XML attribute name for a file location. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>LOCATION_ATTR</name> =<init> <expr>"location"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** XML attribute name for an error description. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_ATTR</name> =<init> <expr>"error"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** XML element name for a stack trace. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>STACKTRACE_TAG</name> =<init> <expr>"stacktrace"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The complete log document for this build. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Document</name></type> <name>doc</name> =<init> <expr><call><name><name>builder</name>.<name>newDocument</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Mapping for when tasks started (Task to TimedElement). */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>Task</name></argument>, <argument><name>TimedElement</name></argument>&gt;</argument_list></name></type> <name>tasks</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>Task</name></argument>, <argument><name>TimedElement</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Mapping for when targets started (Target to TimedElement). */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>Target</name></argument>, <argument><name>TimedElement</name></argument>&gt;</argument_list></name></type> <name>targets</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>Target</name></argument>, <argument><name><name>XmlLogger</name>.<name>TimedElement</name></name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Mapping of threads to stacks of elements
+     * (Thread to Stack of TimedElement).
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>Thread</name></argument>, <argument><name><name>Stack</name><argument_list>&lt;<argument><name>TimedElement</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name></type> <name>threadStacks</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>Thread</name></argument>, <argument><name><name>Stack</name><argument_list>&lt;<argument><name>TimedElement</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * When the build started.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>TimedElement</name></type> <name>buildElement</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Utility class representing the time an element started. */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>TimedElement</name> <block>{
+        <comment type="javadoc">/**
+         * Start time in milliseconds
+         * (as returned by &lt;code&gt;System.currentTimeMillis()&lt;/code&gt;).
+         */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>startTime</name></decl>;</decl_stmt>
+        <comment type="javadoc">/** Element created at the start time. */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Element</name></type> <name>element</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>element</name>.<name>getTagName</name></name><argument_list>()</argument_list></call> + ":" + <call><name><name>element</name>.<name>getAttribute</name></name><argument_list>(<argument><expr>"name"</expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     *  Constructs a new BuildListener that logs build events to an XML file.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>XmlLogger</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Fired when the build starts, this builds the top-level element for the
+     * document and remembers the time of the start of the build.
+     *
+     * @param event Ignored.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>buildElement</name> = new <call><name>TimedElement</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>buildElement</name>.<name>startTime</name></name> = <call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>buildElement</name>.<name>element</name></name> = <call><name><name>doc</name>.<name>createElement</name></name><argument_list>(<argument><expr><name>BUILD_TAG</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fired when the build finishes, this adds the time taken and any
+     * error stacktrace to the build element and writes the document to disk.
+     *
+     * @param event An event with any relevant extra information.
+     *              Will not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>long</name></type> <name>totalTime</name> =<init> <expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call> - <name><name>buildElement</name>.<name>startTime</name></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>buildElement</name>.<name>element</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>TIME_ATTR</name></expr></argument>, <argument><expr><call><name><name>DefaultLogger</name>.<name>formatTime</name></name><argument_list>(<argument><expr><name>totalTime</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name><name>event</name>.<name>getException</name></name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>buildElement</name>.<name>element</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>ERROR_ATTR</name></expr></argument>, <argument><expr><call><name><name>event</name>.<name>getException</name></name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// print the stacktrace in the build file it is always useful...</comment>
+            <comment type="line">// better have too much info than not enough.</comment>
+            <decl_stmt><decl><type><name>Throwable</name></type> <name>t</name> =<init> <expr><call><name><name>event</name>.<name>getException</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Text</name></type> <name>errText</name> =<init> <expr><call><name><name>doc</name>.<name>createCDATASection</name></name><argument_list>(<argument><expr><call><name><name>StringUtils</name>.<name>getStackTrace</name></name><argument_list>(<argument><expr><name>t</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Element</name></type> <name>stacktrace</name> =<init> <expr><call><name><name>doc</name>.<name>createElement</name></name><argument_list>(<argument><expr><name>STACKTRACE_TAG</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>stacktrace</name>.<name>appendChild</name></name><argument_list>(<argument><expr><name>errText</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>synchronizedAppend</name><argument_list>(<argument><expr><name><name>buildElement</name>.<name>element</name></name></expr></argument>, <argument><expr><name>stacktrace</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>outFilename</name> =<init> <expr><call><name><name>event</name>.<name>getProject</name></name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr>"XmlLogger.file"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>outFilename</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>outFilename</name> = "log.xml"</expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>xslUri</name> =<init> <expr><call><name><name>event</name>.<name>getProject</name></name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr>"ant.XmlLogger.stylesheet.uri"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>xslUri</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>xslUri</name> = "log.xsl"</expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Writer</name></type> <name>out</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <comment type="line">// specify output in UTF8 otherwise accented characters will blow</comment>
+            <comment type="line">// up everything</comment>
+            <decl_stmt><decl><type><name>OutputStream</name></type> <name>stream</name> =<init> <expr><name>outStream</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>stream</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>stream</name> = new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>outFilename</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><name>out</name> = new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr><name>stream</name></expr></argument>, <argument><expr>"UTF8"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"&lt;?xml version=\"1.0\" encoding=\"UTF-8\"?&gt;\n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>xslUri</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"&lt;?xml-stylesheet type=\"text/xsl\" href=\"" + <name>xslUri</name> + "\"?&gt;\n\n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr>new <call><name>DOMElementWriter</name><argument_list>()</argument_list></call>.<call><name>write</name><argument_list>(<argument><expr><name><name>buildElement</name>.<name>element</name></name></expr></argument>, <argument><expr><name>out</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr>"\t"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>exc</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Unable to write log file"</expr></argument>, <argument><expr><name>exc</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+        <expr_stmt><expr><name>buildElement</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the stack of timed elements for the current thread.
+     * @return the stack of timed elements for the current thread
+     */</comment>
+    <function><type><specifier>private</specifier> <name><name>Stack</name><argument_list>&lt;<argument><name>TimedElement</name></argument>&gt;</argument_list></name></type> <name>getStack</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>Stack</name><argument_list>&lt;<argument><name>TimedElement</name></argument>&gt;</argument_list></name></type> <name>threadStack</name> =<init> <expr><call><name><name>threadStacks</name>.<name>get</name></name><argument_list>(<argument><expr><call><name><name>Thread</name>.<name>currentThread</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>threadStack</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>threadStack</name> = new <call><name><name>Stack</name><argument_list>&lt;<argument><name>TimedElement</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>threadStacks</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>Thread</name>.<name>currentThread</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>threadStack</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="block">/* For debugging purposes uncomment:
+        org.w3c.dom.Comment s = doc.createComment("stack=" + threadStack);
+        buildElement.element.appendChild(s);
+         */</comment>
+        <return>return <expr><name>threadStack</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fired when a target starts building, this pushes a timed element
+     * for the target onto the stack of elements for the current thread,
+     * remembering the current time and the name of the target.
+     *
+     * @param event An event with any relevant extra information.
+     *              Will not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Target</name></type> <name>target</name> =<init> <expr><call><name><name>event</name>.<name>getTarget</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>TimedElement</name></type> <name>targetElement</name> =<init> <expr>new <call><name>TimedElement</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name><name>targetElement</name>.<name>startTime</name></name> = <call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>targetElement</name>.<name>element</name></name> = <call><name><name>doc</name>.<name>createElement</name></name><argument_list>(<argument><expr><name>TARGET_TAG</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>targetElement</name>.<name>element</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>NAME_ATTR</name></expr></argument>, <argument><expr><call><name><name>target</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>targets</name>.<name>put</name></name><argument_list>(<argument><expr><name>target</name></expr></argument>, <argument><expr><name>targetElement</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>getStack</name><argument_list>()</argument_list></call>.<call><name>push</name><argument_list>(<argument><expr><name>targetElement</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fired when a target finishes building, this adds the time taken
+     * and any error stacktrace to the appropriate target element in the log.
+     *
+     * @param event An event with any relevant extra information.
+     *              Will not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Target</name></type> <name>target</name> =<init> <expr><call><name><name>event</name>.<name>getTarget</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>TimedElement</name></type> <name>targetElement</name> =<init> <expr>(<name>TimedElement</name>) <call><name><name>targets</name>.<name>get</name></name><argument_list>(<argument><expr><name>target</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>targetElement</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>long</name></type> <name>totalTime</name> =<init> <expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call> - <name><name>targetElement</name>.<name>startTime</name></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>targetElement</name>.<name>element</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>TIME_ATTR</name></expr></argument>, <argument><expr><call><name><name>DefaultLogger</name>.<name>formatTime</name></name><argument_list>(<argument><expr><name>totalTime</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>TimedElement</name></type> <name>parentElement</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name><name>Stack</name><argument_list>&lt;<argument><name>TimedElement</name></argument>&gt;</argument_list></name></type> <name>threadStack</name> =<init> <expr><call><name>getStack</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name><name>threadStack</name>.<name>empty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>TimedElement</name></type> <name>poppedStack</name> =<init> <expr><call><name><name>threadStack</name>.<name>pop</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>poppedStack</name> != <name>targetElement</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>RuntimeException</name><argument_list>(<argument><expr>"Mismatch - popped element = " + <name>poppedStack</name>
+                            + " finished target element = " + <name>targetElement</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <if>if <condition>(<expr>!<call><name><name>threadStack</name>.<name>empty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>parentElement</name> = (<name>TimedElement</name>) <call><name><name>threadStack</name>.<name>peek</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>parentElement</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>synchronizedAppend</name><argument_list>(<argument><expr><name><name>buildElement</name>.<name>element</name></name></expr></argument>, <argument><expr><name><name>targetElement</name>.<name>element</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>synchronizedAppend</name><argument_list>(<argument><expr><name><name>parentElement</name>.<name>element</name></name></expr></argument>,
+                                   <argument><expr><name><name>targetElement</name>.<name>element</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>targets</name>.<name>remove</name></name><argument_list>(<argument><expr><name>target</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fired when a task starts building, this pushes a timed element
+     * for the task onto the stack of elements for the current thread,
+     * remembering the current time and the name of the task.
+     *
+     * @param event An event with any relevant extra information.
+     *              Will not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>TimedElement</name></type> <name>taskElement</name> =<init> <expr>new <call><name>TimedElement</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name><name>taskElement</name>.<name>startTime</name></name> = <call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>taskElement</name>.<name>element</name></name> = <call><name><name>doc</name>.<name>createElement</name></name><argument_list>(<argument><expr><name>TASK_TAG</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>Task</name></type> <name>task</name> =<init> <expr><call><name><name>event</name>.<name>getTask</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>event</name>.<name>getTask</name></name><argument_list>()</argument_list></call>.<call><name>getTaskName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>name</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>name</name> = ""</expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>taskElement</name>.<name>element</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>NAME_ATTR</name></expr></argument>, <argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>taskElement</name>.<name>element</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>LOCATION_ATTR</name></expr></argument>, <argument><expr><call><name><name>event</name>.<name>getTask</name></name><argument_list>()</argument_list></call>.<call><name>getLocation</name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>tasks</name>.<name>put</name></name><argument_list>(<argument><expr><name>task</name></expr></argument>, <argument><expr><name>taskElement</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>getStack</name><argument_list>()</argument_list></call>.<call><name>push</name><argument_list>(<argument><expr><name>taskElement</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fired when a task finishes building, this adds the time taken
+     * and any error stacktrace to the appropriate task element in the log.
+     *
+     * @param event An event with any relevant extra information.
+     *              Will not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Task</name></type> <name>task</name> =<init> <expr><call><name><name>event</name>.<name>getTask</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>TimedElement</name></type> <name>taskElement</name> =<init> <expr>(<name>TimedElement</name>) <call><name><name>tasks</name>.<name>get</name></name><argument_list>(<argument><expr><name>task</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>taskElement</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>RuntimeException</name><argument_list>(<argument><expr>"Unknown task " + <name>task</name> + " not in " + <name>tasks</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>long</name></type> <name>totalTime</name> =<init> <expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call> - <name><name>taskElement</name>.<name>startTime</name></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>taskElement</name>.<name>element</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>TIME_ATTR</name></expr></argument>, <argument><expr><call><name><name>DefaultLogger</name>.<name>formatTime</name></name><argument_list>(<argument><expr><name>totalTime</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>Target</name></type> <name>target</name> =<init> <expr><call><name><name>task</name>.<name>getOwningTarget</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>TimedElement</name></type> <name>targetElement</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>target</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>targetElement</name> = (<name>TimedElement</name>) <call><name><name>targets</name>.<name>get</name></name><argument_list>(<argument><expr><name>target</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>targetElement</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>synchronizedAppend</name><argument_list>(<argument><expr><name><name>buildElement</name>.<name>element</name></name></expr></argument>, <argument><expr><name><name>taskElement</name>.<name>element</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>synchronizedAppend</name><argument_list>(<argument><expr><name><name>targetElement</name>.<name>element</name></name></expr></argument>, <argument><expr><name><name>taskElement</name>.<name>element</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <decl_stmt><decl><type><name><name>Stack</name><argument_list>&lt;<argument><name>TimedElement</name></argument>&gt;</argument_list></name></type> <name>threadStack</name> =<init> <expr><call><name>getStack</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<call><name><name>threadStack</name>.<name>empty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>TimedElement</name></type> <name>poppedStack</name> =<init> <expr><call><name><name>threadStack</name>.<name>pop</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>poppedStack</name> != <name>taskElement</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>RuntimeException</name><argument_list>(<argument><expr>"Mismatch - popped element = " + <name>poppedStack</name>
+                        + " finished task element = " + <name>taskElement</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>tasks</name>.<name>remove</name></name><argument_list>(<argument><expr><name>task</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the TimedElement associated with a task.
+     *
+     * Where the task is not found directly, search for unknown elements which
+     * may be hiding the real task
+     */</comment>
+    <function><type><specifier>private</specifier> <name>TimedElement</name></type> <name>getTaskElement</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>task</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>TimedElement</name></type> <name>element</name> =<init> <expr>(<name>TimedElement</name>) <call><name><name>tasks</name>.<name>get</name></name><argument_list>(<argument><expr><name>task</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>element</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>element</name></expr>;</return>
+        }</block></then></if>
+        <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>Task</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>tasks</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>Task</name></type> <name>key</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>key</name> <name>instanceof</name> <name>UnknownElement</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr>((<name>UnknownElement</name>) <name>key</name>).<call><name>getTask</name><argument_list>()</argument_list></call> == <name>task</name></expr>)</condition><then> <block>{
+                    <return>return <expr>(<name>TimedElement</name>) <call><name><name>tasks</name>.<name>get</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>;</return>
+                }</block></then></if>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fired when a message is logged, this adds a message element to the
+     * most appropriate parent element (task, target or build) and records
+     * the priority and text of the message.
+     *
+     * @param event An event with any relevant extra information.
+     *              Will not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>messageLogged</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>priority</name> =<init> <expr><call><name><name>event</name>.<name>getPriority</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>priority</name> &gt; <name>msgOutputLevel</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Element</name></type> <name>messageElement</name> =<init> <expr><call><name><name>doc</name>.<name>createElement</name></name><argument_list>(<argument><expr><name>MESSAGE_TAG</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr>"debug"</expr></init></decl>;</decl_stmt>
+        <switch>switch <condition>(<expr><name>priority</name></expr>)</condition> <block>{
+            <case>case <expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr>:
+                <expr_stmt><expr><name>name</name> = "error"</expr>;</expr_stmt>
+                <break>break;</break>
+            </case><case>case <expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr>:
+                <expr_stmt><expr><name>name</name> = "warn"</expr>;</expr_stmt>
+                <break>break;</break>
+            </case><case>case <expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr>:
+                <expr_stmt><expr><name>name</name> = "info"</expr>;</expr_stmt>
+                <break>break;</break>
+            </case><default>default:
+                <expr_stmt><expr><name>name</name> = "debug"</expr>;</expr_stmt>
+                <break>break;</break>
+        </default>}</block></switch>
+        <expr_stmt><expr><call><name><name>messageElement</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>PRIORITY_ATTR</name></expr></argument>, <argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>Throwable</name></type> <name>ex</name> =<init> <expr><call><name><name>event</name>.<name>getException</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name><name>Project</name>.<name>MSG_DEBUG</name></name> &lt;= <name>msgOutputLevel</name> &amp;&amp; <name>ex</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Text</name></type> <name>errText</name> =<init> <expr><call><name><name>doc</name>.<name>createCDATASection</name></name><argument_list>(<argument><expr><call><name><name>StringUtils</name>.<name>getStackTrace</name></name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Element</name></type> <name>stacktrace</name> =<init> <expr><call><name><name>doc</name>.<name>createElement</name></name><argument_list>(<argument><expr><name>STACKTRACE_TAG</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>stacktrace</name>.<name>appendChild</name></name><argument_list>(<argument><expr><name>errText</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>synchronizedAppend</name><argument_list>(<argument><expr><name><name>buildElement</name>.<name>element</name></name></expr></argument>, <argument><expr><name>stacktrace</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Text</name></type> <name>messageText</name> =<init> <expr><call><name><name>doc</name>.<name>createCDATASection</name></name><argument_list>(<argument><expr><call><name><name>event</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>messageElement</name>.<name>appendChild</name></name><argument_list>(<argument><expr><name>messageText</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>TimedElement</name></type> <name>parentElement</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>Task</name></type> <name>task</name> =<init> <expr><call><name><name>event</name>.<name>getTask</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>Target</name></type> <name>target</name> =<init> <expr><call><name><name>event</name>.<name>getTarget</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>task</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parentElement</name> = <call><name>getTaskElement</name><argument_list>(<argument><expr><name>task</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>parentElement</name> == <name>null</name> &amp;&amp; <name>target</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parentElement</name> = (<name>TimedElement</name>) <call><name><name>targets</name>.<name>get</name></name><argument_list>(<argument><expr><name>target</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>parentElement</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>synchronizedAppend</name><argument_list>(<argument><expr><name><name>parentElement</name>.<name>element</name></name></expr></argument>, <argument><expr><name>messageElement</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>synchronizedAppend</name><argument_list>(<argument><expr><name><name>buildElement</name>.<name>element</name></name></expr></argument>, <argument><expr><name>messageElement</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="line">// -------------------------------------------------- BuildLogger interface</comment>
+
+    <comment type="javadoc">/**
+     * Set the logging level when using this as a Logger
+     *
+     * @param level the logging level -
+     *        see {@link org.apache.tools.ant.Project#MSG_ERR Project}
+     *        class for level definitions
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMessageOutputLevel</name><parameter_list>(<param><decl><type><name>int</name></type> <name>level</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>msgOutputLevel</name> = <name>level</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the output stream to which logging output is sent when operating
+     * as a logger.
+     *
+     * @param output the output PrintStream.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutputPrintStream</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>output</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>outStream</name></name> = new <call><name>PrintStream</name><argument_list>(<argument><expr><name>output</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Ignore emacs mode, as it has no meaning in XML format
+     *
+     * @param emacsMode true if logger should produce emacs compatible
+     *        output
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEmacsMode</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>emacsMode</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Ignore error print stream. All output will be written to
+     * either the XML log file or the PrintStream provided to
+     * setOutputPrintStream
+     *
+     * @param err the stream we are going to ignore.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setErrorPrintStream</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>err</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>synchronizedAppend</name><parameter_list>(<param><decl><type><name>Node</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Node</name></type> <name>child</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized(<expr><name>parent</name></expr>) <block>{
+            <expr_stmt><expr><call><name><name>parent</name>.<name>appendChild</name></name><argument_list>(<argument><expr><name>child</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+}</block></class>
+</unit>

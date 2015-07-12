@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\condition\IsReachable.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name></name>;</package>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>ProjectComponent</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>InvocationTargetException</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Method</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>InetAddress</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>MalformedURLException</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>URL</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>UnknownHostException</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Test for a host being reachable using ICMP "ping" packets &amp; echo operations.
+ * Ping packets are very reliable for assessing reachability in a LAN or WAN,
+ * but they do not get through any well-configured firewall. Echo (port 7) may.
+ * &lt;p/&gt;
+ * This condition turns unknown host exceptions into false conditions. This is
+ * because on a laptop, DNS is one of the first services lost when the network
+ * goes; you are implicitly offline.
+ * &lt;p/&gt;
+ * If a URL is supplied instead of a host, the hostname is extracted and used in
+ * the test--all other parts of the URL are discarded.
+ * &lt;p/&gt;
+ * The test may not work through firewalls; that is, something may be reachable
+ * using a protocol such as HTTP, while the lower level ICMP packets get dropped
+ * on the floor. Similarly, a host may be detected as reachable with ICMP, but not
+ * reachable on other ports (i.e. port 80), because of firewalls.
+ * &lt;p/&gt;
+ * Requires Java 5+ to work properly. On Java 1.4, if a hostname
+ * can be resolved, the destination is assumed to be reachable.
+ *
+ * @since Ant 1.7
+ */</comment>
+<class><specifier>public</specifier> class <name>IsReachable</name> <super><extends>extends <name>ProjectComponent</name></extends> <implements>implements <name>Condition</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>SECOND</name> =<init> <expr>1000</expr></init></decl>;</decl_stmt> <comment type="line">// millis per second</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>host</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>url</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The default timeout.
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEFAULT_TIMEOUT</name> =<init> <expr>30</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>timeout</name> =<init> <expr><name>DEFAULT_TIMEOUT</name></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Error when no hostname is defined
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_HOSTNAME</name> =<init> <expr>"No hostname defined"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Error when invalid timeout value is defined
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_BAD_TIMEOUT</name> =<init> <expr>"Invalid timeout value"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Unknown host message is seen.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>WARN_UNKNOWN_HOST</name> =<init> <expr>"Unknown host: "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Network error message is seen.
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_ON_NETWORK</name> =<init> <expr>"network error to "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Error message when url and host are specified. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_BOTH_TARGETS</name>
+        =<init> <expr>"Both url and host have been specified"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Error message when no reachably test avail. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>MSG_NO_REACHABLE_TEST</name>
+        =<init> <expr>"cannot do a proper reachability test on this Java version"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Error message when an invalid url is used. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_BAD_URL</name> =<init> <expr>"Bad URL "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Error message when no hostname in url. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_HOST_IN_URL</name> =<init> <expr>"No hostname in URL "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** The method name to look for in InetAddress */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>METHOD_NAME</name> =<init> <expr>"isReachable"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Set the host to ping.
+     *
+     * @param host the host to ping.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setHost</name><parameter_list>(<param><decl><type><name>String</name></type> <name>host</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>host</name></name> = <name>host</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the URL from which to extract the hostname.
+     *
+     * @param url a URL object.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUrl</name><parameter_list>(<param><decl><type><name>String</name></type> <name>url</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>url</name></name> = <name>url</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the timeout for the reachability test in seconds.
+     *
+     * @param timeout the timeout in seconds.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTimeout</name><parameter_list>(<param><decl><type><name>int</name></type> <name>timeout</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>timeout</name></name> = <name>timeout</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * emptyness test
+     *
+     * @param string param to check
+     *
+     * @return true if it is empty
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>empty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>string</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><name>string</name> == <name>null</name> || <call><name><name>string</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>;</return>
+    }</block></function>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>Class</name><index>[]</index></type> <name>parameterTypes</name> =<init> <expr><block>{<expr><name><name>Integer</name>.<name>TYPE</name></name></expr>}</block></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Evaluate the condition.
+     *
+     * @return true if the condition is true.
+     *
+     * @throws org.apache.tools.ant.BuildException
+     *          if an error occurs
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>eval</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name>empty</name><argument_list>(<argument><expr><name>host</name></expr></argument>)</argument_list></call> &amp;&amp; <call><name>empty</name><argument_list>(<argument><expr><name>url</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_HOSTNAME</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>timeout</name> &lt; 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_BAD_TIMEOUT</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>target</name> =<init> <expr><name>host</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<call><name>empty</name><argument_list>(<argument><expr><name>url</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr>!<call><name>empty</name><argument_list>(<argument><expr><name>host</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_BOTH_TARGETS</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <try>try <block>{
+                <comment type="line">//get the host of a url</comment>
+                <decl_stmt><decl><type><name>URL</name></type> <name>realURL</name> =<init> <expr>new <call><name>URL</name><argument_list>(<argument><expr><name>url</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>target</name> = <call><name><name>realURL</name>.<name>getHost</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><call><name>empty</name><argument_list>(<argument><expr><name>target</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_HOST_IN_URL</name> + <name>url</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+            }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_BAD_URL</name> + <name>url</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Probing host " + <name>target</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>InetAddress</name></type> <name>address</name></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>address</name> = <call><name><name>InetAddress</name>.<name>getByName</name></name><argument_list>(<argument><expr><name>target</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>UnknownHostException</name></type> <name>e1</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>WARN_UNKNOWN_HOST</name> + <name>target</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>false</expr>;</return>
+        }</block></catch></try>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Host address = " + <call><name><name>address</name>.<name>getHostAddress</name></name><argument_list>()</argument_list></call></expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>reachable</name></decl>;</decl_stmt>
+        <comment type="line">//Java1.5: reachable = address.isReachable(timeout * 1000);</comment>
+        <decl_stmt><decl><type><name>Method</name></type> <name>reachableMethod</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>reachableMethod</name> = <name><name>InetAddress</name>.<name><name/></name></name>class.<call><name>getMethod</name><argument_list>(<argument><expr><name>METHOD_NAME</name></expr></argument>,
+                    <argument><expr><name>parameterTypes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>Object</name><index>[]</index></type> <name>params</name> =<init> <expr>new <name><name>Object</name><index>[<expr>1</expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name><name>params</name><index>[<expr>0</expr>]</index></name> = new <call><name>Integer</name><argument_list>(<argument><expr><name>timeout</name> * <name>SECOND</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>reachable</name> = ((<name>Boolean</name>) <call><name><name>reachableMethod</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>address</name></expr></argument>, <argument><expr><name>params</name></expr></argument>)</argument_list></call>)
+                        .<call><name>booleanValue</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">//utterly implausible, but catered for anyway</comment>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"When calling " + <name>reachableMethod</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">//assume this is an IOexception about un readability</comment>
+                <decl_stmt><decl><type><name>Throwable</name></type> <name>nested</name> =<init> <expr><call><name><name>e</name>.<name>getTargetException</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>ERROR_ON_NETWORK</name> + <name>target</name> + ": " + <call><name><name>nested</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <comment type="line">//any kind of fault: not reachable.</comment>
+                <expr_stmt><expr><name>reachable</name> = false</expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block> <catch>catch (<param><decl><type><name>NoSuchMethodException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//java1.4</comment>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Not found: InetAddress." + <name>METHOD_NAME</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>MSG_NO_REACHABLE_TEST</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>reachable</name> = true</expr>;</expr_stmt>
+
+        }</block></catch></try>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"host is" + (<name>reachable</name> ? "" : " not") + " reachable"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>reachable</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

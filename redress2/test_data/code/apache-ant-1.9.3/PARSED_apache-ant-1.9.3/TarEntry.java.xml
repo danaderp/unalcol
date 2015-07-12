@@ -1,0 +1,1097 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\tar\TarEntry.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<comment type="block">/*
+ * This package is based on the work done by Timothy Gerard Endres
+ * (time@ice.com) to whom the Ant project is very grateful for his great code.
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>tar</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>UnsupportedEncodingException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Date</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Locale</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name>.<name>ZipEncoding</name></name>;</import>
+
+<comment type="javadoc">/**
+ * This class represents an entry in a Tar archive. It consists
+ * of the entry's header, as well as the entry's File. Entries
+ * can be instantiated in one of three ways, depending on how
+ * they are to be used.
+ * &lt;p&gt;
+ * TarEntries that are created from the header bytes read from
+ * an archive are instantiated with the TarEntry( byte[] )
+ * constructor. These entries will be used when extracting from
+ * or listing the contents of an archive. These entries have their
+ * header filled in using the header bytes. They also set the File
+ * to null, since they reference an archive entry not a file.
+ * &lt;p&gt;
+ * TarEntries that are created from Files that are to be written
+ * into an archive are instantiated with the TarEntry( File )
+ * constructor. These entries have their header filled in using
+ * the File's information. They also keep a reference to the File
+ * for convenience when writing entries.
+ * &lt;p&gt;
+ * Finally, TarEntries can be constructed from nothing but a name.
+ * This allows the programmer to construct the entry by hand, for
+ * instance when only an InputStream is available for writing to
+ * the archive, and the header information is constructed from
+ * other information. In this case the header fields are set to
+ * defaults and the File is set to null.
+ *
+ * &lt;p&gt;
+ * The C structure for a Tar Entry's header is:
+ * &lt;pre&gt;
+ * struct header {
+ * char name[NAMSIZ];
+ * char mode[8];
+ * char uid[8];
+ * char gid[8];
+ * char size[12];
+ * char mtime[12];
+ * char chksum[8];
+ * char linkflag;
+ * char linkname[NAMSIZ];
+ * char magic[8];
+ * char uname[TUNMLEN];
+ * char gname[TGNMLEN];
+ * char devmajor[8];
+ * char devminor[8];
+ * } header;
+ * All unused bytes are set to null.
+ * New-style GNU tar files are slightly different from the above.
+ * For values of size larger than 077777777777L (11 7s)
+ * or uid and gid larger than 07777777L (7 7s)
+ * the sign bit of the first byte is set, and the rest of the
+ * field is the binary representation of the number.
+ * See TarUtils.parseOctalOrBinary.
+ * &lt;/pre&gt;
+ * 
+ * &lt;p&gt;
+ * The C structure for a old GNU Tar Entry's header is:
+ * &lt;pre&gt;
+ * struct oldgnu_header {
+ * char unused_pad1[345]; // TarConstants.PAD1LEN_GNU       - offset 0
+ * char atime[12];        // TarConstants.ATIMELEN_GNU      - offset 345
+ * char ctime[12];        // TarConstants.CTIMELEN_GNU      - offset 357
+ * char offset[12];       // TarConstants.OFFSETLEN_GNU     - offset 369
+ * char longnames[4];     // TarConstants.LONGNAMESLEN_GNU  - offset 381
+ * char unused_pad2;      // TarConstants.PAD2LEN_GNU       - offset 385
+ * struct sparse sp[4];   // TarConstants.SPARSELEN_GNU     - offset 386
+ * char isextended;       // TarConstants.ISEXTENDEDLEN_GNU - offset 482
+ * char realsize[12];     // TarConstants.REALSIZELEN_GNU   - offset 483
+ * char unused_pad[17];   // TarConstants.PAD3LEN_GNU       - offset 495
+ * };
+ * &lt;/pre&gt;
+ * Whereas, "struct sparse" is:
+ * &lt;pre&gt;
+ * struct sparse {
+ * char offset[12];   // offset 0
+ * char numbytes[12]; // offset 12
+ * };
+ * &lt;/pre&gt;
+ *
+ */</comment>
+
+<class><specifier>public</specifier> class <name>TarEntry</name> <super><implements>implements <name>TarConstants</name></implements></super> <block>{
+    <comment type="javadoc">/** The entry's name. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>name</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's permission mode. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>mode</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's user id. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>userId</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's group id. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>groupId</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's size. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>size</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's modification time. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>modTime</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's link flag. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>byte</name></type> <name>linkFlag</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's link name. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>linkName</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's magic tag. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>magic</name></decl>;</decl_stmt>
+    <comment type="javadoc">/** The version of the format */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>version</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's user name. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>userName</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's group name. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>groupName</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's major device number. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>devMajor</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's minor device number. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>devMinor</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** If an extension sparse header follows. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>isExtended</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's real size in case of a sparse file. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>realSize</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The entry's file reference */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>file</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Maximum length of a user's name in the tar file */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAX_NAMELEN</name> =<init> <expr>31</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Default permissions bits for directories */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEFAULT_DIR_MODE</name> =<init> <expr>040755</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Default permissions bits for files */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEFAULT_FILE_MODE</name> =<init> <expr>0100644</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Convert millis to seconds */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MILLIS_PER_SECOND</name> =<init> <expr>1000</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Construct an empty entry and prepares the header values.
+     */</comment>
+    <constructor><specifier>private</specifier> <name>TarEntry</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>magic</name></name> = <name>MAGIC_POSIX</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>version</name></name> = <name>VERSION_POSIX</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = ""</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>linkName</name></name> = ""</expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>user</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"user.name"</expr></argument>, <argument><expr>""</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name><name>user</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; <name>MAX_NAMELEN</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>user</name> = <call><name><name>user</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>MAX_NAMELEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><name><name>this</name>.<name>userId</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>groupId</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>userName</name></name> = <name>user</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>groupName</name></name> = ""</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>file</name></name> = <name>null</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Construct an entry with only a name. This allows the programmer
+     * to construct the entry's header "by hand". File is set to null.
+     *
+     * @param name the entry name
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarEntry</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Construct an entry with only a name. This allows the programmer
+     * to construct the entry's header "by hand". File is set to null.
+     *
+     * @param name the entry name
+     * @param preserveLeadingSlashes whether to allow leading slashes
+     * in the name.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarEntry</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>preserveLeadingSlashes</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>name</name> = <call><name>normalizeFileName</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>preserveLeadingSlashes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>isDir</name> =<init> <expr><call><name><name>name</name>.<name>endsWith</name></name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><name><name>this</name>.<name>devMajor</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>devMinor</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>name</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>mode</name></name> = <name>isDir</name> ? <name>DEFAULT_DIR_MODE</name> : <name>DEFAULT_FILE_MODE</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>linkFlag</name></name> = <name>isDir</name> ? <name>LF_DIR</name> : <name>LF_NORMAL</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>userId</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>groupId</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>size</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>modTime</name></name> = (new <call><name>Date</name><argument_list>()</argument_list></call>).<call><name>getTime</name><argument_list>()</argument_list></call> / <name>MILLIS_PER_SECOND</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>linkName</name></name> = ""</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>userName</name></name> = ""</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>groupName</name></name> = ""</expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Construct an entry with a name and a link flag.
+     *
+     * @param name the entry name
+     * @param linkFlag the entry link flag.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarEntry</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>byte</name></type> <name>linkFlag</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>linkFlag</name></name> = <name>linkFlag</name></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>linkFlag</name> == <name>LF_GNUTYPE_LONGNAME</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>magic</name> = <name>GNU_TMAGIC</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>version</name> = <name>VERSION_GNU_SPACE</name></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Construct an entry for a file. File is set to file, and the
+     * header is constructed from information from the file.
+     * The name is set from the normalized file path.
+     *
+     * @param file The file that the entry represents.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarEntry</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><call><name>normalizeFileName</name><argument_list>(<argument><expr><call><name><name>file</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Construct an entry for a file. File is set to file, and the
+     * header is constructed from information from the file.
+     *
+     * @param file The file that the entry represents.
+     * @param fileName the name to be used for the entry.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarEntry</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>, <param><decl><type><name>String</name></type> <name>fileName</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name><name>this</name>.<name>file</name></name> = <name>file</name></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name><name>this</name>.<name>linkName</name></name> = ""</expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name><name>file</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>mode</name></name> = <name>DEFAULT_DIR_MODE</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>linkFlag</name></name> = <name>LF_DIR</name></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>int</name></type> <name>nameLength</name> =<init> <expr><call><name><name>fileName</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>nameLength</name> == 0 || <call><name><name>fileName</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>nameLength</name> - 1</expr></argument>)</argument_list></call> != '/'</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>fileName</name> + "/"</expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>fileName</name></expr>;</expr_stmt>
+            }</block></else></if>
+            <expr_stmt><expr><name><name>this</name>.<name>size</name></name> = 0</expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>mode</name></name> = <name>DEFAULT_FILE_MODE</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>linkFlag</name></name> = <name>LF_NORMAL</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>size</name></name> = <call><name><name>file</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>fileName</name></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <expr_stmt><expr><name><name>this</name>.<name>modTime</name></name> = <call><name><name>file</name>.<name>lastModified</name></name><argument_list>()</argument_list></call> / <name>MILLIS_PER_SECOND</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>devMajor</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>devMinor</name></name> = 0</expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Construct an entry from an archive's header bytes. File is set
+     * to null.
+     *
+     * @param headerBuf The header bytes from a tar archive entry.
+     * @throws IllegalArgumentException if any of the numeric fields have an invalid format
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarEntry</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>headerBuf</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>parseTarHeader</name><argument_list>(<argument><expr><name>headerBuf</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Construct an entry from an archive's header bytes. File is set
+     * to null.
+     *
+     * @param headerBuf The header bytes from a tar archive entry.
+     * @param encoding encoding to use for file names
+     * @throws IllegalArgumentException if any of the numeric fields have an invalid format
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TarEntry</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>headerBuf</name></decl></param>, <param><decl><type><name>ZipEncoding</name></type> <name>encoding</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>parseTarHeader</name><argument_list>(<argument><expr><name>headerBuf</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Determine if the two entries are equal. Equality is determined
+     * by the header names being equal.
+     *
+     * @param it Entry to be checked for equality.
+     * @return True if the entries are equal.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>TarEntry</name></type> <name>it</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>getName</name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><call><name><name>it</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Determine if the two entries are equal. Equality is determined
+     * by the header names being equal.
+     *
+     * @param it Entry to be checked for equality.
+     * @return True if the entries are equal.
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>it</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>it</name> == <name>null</name> || <call><name>getClass</name><argument_list>()</argument_list></call> != <call><name><name>it</name>.<name>getClass</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name>equals</name><argument_list>(<argument><expr>(<name>TarEntry</name>) <name>it</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Hashcodes are based on entry names.
+     *
+     * @return the entry hashcode
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>int</name></type> <name>hashCode</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getName</name><argument_list>()</argument_list></call>.<call><name>hashCode</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Determine if the given entry is a descendant of this entry.
+     * Descendancy is determined by the name of the descendant
+     * starting with this entry's name.
+     *
+     * @param desc Entry to be checked as a descendant of this.
+     * @return True if entry is a descendant of this.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isDescendent</name><parameter_list>(<param><decl><type><name>TarEntry</name></type> <name>desc</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>desc</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>startsWith</name><argument_list>(<argument><expr><call><name>getName</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's name.
+     *
+     * @return This entry's name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getName</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>name</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's name.
+     *
+     * @param name This entry's new name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <call><name>normalizeFileName</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the mode for this entry
+     *
+     * @param mode the mode for this entry
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMode</name><parameter_list>(<param><decl><type><name>int</name></type> <name>mode</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>mode</name></name> = <name>mode</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's link name.
+     *
+     * @return This entry's link name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getLinkName</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>linkName</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's link name.
+     * 
+     * @param link the link name to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLinkName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>link</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>linkName</name></name> = <name>link</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's user id.
+     *
+     * @return This entry's user id.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getUserId</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>userId</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's user id.
+     *
+     * @param userId This entry's new user id.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUserId</name><parameter_list>(<param><decl><type><name>int</name></type> <name>userId</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>userId</name></name> = <name>userId</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's group id.
+     *
+     * @return This entry's group id.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getGroupId</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>groupId</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's group id.
+     *
+     * @param groupId This entry's new group id.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setGroupId</name><parameter_list>(<param><decl><type><name>int</name></type> <name>groupId</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>groupId</name></name> = <name>groupId</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's user name.
+     *
+     * @return This entry's user name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getUserName</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>userName</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's user name.
+     *
+     * @param userName This entry's new user name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUserName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>userName</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>userName</name></name> = <name>userName</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's group name.
+     *
+     * @return This entry's group name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getGroupName</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>groupName</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's group name.
+     *
+     * @param groupName This entry's new group name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setGroupName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>groupName</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>groupName</name></name> = <name>groupName</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to set this entry's group and user ids.
+     *
+     * @param userId This entry's new user id.
+     * @param groupId This entry's new group id.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIds</name><parameter_list>(<param><decl><type><name>int</name></type> <name>userId</name></decl></param>, <param><decl><type><name>int</name></type> <name>groupId</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setUserId</name><argument_list>(<argument><expr><name>userId</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setGroupId</name><argument_list>(<argument><expr><name>groupId</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to set this entry's group and user names.
+     *
+     * @param userName This entry's new user name.
+     * @param groupName This entry's new group name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNames</name><parameter_list>(<param><decl><type><name>String</name></type> <name>userName</name></decl></param>, <param><decl><type><name>String</name></type> <name>groupName</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setUserName</name><argument_list>(<argument><expr><name>userName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setGroupName</name><argument_list>(<argument><expr><name>groupName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's modification time. The parameter passed
+     * to this method is in "Java time".
+     *
+     * @param time This entry's new modification time.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setModTime</name><parameter_list>(<param><decl><type><name>long</name></type> <name>time</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>modTime</name> = <name>time</name> / <name>MILLIS_PER_SECOND</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's modification time.
+     *
+     * @param time This entry's new modification time.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setModTime</name><parameter_list>(<param><decl><type><name>Date</name></type> <name>time</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>modTime</name> = <call><name><name>time</name>.<name>getTime</name></name><argument_list>()</argument_list></call> / <name>MILLIS_PER_SECOND</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's modification time.
+     *
+     * @return time This entry's new modification time.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Date</name></type> <name>getModTime</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>new <call><name>Date</name><argument_list>(<argument><expr><name>modTime</name> * <name>MILLIS_PER_SECOND</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's file.
+     *
+     * @return This entry's file.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getFile</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>file</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's mode.
+     *
+     * @return This entry's mode.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getMode</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>mode</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's file size.
+     *
+     * @return This entry's file size.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>long</name></type> <name>getSize</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>size</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's file size.
+     *
+     * @param size This entry's new file size.
+     * @throws IllegalArgumentException if the size is &amp;lt; 0.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSize</name><parameter_list>(<param><decl><type><name>long</name></type> <name>size</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>size</name> &lt; 0</expr>)</condition><then><block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"Size is out of range: "+<name>size</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>size</name></name> = <name>size</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's major device number.
+     *
+     * @return This entry's major device number.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getDevMajor</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>devMajor</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's major device number.
+     *
+     * @param devNo This entry's major device number.
+     * @throws IllegalArgumentException if the devNo is &amp;lt; 0.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDevMajor</name><parameter_list>(<param><decl><type><name>int</name></type> <name>devNo</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>devNo</name> &lt; 0</expr>)</condition><then><block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"Major device number is out of "
+                                               + "range: " + <name>devNo</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>devMajor</name></name> = <name>devNo</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's minor device number.
+     *
+     * @return This entry's minor device number.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getDevMinor</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>devMinor</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set this entry's minor device number.
+     *
+     * @param devNo This entry's minor device number.
+     * @throws IllegalArgumentException if the devNo is &amp;lt; 0.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDevMinor</name><parameter_list>(<param><decl><type><name>int</name></type> <name>devNo</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>devNo</name> &lt; 0</expr>)</condition><then><block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"Minor device number is out of "
+                                               + "range: " + <name>devNo</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>devMinor</name></name> = <name>devNo</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicates in case of a sparse file if an extension sparse header
+     * follows.
+     *
+     * @return true if an extension sparse header follows.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isExtended</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>isExtended</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this entry's real file size in case of a sparse file.
+     *
+     * @return This entry's real file size.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>long</name></type> <name>getRealSize</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>realSize</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicate if this entry is a GNU sparse block 
+     *
+     * @return true if this is a sparse extension provided by GNU tar
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isGNUSparse</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>linkFlag</name> == <name>LF_GNUTYPE_SPARSE</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicate if this entry is a GNU long linkname block
+     *
+     * @return true if this is a long name extension provided by GNU tar
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isGNULongLinkEntry</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>linkFlag</name> == <name>LF_GNUTYPE_LONGLINK</name>
+            &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>GNU_LONGLINK</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicate if this entry is a GNU long name block
+     *
+     * @return true if this is a long name extension provided by GNU tar
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isGNULongNameEntry</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>linkFlag</name> == <name>LF_GNUTYPE_LONGNAME</name>
+                           &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>GNU_LONGLINK</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if this is a Pax header.
+     * 
+     * @return {@code true} if this is a Pax header.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isPaxHeader</name><parameter_list>()</parameter_list><block>{
+        <return>return <expr><name>linkFlag</name> == <name>LF_PAX_EXTENDED_HEADER_LC</name>
+            || <name>linkFlag</name> == <name>LF_PAX_EXTENDED_HEADER_UC</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if this is a Pax header.
+     * 
+     * @return {@code true} if this is a Pax header.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isGlobalPaxHeader</name><parameter_list>()</parameter_list><block>{
+        <return>return <expr><name>linkFlag</name> == <name>LF_PAX_GLOBAL_EXTENDED_HEADER</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return whether or not this entry represents a directory.
+     *
+     * @return True if this entry is a directory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isDirectory</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>file</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>file</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>linkFlag</name> == <name>LF_DIR</name></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name>getName</name><argument_list>()</argument_list></call>.<call><name>endsWith</name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if this is a "normal file"
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isFile</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>file</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>file</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>linkFlag</name> == <name>LF_OLDNORM</name> || <name>linkFlag</name> == <name>LF_NORMAL</name></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <return>return <expr>!<call><name>getName</name><argument_list>()</argument_list></call>.<call><name>endsWith</name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if this is a symbolic link entry.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isSymbolicLink</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>linkFlag</name> == <name>LF_SYMLINK</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if this is a link entry.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isLink</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>linkFlag</name> == <name>LF_LINK</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if this is a character device entry.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isCharacterDevice</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>linkFlag</name> == <name>LF_CHR</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if this is a block device entry.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isBlockDevice</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>linkFlag</name> == <name>LF_BLK</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if this is a FIFO (pipe) entry.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isFIFO</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>linkFlag</name> == <name>LF_FIFO</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If this entry represents a file, and the file is a directory, return
+     * an array of TarEntries for this entry's children.
+     *
+     * @return An array of TarEntry's for this entry's children.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>TarEntry</name><index>[]</index></type> <name>getDirectoryEntries</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>file</name> == <name>null</name> || !<call><name><name>file</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <name><name>TarEntry</name><index>[<expr>0</expr>]</index></name></expr>;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type>   <name>list</name> =<init> <expr><call><name><name>file</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>TarEntry</name><index>[]</index></type> <name>result</name> =<init> <expr>new <name><name>TarEntry</name><index>[<expr><name><name>list</name>.<name>length</name></name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>list</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+            <expr_stmt><expr><name><name>result</name><index>[<expr><name>i</name></expr>]</index></name> = new <call><name>TarEntry</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name><name>list</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Write an entry's header information to a header buffer.
+     *
+     * &lt;p&gt;This method does not use the star/GNU tar/BSD tar extensions.&lt;/p&gt;
+     *
+     * @param outbuf The tar entry header buffer to fill in.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>writeEntryHeader</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>outbuf</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <expr_stmt><expr><call><name>writeEntryHeader</name><argument_list>(<argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name><name>TarUtils</name>.<name>DEFAULT_ENCODING</name></name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex</name></decl></param>) <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name>writeEntryHeader</name><argument_list>(<argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name><name>TarUtils</name>.<name>FALLBACK_ENCODING</name></name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex2</name></decl></param>) <block>{
+                <comment type="line">// impossible</comment>
+                <throw>throw <expr>new <call><name>RuntimeException</name><argument_list>(<argument><expr><name>ex2</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Write an entry's header information to a header buffer.
+     *
+     * @param outbuf The tar entry header buffer to fill in.
+     * @param encoding encoding to use when writing the file name.
+     * @param starMode whether to use the star/GNU tar/BSD tar
+     * extension for numeric fields if their value doesn't fit in the
+     * maximum size of standard tar archives
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>writeEntryHeader</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>outbuf</name></decl></param>, <param><decl><type><name>ZipEncoding</name></type> <name>encoding</name></decl></param>,
+                                 <param><decl><type><name>boolean</name></type> <name>starMode</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>offset</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><name>offset</name> = <call><name><name>TarUtils</name>.<name>formatNameBytes</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>NAMELEN</name></expr></argument>,
+                                          <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name>writeEntryHeaderField</name><argument_list>(<argument><expr><name>mode</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>MODELEN</name></expr></argument>, <argument><expr><name>starMode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name>writeEntryHeaderField</name><argument_list>(<argument><expr><name>userId</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>UIDLEN</name></expr></argument>,
+                                       <argument><expr><name>starMode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name>writeEntryHeaderField</name><argument_list>(<argument><expr><name>groupId</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>GIDLEN</name></expr></argument>,
+                                       <argument><expr><name>starMode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name>writeEntryHeaderField</name><argument_list>(<argument><expr><name>size</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>SIZELEN</name></expr></argument>, <argument><expr><name>starMode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name>writeEntryHeaderField</name><argument_list>(<argument><expr><name>modTime</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>MODTIMELEN</name></expr></argument>,
+                                       <argument><expr><name>starMode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>csOffset</name> =<init> <expr><name>offset</name></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>c</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>c</name> &lt; <name>CHKSUMLEN</name></expr>;</condition> <incr><expr>++<name>c</name></expr></incr>) <block>{
+            <expr_stmt><expr><name><name>outbuf</name><index>[<expr><name>offset</name>++</expr>]</index></name> = (<name>byte</name>) ' '</expr>;</expr_stmt>
+        }</block></for>
+
+        <expr_stmt><expr><name><name>outbuf</name><index>[<expr><name>offset</name>++</expr>]</index></name> = <name>linkFlag</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name><name>TarUtils</name>.<name>formatNameBytes</name></name><argument_list>(<argument><expr><name>linkName</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>NAMELEN</name></expr></argument>,
+                                          <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name><name>TarUtils</name>.<name>formatNameBytes</name></name><argument_list>(<argument><expr><name>magic</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>PURE_MAGICLEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name><name>TarUtils</name>.<name>formatNameBytes</name></name><argument_list>(<argument><expr><name>version</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>VERSIONLEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name><name>TarUtils</name>.<name>formatNameBytes</name></name><argument_list>(<argument><expr><name>userName</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>UNAMELEN</name></expr></argument>,
+                                          <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name><name>TarUtils</name>.<name>formatNameBytes</name></name><argument_list>(<argument><expr><name>groupName</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>GNAMELEN</name></expr></argument>,
+                                          <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name>writeEntryHeaderField</name><argument_list>(<argument><expr><name>devMajor</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>DEVLEN</name></expr></argument>,
+                                       <argument><expr><name>starMode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> = <call><name>writeEntryHeaderField</name><argument_list>(<argument><expr><name>devMinor</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>DEVLEN</name></expr></argument>,
+                                       <argument><expr><name>starMode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <while>while <condition>(<expr><name>offset</name> &lt; <name><name>outbuf</name>.<name>length</name></name></expr>)</condition> <block>{
+            <expr_stmt><expr><name><name>outbuf</name><index>[<expr><name>offset</name>++</expr>]</index></name> = 0</expr>;</expr_stmt>
+        }</block></while>
+
+        <decl_stmt><decl><type><name>long</name></type> <name>chk</name> =<init> <expr><call><name><name>TarUtils</name>.<name>computeCheckSum</name></name><argument_list>(<argument><expr><name>outbuf</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name><name>TarUtils</name>.<name>formatCheckSumOctalBytes</name></name><argument_list>(<argument><expr><name>chk</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>csOffset</name></expr></argument>, <argument><expr><name>CHKSUMLEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>int</name></type> <name>writeEntryHeaderField</name><parameter_list>(<param><decl><type><name>long</name></type> <name>value</name></decl></param>, <param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>outbuf</name></decl></param>, <param><decl><type><name>int</name></type> <name>offset</name></decl></param>,
+                                      <param><decl><type><name>int</name></type> <name>length</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>starMode</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<name>starMode</name> &amp;&amp; (<name>value</name> &lt; 0
+                          || <name>value</name> &gt;= (1l &lt;&lt; (3 * (<name>length</name> - 1))))</expr>)</condition><then> <block>{
+            <comment type="line">// value doesn't fit into field when written as octal</comment>
+            <comment type="line">// number, will be written to PAX header or causes an</comment>
+            <comment type="line">// error</comment>
+            <return>return <expr><call><name><name>TarUtils</name>.<name>formatLongOctalBytes</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>length</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name><name>TarUtils</name>.<name>formatLongOctalOrBinaryBytes</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>, <argument><expr><name>outbuf</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>,
+                                                     <argument><expr><name>length</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parse an entry's header information from a header buffer.
+     *
+     * @param header The tar entry header buffer to get information from.
+     * @throws IllegalArgumentException if any of the numeric fields have an invalid format
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>parseTarHeader</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>header</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <expr_stmt><expr><call><name>parseTarHeader</name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name><name>TarUtils</name>.<name>DEFAULT_ENCODING</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex</name></decl></param>) <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name>parseTarHeader</name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name><name>TarUtils</name>.<name>DEFAULT_ENCODING</name></name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex2</name></decl></param>) <block>{
+                <comment type="line">// not really possible</comment>
+                <throw>throw <expr>new <call><name>RuntimeException</name><argument_list>(<argument><expr><name>ex2</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parse an entry's header information from a header buffer.
+     *
+     * @param header The tar entry header buffer to get information from.
+     * @param encoding encoding to use for file names
+     * @throws IllegalArgumentException if any of the numeric fields
+     * have an invalid format
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>parseTarHeader</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>header</name></decl></param>, <param><decl><type><name>ZipEncoding</name></type> <name>encoding</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>parseTarHeader</name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>parseTarHeader</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>header</name></decl></param>, <param><decl><type><name>ZipEncoding</name></type> <name>encoding</name></decl></param>,
+                                <param><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>oldStyle</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>offset</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><name>name</name> = <name>oldStyle</name> ? <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>NAMELEN</name></expr></argument>)</argument_list></call>
+            : <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>NAMELEN</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>NAMELEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>mode</name> = (<name>int</name>) <call><name><name>TarUtils</name>.<name>parseOctalOrBinary</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>MODELEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>MODELEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>userId</name> = (<name>int</name>) <call><name><name>TarUtils</name>.<name>parseOctalOrBinary</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>UIDLEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>UIDLEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>groupId</name> = (<name>int</name>) <call><name><name>TarUtils</name>.<name>parseOctalOrBinary</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>GIDLEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>GIDLEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>size</name> = <call><name><name>TarUtils</name>.<name>parseOctalOrBinary</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>SIZELEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>SIZELEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>modTime</name> = <call><name><name>TarUtils</name>.<name>parseOctalOrBinary</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>MODTIMELEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>MODTIMELEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>CHKSUMLEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>linkFlag</name> = <name><name>header</name><index>[<expr><name>offset</name>++</expr>]</index></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>linkName</name> = <name>oldStyle</name> ? <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>NAMELEN</name></expr></argument>)</argument_list></call>
+            : <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>NAMELEN</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>NAMELEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>magic</name> = <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>PURE_MAGICLEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>PURE_MAGICLEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>version</name> = <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>VERSIONLEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>VERSIONLEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>userName</name> = <name>oldStyle</name> ? <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>UNAMELEN</name></expr></argument>)</argument_list></call>
+            : <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>UNAMELEN</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>UNAMELEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>groupName</name> = <name>oldStyle</name> ? <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>GNAMELEN</name></expr></argument>)</argument_list></call>
+            : <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>GNAMELEN</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>GNAMELEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>devMajor</name> = (<name>int</name>) <call><name><name>TarUtils</name>.<name>parseOctalOrBinary</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>DEVLEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>DEVLEN</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>devMinor</name> = (<name>int</name>) <call><name><name>TarUtils</name>.<name>parseOctalOrBinary</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>DEVLEN</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>DEVLEN</name></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>type</name> =<init> <expr><call><name>evaluateType</name><argument_list>(<argument><expr><name>header</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <switch>switch <condition>(<expr><name>type</name></expr>)</condition> <block>{
+        <case>case <expr><name>FORMAT_OLDGNU</name></expr>: <block>{
+            <expr_stmt><expr><name>offset</name> += <name>ATIMELEN_GNU</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>offset</name> += <name>CTIMELEN_GNU</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>offset</name> += <name>OFFSETLEN_GNU</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>offset</name> += <name>LONGNAMESLEN_GNU</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>offset</name> += <name>PAD2LEN_GNU</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>offset</name> += <name>SPARSELEN_GNU</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>isExtended</name> = <call><name><name>TarUtils</name>.<name>parseBoolean</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>offset</name> += <name>ISEXTENDEDLEN_GNU</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>realSize</name> = <call><name><name>TarUtils</name>.<name>parseOctal</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>REALSIZELEN_GNU</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>offset</name> += <name>REALSIZELEN_GNU</name></expr>;</expr_stmt>
+            <break>break;</break>
+        }</block>
+        </case><case>case <expr><name>FORMAT_POSIX</name></expr>:
+        </case><default>default: <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>prefix</name> =<init> <expr><name>oldStyle</name>
+                ? <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>PREFIXLEN</name></expr></argument>)</argument_list></call>
+                : <call><name><name>TarUtils</name>.<name>parseName</name></name><argument_list>(<argument><expr><name>header</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>PREFIXLEN</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <comment type="line">// SunOS tar -E does not add / to directory names, so fix</comment>
+            <comment type="line">// up to be consistent</comment>
+            <if>if <condition>(<expr><call><name>isDirectory</name><argument_list>()</argument_list></call> &amp;&amp; !<call><name><name>name</name>.<name>endsWith</name></name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call></expr>)</condition><then><block>{
+                <expr_stmt><expr><name>name</name> = <name>name</name> + "/"</expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>prefix</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then><block>{
+                <expr_stmt><expr><name>name</name> = <name>prefix</name> + "/" + <name>name</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block>
+        </default>}</block></switch>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Strips Windows' drive letter as well as any leading slashes,
+     * turns path separators into forward slahes.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>normalizeFileName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>fileName</name></decl></param>,
+                                            <param><decl><type><name>boolean</name></type> <name>preserveLeadingSlashes</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>osname</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"os.name"</expr></argument>)</argument_list></call>.<call><name>toLowerCase</name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>osname</name> != <name>null</name></expr>)</condition><then> <block>{
+
+            <comment type="line">// Strip off drive letters!</comment>
+            <comment type="line">// REVIEW Would a better check be "(File.separator == '\')"?</comment>
+
+            <if>if <condition>(<expr><call><name><name>osname</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"windows"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name><name>fileName</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 2</expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>char</name></type> <name>ch1</name> =<init> <expr><call><name><name>fileName</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>char</name></type> <name>ch2</name> =<init> <expr><call><name><name>fileName</name>.<name>charAt</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <if>if <condition>(<expr><name>ch2</name> == ':'
+                        &amp;&amp; ((<name>ch1</name> &gt;= 'a' &amp;&amp; <name>ch1</name> &lt;= 'z')
+                            || (<name>ch1</name> &gt;= 'A' &amp;&amp; <name>ch1</name> &lt;= 'Z'))</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>fileName</name> = <call><name><name>fileName</name>.<name>substring</name></name><argument_list>(<argument><expr>2</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then></if>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>osname</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"netware"</expr></argument>)</argument_list></call> &gt; -1</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>colon</name> =<init> <expr><call><name><name>fileName</name>.<name>indexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>colon</name> != -1</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>fileName</name> = <call><name><name>fileName</name>.<name>substring</name></name><argument_list>(<argument><expr><name>colon</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then></if></else></if>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>fileName</name> = <call><name><name>fileName</name>.<name>replace</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// No absolute pathnames</comment>
+        <comment type="line">// Windows (and Posix?) paths can start with "\\NetworkDrive\",</comment>
+        <comment type="line">// so we loop on starting /'s.</comment>
+        <while>while <condition>(<expr>!<name>preserveLeadingSlashes</name> &amp;&amp; <call><name><name>fileName</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call></expr>)</condition> <block>{
+            <expr_stmt><expr><name>fileName</name> = <call><name><name>fileName</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><name>fileName</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Evaluate an entry's header format from a header buffer.
+     *
+     * @param header The tar entry header buffer to evaluate the format for.
+     * @return format type
+     */</comment>
+    <function><type><specifier>private</specifier> <name>int</name></type> <name>evaluateType</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>header</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>matchAsciiBuffer</name><argument_list>(<argument><expr><name>GNU_TMAGIC</name></expr></argument>, <argument><expr><name>header</name></expr></argument>, <argument><expr><name>MAGIC_OFFSET</name></expr></argument>, <argument><expr><name>PURE_MAGICLEN</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>FORMAT_OLDGNU</name></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>matchAsciiBuffer</name><argument_list>(<argument><expr><name>MAGIC_POSIX</name></expr></argument>, <argument><expr><name>header</name></expr></argument>, <argument><expr><name>MAGIC_OFFSET</name></expr></argument>, <argument><expr><name>PURE_MAGICLEN</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>FORMAT_POSIX</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr>0</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if buffer contents matches Ascii String.
+     * 
+     * @param expected
+     * @param buffer
+     * @param offset
+     * @param length
+     * @return {@code true} if buffer is the same as the expected string
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>matchAsciiBuffer</name><parameter_list>(<param><decl><type><name>String</name></type> <name>expected</name></decl></param>, <param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>buffer</name></decl></param>,
+                                            <param><decl><type><name>int</name></type> <name>offset</name></decl></param>, <param><decl><type><name>int</name></type> <name>length</name></decl></param>)</parameter_list><block>{
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>buffer1</name></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>buffer1</name> = <call><name><name>expected</name>.<name>getBytes</name></name><argument_list>(<argument><expr>"ASCII"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>UnsupportedEncodingException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>RuntimeException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw> <comment type="line">// Should not happen</comment>
+        }</block></catch></try>
+        <return>return <expr><call><name>isEqual</name><argument_list>(<argument><expr><name>buffer1</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>buffer1</name>.<name>length</name></name></expr></argument>, <argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>length</name></expr></argument>,
+                       <argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Compare byte buffers, optionally ignoring trailing nulls
+     * 
+     * @param buffer1
+     * @param offset1
+     * @param length1
+     * @param buffer2
+     * @param offset2
+     * @param length2
+     * @param ignoreTrailingNulls
+     * @return {@code true} if buffer1 and buffer2 have same contents, having regard to trailing nulls
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>isEqual</name><parameter_list>(
+            <param><decl><type><specifier>final</specifier> <name><name>byte</name><index>[]</index></name></type> <name>buffer1</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>offset1</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>length1</name></decl></param>,
+            <param><decl><type><specifier>final</specifier> <name><name>byte</name><index>[]</index></name></type> <name>buffer2</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>offset2</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>length2</name></decl></param>,
+            <param><decl><type><name>boolean</name></type> <name>ignoreTrailingNulls</name></decl></param>)</parameter_list><block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>minLen</name>=<init><expr><name>length1</name> &lt; <name>length2</name> ? <name>length1</name> : <name>length2</name></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name>=<init><expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>minLen</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>)<block>{
+            <if>if <condition>(<expr><name><name>buffer1</name><index>[<expr><name>offset1</name>+<name>i</name></expr>]</index></name> != <name><name>buffer2</name><index>[<expr><name>offset2</name>+<name>i</name></expr>]</index></name></expr>)</condition><then><block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <if>if <condition>(<expr><name>length1</name> == <name>length2</name></expr>)</condition><then><block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>ignoreTrailingNulls</name></expr>)</condition><then><block>{
+            <if>if <condition>(<expr><name>length1</name> &gt; <name>length2</name></expr>)</condition><then><block>{
+                <for>for(<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>length2</name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>length1</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>)<block>{
+                    <if>if <condition>(<expr><name><name>buffer1</name><index>[<expr><name>offset1</name>+<name>i</name></expr>]</index></name> != 0</expr>)</condition><then><block>{
+                        <return>return <expr>false</expr>;</return>
+                    }</block></then></if>
+                }</block></for>
+            }</block></then> <else>else <block>{
+                <for>for(<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>length1</name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>length2</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>)<block>{
+                    <if>if <condition>(<expr><name><name>buffer2</name><index>[<expr><name>offset2</name>+<name>i</name></expr>]</index></name> != 0</expr>)</condition><then><block>{
+                        <return>return <expr>false</expr>;</return>
+                    }</block></then></if>
+                }</block></for>
+            }</block></else></if>
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

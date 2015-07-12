@@ -1,0 +1,611 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\RuntimeConfigurable.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>Serializable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Collections</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedHashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name>.<name>Entry</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>attribute</name>.<name>EnableAttribute</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>CollectionUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>MacroDef</name>.<name>Attribute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>MacroInstance</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>AttributeList</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>helpers</name>.<name>AttributeListImpl</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Wrapper class that holds the attributes of an element, its children, and
+ * any text within it. It then takes care of configuring that element at
+ * runtime.
+ */</comment>
+<class><specifier>public</specifier> class <name>RuntimeConfigurable</name> <super><implements>implements <name>Serializable</name></implements></super> <block>{
+
+    <comment type="javadoc">/** Serialization version */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>long</name></type> <name>serialVersionUID</name> =<init> <expr>1L</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Empty Hashtable. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>EMPTY_HASHTABLE</name> =<init>
+            <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Name of the element to configure. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>elementTag</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** List of child element wrappers. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>List</name><argument_list>&lt;<argument><name>RuntimeConfigurable</name></argument>&gt;</argument_list></name></type> <name>children</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The element to configure. It is only used during
+     * maybeConfigure.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>transient</name> <name>Object</name></type> <name>wrappedObject</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * XML attributes for the element.
+     * @deprecated since 1.6.x
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>transient</name> <name>AttributeList</name></type> <name>attributes</name></decl>;</decl_stmt>
+
+    <comment type="line">// The following is set to true if any of the attributes are namespaced</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>transient</name> <name>boolean</name></type> <name>namespacedAttribute</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Attribute names and values. While the XML spec doesn't require
+     *  preserving the order ( AFAIK ), some ant tests do rely on the
+     *  exact order.
+     * The only exception to this order is the treatment of
+     * refid. A number of datatypes check if refid is set
+     * when other attributes are set. This check will not
+     * work if the build script has the other attribute before
+     * the "refid" attribute, so now (ANT 1.7) the refid
+     * attribute will be processed first.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>attributeMap</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Text appearing within the element. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>StringBuffer</name></type> <name>characters</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Indicates if the wrapped object has been configured */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>proxyConfigured</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** the polymorphic type */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>polyType</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** the "id" of this Element if it has one */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>id</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Sole constructor creating a wrapper for the specified object.
+     *
+     * @param proxy The element to configure. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param elementTag The tag name generating this element.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>RuntimeConfigurable</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>proxy</name></decl></param>, <param><decl><type><name>String</name></type> <name>elementTag</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setProxy</name><argument_list>(<argument><expr><name>proxy</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setElementTag</name><argument_list>(<argument><expr><name>elementTag</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// Most likely an UnknownElement</comment>
+        <if>if <condition>(<expr><name>proxy</name> <name>instanceof</name> <name>Task</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr>((<name>Task</name>) <name>proxy</name>).<call><name>setRuntimeConfigurableWrapper</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Sets the element to configure.
+     *
+     * @param proxy The element to configure. Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setProxy</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>proxy</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>wrappedObject</name> = <name>proxy</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>proxyConfigured</name> = false</expr>;</expr_stmt>
+    }</block></function>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>EnableAttributeConsumer</name> <block>{
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>EnableAttribute</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+            <comment type="line">// Ignore</comment>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * contains the attribute component name and boolean restricted set to true when
+     * the attribute is in one of the name spaces managed by ant (if and unless currently)
+     * @since Ant 1.9.3
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>AttributeComponentInformation</name> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>componentName</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>restricted</name></decl>;</decl_stmt>
+
+        <constructor><specifier>private</specifier> <name>AttributeComponentInformation</name><parameter_list>(<param><decl><type><name>String</name></type> <name>componentName</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>restricted</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>componentName</name></name> = <name>componentName</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>restricted</name></name> = <name>restricted</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getComponentName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>componentName</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isRestricted</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>restricted</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     *
+     * @param name    the name of the attribute.
+     * @param componentHelper current component helper
+     * @return AttributeComponentInformation instance
+     */</comment>
+    <function><type><specifier>private</specifier> <name>AttributeComponentInformation</name></type> <name>isRestrictedAttribute</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>ComponentHelper</name></type> <name>componentHelper</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>name</name>.<name>indexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call> == -1</expr>)</condition><then> <block>{
+            <return>return <expr>new <call><name>AttributeComponentInformation</name><argument_list>(<argument><expr><name>null</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>componentName</name> =<init> <expr><call><name>attrToComponent</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>ns</name> =<init> <expr><call><name><name>ProjectHelper</name>.<name>extractUriFromComponentName</name></name><argument_list>(<argument><expr><name>componentName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>componentHelper</name>.<name>getRestrictedDefinitions</name></name><argument_list>(
+                <argument><expr><call><name><name>ProjectHelper</name>.<name>nsToComponentName</name></name><argument_list>(<argument><expr><name>ns</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>new <call><name>AttributeComponentInformation</name><argument_list>(<argument><expr><name>null</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr>new <call><name>AttributeComponentInformation</name><argument_list>(<argument><expr><name>componentName</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if an UE is enabled.
+     * This looks tru the attributes and checks if there
+     * are any Ant attributes, and if so, the method calls the
+     * isEnabled() method on them.
+     * @param owner the UE that owns this RC.
+     * @return true if enabled, false if any of the ant attribures return
+     *              false.
+     * @since 1.9.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isEnabled</name><parameter_list>(<param><decl><type><name>UnknownElement</name></type> <name>owner</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<name>namespacedAttribute</name></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>ComponentHelper</name></type> <name>componentHelper</name> =<init> <expr><call><name><name>ComponentHelper</name>
+            .<name>getComponentHelper</name></name><argument_list>(<argument><expr><call><name><name>owner</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>IntrospectionHelper</name></type> <name>ih</name>
+            =<init> <expr><call><name><name>IntrospectionHelper</name>.<name>getHelper</name></name><argument_list>(
+                <argument><expr><call><name><name>owner</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>EnableAttributeConsumer</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <call><name><name>attributeMap</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>size</name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr>(<name>String</name>) <call><name><name>attributeMap</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>toArray</name><argument_list>()</argument_list></call><index>[<expr><name>i</name></expr>]</index></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>AttributeComponentInformation</name></type> <name>attributeComponentInformation</name> =<init> <expr><call><name>isRestrictedAttribute</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>componentHelper</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name><name>attributeComponentInformation</name>.<name>isRestricted</name></name><argument_list>()</argument_list></call></expr>)</condition><then>  <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr>(<name>String</name>) <call><name><name>attributeMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>EnableAttribute</name></type> <name>enable</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>enable</name> = (<name>EnableAttribute</name>)
+                    <call><name><name>ih</name>.<name>createElement</name></name><argument_list>(
+                        <argument><expr><call><name><name>owner</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr>new <call><name>EnableAttributeConsumer</name><argument_list>()</argument_list></call></expr></argument>,
+                        <argument><expr><call><name><name>attributeComponentInformation</name>.<name>getComponentName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                    <argument><expr>"Unsupported attribute " + <call><name><name>attributeComponentInformation</name>.<name>getComponentName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+            <if>if <condition>(<expr><name>enable</name> == <name>null</name></expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+            <expr_stmt><expr><name>value</name> = <call><name><name>owner</name>.<name>getProject</name></name><argument_list>()</argument_list></call>.<call><name>replaceProperties</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt> <comment type="line">// FixMe: need to make config</comment>
+            <if>if <condition>(<expr>!<call><name><name>enable</name>.<name>isEnabled</name></name><argument_list>(<argument><expr><name>owner</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>attrToComponent</name><parameter_list>(<param><decl><type><name>String</name></type> <name>a</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// need to remove the prefix</comment>
+        <decl_stmt><decl><type><name>int</name></type> <name>p1</name> =<init> <expr><call><name><name>a</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>p2</name> =<init> <expr><call><name><name>a</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>, <argument><expr><name>p1</name> - 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name><name>a</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>p2</name></expr></argument>)</argument_list></call> + <call><name><name>a</name>.<name>substring</name></name><argument_list>(<argument><expr><name>p1</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the creator of the element to be configured
+     * used to store the element in the parent.
+     *
+     * @param creator the creator object.
+     */</comment>
+    <function><type><specifier>synchronized</specifier> <name>void</name></type> <name>setCreator</name><parameter_list>(<param><decl><type><name><name>IntrospectionHelper</name>.<name>Creator</name></name></type> <name>creator</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the object for which this RuntimeConfigurable holds the configuration
+     * information.
+     *
+     * @return the object whose configure is held by this instance.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>Object</name></type> <name>getProxy</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>wrappedObject</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the id for this element.
+     * @return the id.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>String</name></type> <name>getId</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>id</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the polymorphic type for this element.
+     * @return the ant component type name, null if not set.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>String</name></type> <name>getPolyType</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>polyType</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the polymorphic type for this element.
+     * @param polyType the ant component type name, null if not set.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setPolyType</name><parameter_list>(<param><decl><type><name>String</name></type> <name>polyType</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>polyType</name></name> = <name>polyType</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the attributes for the wrapped element.
+     *
+     * @deprecated since 1.6.x.
+     * @param attributes List of attributes defined in the XML for this
+     *                   element. May be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setAttributes</name><parameter_list>(<param><decl><type><name>AttributeList</name></type> <name>attributes</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>attributes</name></name> = new <call><name>AttributeListImpl</name><argument_list>(<argument><expr><name>attributes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <call><name><name>attributes</name>.<name>getLength</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name>setAttribute</name><argument_list>(<argument><expr><call><name><name>attributes</name>.<name>getName</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><call><name><name>attributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set an attribute to a given value.
+     *
+     * @param name the name of the attribute.
+     * @param value the attribute's value.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setAttribute</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>name</name>.<name>indexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call> != -1</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>namespacedAttribute</name> = true</expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>setAttribute</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>(<name>Object</name>) <name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set an attribute to a given value.
+     *
+     * @param name the name of the attribute.
+     * @param value the attribute's value.
+     * @since 1.9
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setAttribute</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>name</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name><name>ProjectHelper</name>.<name>ANT_TYPE</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>polyType</name></name> = <name>value</name> == <name>null</name> ? <name>null</name> : <call><name><name>value</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <if>if <condition>(<expr><name>attributeMap</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>attributeMap</name> = new <call><name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>name</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr>"refid"</expr></argument>)</argument_list></call> &amp;&amp; !<call><name><name>attributeMap</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>newAttributeMap</name> =<init> <expr>new <call><name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>newAttributeMap</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>newAttributeMap</name>.<name>putAll</name></name><argument_list>(<argument><expr><name>attributeMap</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>attributeMap</name> = <name>newAttributeMap</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>attributeMap</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <if>if <condition>(<expr><call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr>"id"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>id</name></name> = <name>value</name> == <name>null</name> ? <name>null</name> : <call><name><name>value</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Delete an attribute.  Not for the faint of heart.
+     * @param name the name of the attribute to be removed.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>removeAttribute</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>attributeMap</name>.<name>remove</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the attribute map.
+     *
+     * @return Attribute name to attribute value map.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>getAttributeMap</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>(<name>attributeMap</name> == <name>null</name>)
+            ? <name>EMPTY_HASHTABLE</name> : new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>attributeMap</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the list of attributes for the wrapped element.
+     *
+     * @deprecated Deprecated since Ant 1.6 in favor of {@link #getAttributeMap}.
+     * @return An AttributeList representing the attributes defined in the
+     *         XML for this element. May be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>AttributeList</name></type> <name>getAttributes</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>attributes</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a child element to the wrapped element.
+     *
+     * @param child The child element wrapper to add to this one.
+     *              Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>addChild</name><parameter_list>(<param><decl><type><name>RuntimeConfigurable</name></type> <name>child</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>children</name> = (<name>children</name> == <name>null</name>) ? new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>RuntimeConfigurable</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call> : <name>children</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>children</name>.<name>add</name></name><argument_list>(<argument><expr><name>child</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the child wrapper at the specified position within the list.
+     *
+     * @param index The index of the child to return.
+     *
+     * @return The child wrapper at position &lt;code&gt;index&lt;/code&gt; within the
+     *         list.
+     */</comment>
+    <function><type><specifier>synchronized</specifier> <name>RuntimeConfigurable</name></type> <name>getChild</name><parameter_list>(<param><decl><type><name>int</name></type> <name>index</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>children</name>.<name>get</name></name><argument_list>(<argument><expr><name>index</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns an enumeration of all child wrappers.
+     * @return an enumeration of the child wrappers.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>RuntimeConfigurable</name></argument>&gt;</argument_list></name></type> <name>getChildren</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>(<name>children</name> == <name>null</name>) ? new <call><name><name>CollectionUtils</name>.<name><name>EmptyEnumeration</name><argument_list>&lt;<argument><name>RuntimeConfigurable</name></argument>&gt;</argument_list></name></name><argument_list>()</argument_list></call>
+            : <call><name><name>Collections</name>.<name>enumeration</name></name><argument_list>(<argument><expr><name>children</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds characters from #PCDATA areas to the wrapped element.
+     *
+     * @param data Text to add to the wrapped element.
+     *        Should not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>addText</name><parameter_list>(<param><decl><type><name>String</name></type> <name>data</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>data</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <expr_stmt><expr><name>characters</name> = (<name>characters</name> == <name>null</name>)
+            ? new <call><name>StringBuffer</name><argument_list>(<argument><expr><name>data</name></expr></argument>)</argument_list></call> : <call><name><name>characters</name>.<name>append</name></name><argument_list>(<argument><expr><name>data</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds characters from #PCDATA areas to the wrapped element.
+     *
+     * @param buf A character array of the text within the element.
+     *            Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param start The start element in the array.
+     * @param count The number of characters to read from the array.
+     *
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>addText</name><parameter_list>(<param><decl><type><name><name>char</name><index>[]</index></name></type> <name>buf</name></decl></param>, <param><decl><type><name>int</name></type> <name>start</name></decl></param>, <param><decl><type><name>int</name></type> <name>count</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>count</name> == 0</expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <expr_stmt><expr><name>characters</name> = ((<name>characters</name> == <name>null</name>)
+            ? new <call><name>StringBuffer</name><argument_list>(<argument><expr><name>count</name></expr></argument>)</argument_list></call> : <name>characters</name>).<call><name>append</name><argument_list>(<argument><expr><name>buf</name></expr></argument>, <argument><expr><name>start</name></expr></argument>, <argument><expr><name>count</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the text content of this element. Various text chunks are
+     * concatenated, there is no way ( currently ) of keeping track of
+     * multiple fragments.
+     *
+     * @return the text content of this element.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>StringBuffer</name></type> <name>getText</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>(<name>characters</name> == <name>null</name>) ? new <call><name>StringBuffer</name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> : <name>characters</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the element tag.
+     * @param elementTag The tag name generating this element.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setElementTag</name><parameter_list>(<param><decl><type><name>String</name></type> <name>elementTag</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>elementTag</name></name> = <name>elementTag</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the tag name of the wrapped element.
+     *
+     * @return The tag name of the wrapped element. This is unlikely
+     *         to be &lt;code&gt;null&lt;/code&gt;, but may be.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>String</name></type> <name>getElementTag</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>elementTag</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Configures the wrapped element and all its children.
+     * The attributes and text for the wrapped element are configured,
+     * and then each child is configured and added. Each time the
+     * wrapper is configured, the attributes and text for it are
+     * reset.
+     *
+     * If the element has an &lt;code&gt;id&lt;/code&gt; attribute, a reference
+     * is added to the project as well.
+     *
+     * @param p The project containing the wrapped element.
+     *          Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @exception BuildException if the configuration fails, for instance due
+     *            to invalid attributes or children, or text being added to
+     *            an element which doesn't accept it.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>maybeConfigure</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>maybeConfigure</name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Configures the wrapped element.  The attributes and text for
+     * the wrapped element are configured.  Each time the wrapper is
+     * configured, the attributes and text for it are reset.
+     *
+     * If the element has an &lt;code&gt;id&lt;/code&gt; attribute, a reference
+     * is added to the project as well.
+     *
+     * @param p The project containing the wrapped element.
+     *          Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param configureChildren ignored.
+
+     *
+     * @exception BuildException if the configuration fails, for instance due
+     *            to invalid attributes , or text being added to
+     *            an element which doesn't accept it.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>maybeConfigure</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>configureChildren</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <if>if <condition>(<expr><name>proxyConfigured</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <comment type="line">// Configure the object</comment>
+        <decl_stmt><decl><type><name>Object</name></type> <name>target</name> =<init> <expr>(<name>wrappedObject</name> <name>instanceof</name> <name>TypeAdapter</name>)
+            ? ((<name>TypeAdapter</name>) <name>wrappedObject</name>).<call><name>getProxy</name><argument_list>()</argument_list></call> : <name>wrappedObject</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>IntrospectionHelper</name></type> <name>ih</name> =<init>
+            <expr><call><name><name>IntrospectionHelper</name>.<name>getHelper</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr><call><name><name>target</name>.<name>getClass</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+         <decl_stmt><decl><type><name>ComponentHelper</name></type> <name>componentHelper</name> =<init> <expr><call><name><name>ComponentHelper</name>.<name>getComponentHelper</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>attributeMap</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name><name>Entry</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>entry</name> :<range> <expr><call><name><name>attributeMap</name>.<name>entrySet</name></name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>entry</name>.<name>getKey</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <comment type="line">// skip restricted attributes such as if:set</comment>
+                <decl_stmt><decl><type><name>AttributeComponentInformation</name></type> <name>attributeComponentInformation</name> =<init> <expr><call><name>isRestrictedAttribute</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>componentHelper</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>attributeComponentInformation</name>.<name>isRestricted</name></name><argument_list>()</argument_list></call></expr>)</condition><then>  <block>{
+                    <continue>continue;</continue>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>Object</name></type> <name>value</name> =<init> <expr><call><name><name>entry</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <comment type="line">// reflect these into the target, defer for</comment>
+                <comment type="line">// MacroInstance where properties are expanded for the</comment>
+                <comment type="line">// nested sequential</comment>
+                <decl_stmt><decl><type><name>Object</name></type> <name>attrValue</name></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>value</name> <name>instanceof</name> <name>Evaluable</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>attrValue</name> = ((<name>Evaluable</name>) <name>value</name>).<call><name>eval</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>attrValue</name> = <call><name><name>PropertyHelper</name>.<name>getPropertyHelper</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>.<call><name>parseProperties</name><argument_list>(<argument><expr><call><name><name>value</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <if>if <condition>(<expr><name>target</name> <name>instanceof</name> <name>MacroInstance</name></expr>)</condition><then> <block>{
+                    <for>for (<init><decl><type><name>Attribute</name></type> <name>attr</name> :<range> <expr>((<name>MacroInstance</name>) <name>target</name>).<call><name>getMacroDef</name><argument_list>()</argument_list></call>.<call><name>getAttributes</name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+                        <if>if <condition>(<expr><call><name><name>attr</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <if>if <condition>(<expr>!<call><name><name>attr</name>.<name>isDoubleExpanding</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><name>attrValue</name> = <name>value</name></expr>;</expr_stmt>
+                            }</block></then></if>
+                            <break>break;</break>
+                        }</block></then></if>
+                    }</block></for>
+                }</block></then></if>
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>ih</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr><name>target</name></expr></argument>, <argument><expr><name>name</name></expr></argument>, <argument><expr><name>attrValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>UnsupportedAttributeException</name></type> <name>be</name></decl></param>) <block>{
+                    <comment type="line">// id attribute must be set externally</comment>
+                    <if>if <condition>(<expr><call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr>"id"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// Do nothing</comment>
+                    }</block></then> <else>else <if>if <condition>(<expr><call><name>getElementTag</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+                        <throw>throw <expr><name>be</name></expr>;</throw>
+                    }</block></then> <else>else <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                            <argument><expr><call><name>getElementTag</name><argument_list>()</argument_list></call> + " doesn't support the \""
+                            + <call><name><name>be</name>.<name>getAttribute</name></name><argument_list>()</argument_list></call> + "\" attribute"</expr></argument>, <argument><expr><name>be</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></else></if></else></if>
+                }</block></catch> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>be</name></decl></param>) <block>{
+                    <if>if <condition>(<expr><call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr>"id"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// Assume that this is an not supported attribute type</comment>
+                        <comment type="line">// thrown for example by a dymanic attribute task</comment>
+                        <comment type="line">// Do nothing</comment>
+                    }</block></then> <else>else <block>{
+                        <throw>throw <expr><name>be</name></expr>;</throw>
+                    }</block></else></if>
+                }</block></catch></try>
+            }</block></for>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>characters</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>ProjectHelper</name>.<name>addText</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr><name>wrappedObject</name></expr></argument>, <argument><expr><call><name><name>characters</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>id</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>p</name>.<name>addReference</name></name><argument_list>(<argument><expr><name>id</name></expr></argument>, <argument><expr><name>wrappedObject</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><name>proxyConfigured</name> = true</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Reconfigure the element, even if it has already been configured.
+     *
+     * @param p the project instance for this configuration.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>reconfigure</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>proxyConfigured</name> = false</expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>maybeConfigure</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Apply presets, attributes and text are set if not currently set.
+     * Nested elements are prepended.
+     *
+     * @param r a &lt;code&gt;RuntimeConfigurable&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>applyPreSet</name><parameter_list>(<param><decl><type><name>RuntimeConfigurable</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Attributes</comment>
+        <if>if <condition>(<expr><name><name>r</name>.<name>attributeMap</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>String</name></type> <name>name</name> :<range> <expr><call><name><name>r</name>.<name>attributeMap</name>.<name>keySet</name></name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+                <if>if <condition>(<expr><name>attributeMap</name> == <name>null</name> || <call><name><name>attributeMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>setAttribute</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>(<name>String</name>) <call><name><name>r</name>.<name>attributeMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+        }</block></then></if>
+        <comment type="line">// poly type</comment>
+
+        <expr_stmt><expr><name>polyType</name> = (<name>polyType</name> == <name>null</name>) ? <name><name>r</name>.<name>polyType</name></name> : <name>polyType</name></expr>;</expr_stmt>
+
+        <comment type="line">// Children (this is a shadow of UnknownElement#children)</comment>
+        <if>if <condition>(<expr><name><name>r</name>.<name>children</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name><name>List</name><argument_list>&lt;<argument><name>RuntimeConfigurable</name></argument>&gt;</argument_list></name></type> <name>newChildren</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>RuntimeConfigurable</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>newChildren</name>.<name>addAll</name></name><argument_list>(<argument><expr><name><name>r</name>.<name>children</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>children</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>newChildren</name>.<name>addAll</name></name><argument_list>(<argument><expr><name>children</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><name>children</name> = <name>newChildren</name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// Text</comment>
+        <if>if <condition>(<expr><name><name>r</name>.<name>characters</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>characters</name> == <name>null</name>
+                || <call><name><name>characters</name>.<name>toString</name></name><argument_list>()</argument_list></call>.<call><name>trim</name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>characters</name> = new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>r</name>.<name>characters</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+    }</block></function>
+}</block></class>
+</unit>

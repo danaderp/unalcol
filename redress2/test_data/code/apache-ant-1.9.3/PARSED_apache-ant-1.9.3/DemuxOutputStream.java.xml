@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\DemuxOutputStream.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>ByteArrayOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>WeakHashMap</name></name>;</import>
+
+
+<comment type="javadoc">/**
+ * Logs content written by a thread and forwards the buffers onto the
+ * project object which will forward the content to the appropriate
+ * task.
+ *
+ * @since 1.4
+ */</comment>
+<class><specifier>public</specifier> class <name>DemuxOutputStream</name> <super><extends>extends <name>OutputStream</name></extends></super> <block>{
+
+    <comment type="javadoc">/**
+     * A data class to store information about a buffer. Such information
+     * is stored on a per-thread basis.
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>BufferInfo</name> <block>{
+        <comment type="javadoc">/**
+         * The per-thread output stream.
+         */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>ByteArrayOutputStream</name></type> <name>buffer</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Indicates we have just seen a carriage return. It may be part of
+         * a crlf pair or a single cr invoking processBuffer twice.
+         */</comment>
+         <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>crSeen</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    }</block></class>
+
+    <comment type="javadoc">/** Maximum buffer size. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAX_SIZE</name> =<init> <expr>1024</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Initial buffer size. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>INTIAL_SIZE</name> =<init> <expr>132</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Carriage return */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>CR</name> =<init> <expr>0x0d</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Linefeed */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>LF</name> =<init> <expr>0x0a</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Mapping from thread to buffer (Thread to BufferInfo). */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>WeakHashMap</name><argument_list>&lt;<argument><name>Thread</name></argument>, <argument><name>BufferInfo</name></argument>&gt;</argument_list></name></type> <name>buffers</name> =<init> <expr>new <call><name><name>WeakHashMap</name><argument_list>&lt;<argument><name>Thread</name></argument>, <argument><name>BufferInfo</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The project to send output to.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Project</name></type> <name>project</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether or not this stream represents an error stream.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>isErrorStream</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Creates a new instance of this class.
+     *
+     * @param project The project instance for which output is being
+     *                demultiplexed. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param isErrorStream &lt;code&gt;true&lt;/code&gt; if this is the error string,
+     *                      otherwise a normal output stream. This is
+     *                      passed to the project so it knows
+     *                      which stream it is receiving.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>DemuxOutputStream</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>isErrorStream</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>project</name></name> = <name>project</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>isErrorStream</name></name> = <name>isErrorStream</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Returns the buffer associated with the current thread.
+     *
+     * @return a BufferInfo for the current thread to write data to
+     */</comment>
+    <function><type><specifier>private</specifier> <name>BufferInfo</name></type> <name>getBufferInfo</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Thread</name></type> <name>current</name> =<init> <expr><call><name><name>Thread</name>.<name>currentThread</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>BufferInfo</name></type> <name>bufferInfo</name> =<init> <expr>(<name>BufferInfo</name>) <call><name><name>buffers</name>.<name>get</name></name><argument_list>(<argument><expr><name>current</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>bufferInfo</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>bufferInfo</name> = new <call><name>BufferInfo</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>bufferInfo</name>.<name>buffer</name></name> = new <call><name>ByteArrayOutputStream</name><argument_list>(<argument><expr><name>INTIAL_SIZE</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>bufferInfo</name>.<name>crSeen</name></name> = false</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>buffers</name>.<name>put</name></name><argument_list>(<argument><expr><name>current</name></expr></argument>, <argument><expr><name>bufferInfo</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>bufferInfo</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Resets the buffer for the current thread.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>resetBufferInfo</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Thread</name></type> <name>current</name> =<init> <expr><call><name><name>Thread</name>.<name>currentThread</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>BufferInfo</name></type> <name>bufferInfo</name> =<init> <expr>(<name>BufferInfo</name>) <call><name><name>buffers</name>.<name>get</name></name><argument_list>(<argument><expr><name>current</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>bufferInfo</name>.<name>buffer</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// Shouldn't happen</comment>
+        }</block></catch></try>
+        <expr_stmt><expr><name><name>bufferInfo</name>.<name>buffer</name></name> = new <call><name>ByteArrayOutputStream</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>bufferInfo</name>.<name>crSeen</name></name> = false</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Removes the buffer for the current thread.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>removeBuffer</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Thread</name></type> <name>current</name> =<init> <expr><call><name><name>Thread</name>.<name>currentThread</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>buffers</name>.<name>remove</name></name> <argument_list>(<argument><expr><name>current</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes the data to the buffer and flushes the buffer if a line
+     * separator is detected or if the buffer has reached its maximum size.
+     *
+     * @param cc data to log (byte).
+     * @exception IOException if the data cannot be written to the stream
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>int</name></type> <name>cc</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name></type> <name>c</name> =<init> <expr>(<name>byte</name>) <name>cc</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>BufferInfo</name></type> <name>bufferInfo</name> =<init> <expr><call><name>getBufferInfo</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>c</name> == '\n'</expr>)</condition><then> <block>{
+            <comment type="line">// LF is always end of line (i.e. CRLF or single LF)</comment>
+            <expr_stmt><expr><call><name><name>bufferInfo</name>.<name>buffer</name>.<name>write</name></name><argument_list>(<argument><expr><name>cc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>processBuffer</name><argument_list>(<argument><expr><name><name>bufferInfo</name>.<name>buffer</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <if>if <condition>(<expr><name><name>bufferInfo</name>.<name>crSeen</name></name></expr>)</condition><then> <block>{
+                <comment type="line">// CR without LF - send buffer then add char</comment>
+                <expr_stmt><expr><call><name>processBuffer</name><argument_list>(<argument><expr><name><name>bufferInfo</name>.<name>buffer</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <comment type="line">// add into buffer</comment>
+            <expr_stmt><expr><call><name><name>bufferInfo</name>.<name>buffer</name>.<name>write</name></name><argument_list>(<argument><expr><name>cc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <expr_stmt><expr><name><name>bufferInfo</name>.<name>crSeen</name></name> = (<name>c</name> == '\r')</expr>;</expr_stmt>
+        <if>if <condition>(<expr>!<name><name>bufferInfo</name>.<name>crSeen</name></name> &amp;&amp; <call><name><name>bufferInfo</name>.<name>buffer</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; <name>MAX_SIZE</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>processBuffer</name><argument_list>(<argument><expr><name><name>bufferInfo</name>.<name>buffer</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Converts the buffer to a string and sends it to the project.
+     *
+     * @param buffer the ByteArrayOutputStream used to collect the output
+     * until a line separator is seen.
+     *
+     * @see Project#demuxOutput(String,boolean)
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>processBuffer</name><parameter_list>(<param><decl><type><name>ByteArrayOutputStream</name></type> <name>buffer</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>output</name> =<init> <expr><call><name><name>buffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>project</name>.<name>demuxOutput</name></name><argument_list>(<argument><expr><name>output</name></expr></argument>, <argument><expr><name>isErrorStream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>resetBufferInfo</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Converts the buffer to a string and sends it to the project.
+     *
+     * @param buffer the ByteArrayOutputStream used to collect the output
+     * until a line separator is seen.
+     *
+     * @see Project#demuxOutput(String,boolean)
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>processFlush</name><parameter_list>(<param><decl><type><name>ByteArrayOutputStream</name></type> <name>buffer</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>output</name> =<init> <expr><call><name><name>buffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>project</name>.<name>demuxFlush</name></name><argument_list>(<argument><expr><name>output</name></expr></argument>, <argument><expr><name>isErrorStream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>resetBufferInfo</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Equivalent to flushing the stream.
+     *
+     * @exception IOException if there is a problem closing the stream.
+     *
+     * @see #flush
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>close</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>flush</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>removeBuffer</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes all remaining data in the buffer associated
+     * with the current thread to the project.
+     *
+     * @exception IOException if there is a problem flushing the stream.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>flush</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>BufferInfo</name></type> <name>bufferInfo</name> =<init> <expr><call><name>getBufferInfo</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>bufferInfo</name>.<name>buffer</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>processFlush</name><argument_list>(<argument><expr><name><name>bufferInfo</name>.<name>buffer</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Write a block of characters to the output stream
+     *
+     * @param b the array containing the data
+     * @param off the offset into the array where data starts
+     * @param len the length of block
+     *
+     * @throws IOException if the data cannot be written into the stream.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>b</name></decl></param>, <param><decl><type><name>int</name></type> <name>off</name></decl></param>, <param><decl><type><name>int</name></type> <name>len</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <comment type="line">// find the line breaks and pass other chars through in blocks</comment>
+        <decl_stmt><decl><type><name>int</name></type> <name>offset</name> =<init> <expr><name>off</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>blockStartOffset</name> =<init> <expr><name>offset</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>remaining</name> =<init> <expr><name>len</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>BufferInfo</name></type> <name>bufferInfo</name> =<init> <expr><call><name>getBufferInfo</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><name>remaining</name> &gt; 0</expr>)</condition> <block>{
+            <while>while <condition>(<expr><name>remaining</name> &gt; 0 &amp;&amp; <name><name>b</name><index>[<expr><name>offset</name></expr>]</index></name> != <name>LF</name> &amp;&amp; <name><name>b</name><index>[<expr><name>offset</name></expr>]</index></name> != <name>CR</name></expr>)</condition> <block>{
+                <expr_stmt><expr><name>offset</name>++</expr>;</expr_stmt>
+                <expr_stmt><expr><name>remaining</name>--</expr>;</expr_stmt>
+            }</block></while>
+            <comment type="line">// either end of buffer or a line separator char</comment>
+            <decl_stmt><decl><type><name>int</name></type> <name>blockLength</name> =<init> <expr><name>offset</name> - <name>blockStartOffset</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>blockLength</name> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>bufferInfo</name>.<name>buffer</name>.<name>write</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>, <argument><expr><name>blockStartOffset</name></expr></argument>, <argument><expr><name>blockLength</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <while>while <condition>(<expr><name>remaining</name> &gt; 0 &amp;&amp; (<name><name>b</name><index>[<expr><name>offset</name></expr>]</index></name> == <name>LF</name> || <name><name>b</name><index>[<expr><name>offset</name></expr>]</index></name> == <name>CR</name>)</expr>)</condition> <block>{
+                <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr><name><name>b</name><index>[<expr><name>offset</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>offset</name>++</expr>;</expr_stmt>
+                <expr_stmt><expr><name>remaining</name>--</expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><name>blockStartOffset</name> = <name>offset</name></expr>;</expr_stmt>
+        }</block></while>
+    }</block></function>
+}</block></class>
+</unit>

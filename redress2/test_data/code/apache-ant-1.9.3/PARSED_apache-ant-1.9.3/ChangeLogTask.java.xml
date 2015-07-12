@@ -1,0 +1,490 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\cvslib\ChangeLogTask.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>cvslib</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStreamWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>UnsupportedEncodingException</name></name>;</import>
+<import>import <name><name>java</name>.<name>text</name>.<name>SimpleDateFormat</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Date</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Properties</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>AbstractCvsTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Examines the output of cvs log and group related changes together.
+ *
+ * It produces an XML output representing the list of changes.
+ * &lt;pre&gt;
+ * &lt;font color=#0000ff&gt;&amp;lt;!-- Root element --&amp;gt;&lt;/font&gt;
+ * &lt;font color=#6a5acd&gt;&amp;lt;!ELEMENT&lt;/font&gt; changelog &lt;font color=#ff00ff&gt;
+ * (entry&lt;/font&gt;&lt;font color=#ff00ff&gt;+&lt;/font&gt;&lt;font color=#ff00ff&gt;)
+ * &lt;/font&gt;&lt;font color=#6a5acd&gt;&amp;gt;&lt;/font&gt;
+ * &lt;font color=#0000ff&gt;&amp;lt;!-- CVS Entry --&amp;gt;&lt;/font&gt;
+ * &lt;font color=#6a5acd&gt;&amp;lt;!ELEMENT&lt;/font&gt; entry &lt;font color=#ff00ff&gt;
+ * (date,author,file&lt;/font&gt;&lt;font color=#ff00ff&gt;+&lt;/font&gt;&lt;font color=#ff00ff&gt;,msg)
+ * &lt;/font&gt;&lt;font color=#6a5acd&gt;&amp;gt;&lt;/font&gt;
+ * &lt;font color=#0000ff&gt;&amp;lt;!-- Date of cvs entry --&amp;gt;&lt;/font&gt;
+ * &lt;font color=#6a5acd&gt;&amp;lt;!ELEMENT&lt;/font&gt; date &lt;font color=#ff00ff&gt;(#PCDATA)
+ * &lt;/font&gt;&lt;font color=#6a5acd&gt;&amp;gt;&lt;/font&gt;
+ * &lt;font color=#0000ff&gt;&amp;lt;!-- Author of change --&amp;gt;&lt;/font&gt;
+ * &lt;font color=#6a5acd&gt;&amp;lt;!ELEMENT&lt;/font&gt; author &lt;font color=#ff00ff&gt;(#PCDATA)
+ * &lt;/font&gt;&lt;font color=#6a5acd&gt;&amp;gt;&lt;/font&gt;
+ * &lt;font color=#0000ff&gt;&amp;lt;!-- List of files affected --&amp;gt;&lt;/font&gt;
+ * &lt;font color=#6a5acd&gt;&amp;lt;!ELEMENT&lt;/font&gt; msg &lt;font color=#ff00ff&gt;(#PCDATA)
+ * &lt;/font&gt;&lt;font color=#6a5acd&gt;&amp;gt;&lt;/font&gt;
+ * &lt;font color=#0000ff&gt;&amp;lt;!-- File changed --&amp;gt;&lt;/font&gt;
+ * &lt;font color=#6a5acd&gt;&amp;lt;!ELEMENT&lt;/font&gt; file &lt;font color=#ff00ff&gt;
+ * (name,revision,prevrevision&lt;/font&gt;&lt;font color=#ff00ff&gt;?&lt;/font&gt;
+ * &lt;font color=#ff00ff&gt;)&lt;/font&gt;&lt;font color=#6a5acd&gt;&amp;gt;&lt;/font&gt;
+ * &lt;font color=#0000ff&gt;&amp;lt;!-- Name of the file --&amp;gt;&lt;/font&gt;
+ * &lt;font color=#6a5acd&gt;&amp;lt;!ELEMENT&lt;/font&gt; name &lt;font color=#ff00ff&gt;(#PCDATA)
+ * &lt;/font&gt;&lt;font color=#6a5acd&gt;&amp;gt;&lt;/font&gt;
+ * &lt;font color=#0000ff&gt;&amp;lt;!-- Revision number --&amp;gt;&lt;/font&gt;
+ * &lt;font color=#6a5acd&gt;&amp;lt;!ELEMENT&lt;/font&gt; revision &lt;font color=#ff00ff&gt;
+ * (#PCDATA)&lt;/font&gt;&lt;font color=#6a5acd&gt;&amp;gt;&lt;/font&gt;
+ * &lt;font color=#0000ff&gt;&amp;lt;!-- Previous revision number --&amp;gt;&lt;/font&gt;
+ * &lt;font color=#6a5acd&gt;&amp;lt;!ELEMENT&lt;/font&gt; prevrevision &lt;font color=#ff00ff&gt;
+ * (#PCDATA)&lt;/font&gt;&lt;font color=#6a5acd&gt;&amp;gt;&lt;/font&gt;
+ * &lt;/pre&gt;
+ *
+ * @since Ant 1.5
+ * @ant.task name="cvschangelog" category="scm"
+ */</comment>
+<class><specifier>public</specifier> class <name>ChangeLogTask</name> <super><extends>extends <name>AbstractCvsTask</name></extends></super> <block>{
+    <comment type="javadoc">/** User list */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>usersFile</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** User list */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>cvsUsers</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Input dir */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>inputDir</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Output file */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>destFile</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The earliest date at which to start processing entries.  */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Date</name></type> <name>startDate</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The latest date at which to stop processing entries.  */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Date</name></type> <name>endDate</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Determines whether log (false) or rlog (true) is used */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>remote</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Start tag when doing tag ranges. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>startTag</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** End tag when doing tag ranges. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>endTag</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Filesets containing list of files against which the cvs log will be
+     * performed. If empty then all files in the working directory will
+     * be checked.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>Vector</name></type> <name>filesets</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+
+    <comment type="javadoc">/**
+     * Set the base dir for cvs.
+     *
+     * @param inputDir The new dir value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDir</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>File</name></type> <name>inputDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>inputDir</name></name> = <name>inputDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the output file for the log.
+     *
+     * @param destFile The new destfile value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestfile</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>File</name></type> <name>destFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destFile</name></name> = <name>destFile</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set a lookup list of user names &amp; addresses
+     *
+     * @param usersFile The file containing the users info.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUsersfile</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>File</name></type> <name>usersFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>usersFile</name></name> = <name>usersFile</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Add a user to list changelog knows about.
+     *
+     * @param user the user
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addUser</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>CvsUser</name></type> <name>user</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>cvsUsers</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>user</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the date at which the changelog should start.
+     *
+     * @param start The date at which the changelog should start.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setStart</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Date</name></type> <name>start</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>startDate</name></name> = <name>start</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the date at which the changelog should stop.
+     *
+     * @param endDate The date at which the changelog should stop.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEnd</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Date</name></type> <name>endDate</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>endDate</name></name> = <name>endDate</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the number of days worth of log entries to process.
+     *
+     * @param days the number of days of log to process.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDaysinpast</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>int</name></type> <name>days</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>long</name></type> <name>time</name> =<init> <expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call>
+             - (<name>long</name>) <name>days</name> * 24 * 60 * 60 * 1000</expr></init></decl>;</decl_stmt>
+        <comment type="line">// CheckStyle:MagicNumber ON</comment>
+
+        <expr_stmt><expr><call><name>setStart</name><argument_list>(<argument><expr>new <call><name>Date</name><argument_list>(<argument><expr><name>time</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether to use rlog against a remote repository instead of log
+     * in a working copy's directory.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRemote</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>remote</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>remote</name></name> = <name>remote</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the tag at which the changelog should start.
+     *
+     * @param start The date at which the changelog should start.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setStartTag</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>start</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>startTag</name></name> = <name>start</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the tag at which the changelog should stop.
+     *
+     * @param end The date at which the changelog should stop.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEndTag</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>end</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>endTag</name></name> = <name>end</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a set of files about which cvs logs will be generated.
+     *
+     * @param fileSet a set of files about which cvs logs will be generated.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileset</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>FileSet</name></type> <name>fileSet</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filesets</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>fileSet</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Execute task
+     *
+     * @exception BuildException if something goes wrong executing the
+     *            cvs command
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>savedDir</name> =<init> <expr><name>inputDir</name></expr></init></decl>;</decl_stmt> <comment type="line">// may be altered in validate</comment>
+
+        <try>try <block>{
+
+            <expr_stmt><expr><call><name>validate</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>Properties</name></type> <name>userList</name> =<init> <expr>new <call><name>Properties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name>loadUserlist</name><argument_list>(<argument><expr><name>userList</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>cvsUsers</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><specifier>final</specifier> <name>CvsUser</name></type> <name>user</name> =<init> <expr>(<name>CvsUser</name>) <call><name><name>cvsUsers</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>user</name>.<name>validate</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>userList</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>user</name>.<name>getUserID</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>user</name>.<name>getDisplayname</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+
+            <if>if <condition>(<expr>!<name>remote</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>setCommand</name><argument_list>(<argument><expr>"log"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><call><name>getTag</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>CvsVersion</name></type> <name>myCvsVersion</name> =<init> <expr>new <call><name>CvsVersion</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>myCvsVersion</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>myCvsVersion</name>.<name>setTaskName</name></name><argument_list>(<argument><expr>"cvsversion"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>myCvsVersion</name>.<name>setCvsRoot</name></name><argument_list>(<argument><expr><call><name>getCvsRoot</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>myCvsVersion</name>.<name>setCvsRsh</name></name><argument_list>(<argument><expr><call><name>getCvsRsh</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>myCvsVersion</name>.<name>setPassfile</name></name><argument_list>(<argument><expr><call><name>getPassFile</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>myCvsVersion</name>.<name>setDest</name></name><argument_list>(<argument><expr><name>inputDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>myCvsVersion</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <if>if <condition>(<expr><call><name><name>myCvsVersion</name>.<name>supportsCvsLogWithSOption</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-S"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then></if>
+            }</block></then> <else>else <block>{
+                <comment type="line">// supply 'rlog' as argument instead of command</comment>
+                <expr_stmt><expr><call><name>setCommand</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"rlog"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <comment type="line">// Do not print name/header if no revisions</comment>
+                <comment type="line">// selected. This is quicker: less output to parse.</comment>
+                <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-S"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <comment type="line">// Do not list tags. This is quicker: less output to</comment>
+                <comment type="line">// parse.</comment>
+                <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-N"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <if>if <condition>(<expr><name>null</name> != <name>startTag</name> || <name>null</name> != <name>endTag</name></expr>)</condition><then> <block>{
+                <comment type="line">// man, do I get spoiled by C#'s ?? operator</comment>
+                <decl_stmt><decl><type><name>String</name></type> <name>startValue</name> =<init> <expr><name>startTag</name> == <name>null</name> ? "" : <name>startTag</name></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>endValue</name> =<init> <expr><name>endTag</name> == <name>null</name> ? "" : <name>endTag</name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-r" + <name>startValue</name> + "::" + <name>endValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name>null</name> != <name>startDate</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><specifier>final</specifier> <name>SimpleDateFormat</name></type> <name>outputDate</name> =<init>
+                    <expr>new <call><name>SimpleDateFormat</name><argument_list>(<argument><expr>"yyyy-MM-dd"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// We want something of the form: -d "&gt;=YYYY-MM-dd"</comment>
+                <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>dateRange</name> =<init> <expr>"&gt;=" + <call><name><name>outputDate</name>.<name>format</name></name><argument_list>(<argument><expr><name>startDate</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// Supply '-d' as a separate argument - Bug# 14397</comment>
+                <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-d"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr><name>dateRange</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if>
+
+            <comment type="line">// Check if list of files to check has been specified</comment>
+            <if>if <condition>(<expr>!<call><name><name>filesets</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><specifier>final</specifier> <name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>filesets</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                    <decl_stmt><decl><type><specifier>final</specifier> <name>FileSet</name></type> <name>fileSet</name> =<init> <expr>(<name>FileSet</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><specifier>final</specifier> <name>DirectoryScanner</name></type> <name>scanner</name> =<init>
+                        <expr><call><name><name>fileSet</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><specifier>final</specifier> <name>String</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>scanner</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>files</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                        <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></for>
+                }</block></while>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><specifier>final</specifier> <name>ChangeLogParser</name></type> <name>parser</name> =<init> <expr>new <call><name>ChangeLogParser</name><argument_list>(<argument><expr><name>remote</name></expr></argument>,
+                                                               <argument><expr><call><name>getPackage</name><argument_list>()</argument_list></call></expr></argument>,
+                                                               <argument><expr><call><name>getModules</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>RedirectingStreamHandler</name></type> <name>handler</name> =<init>
+                <expr>new <call><name>RedirectingStreamHandler</name><argument_list>(<argument><expr><name>parser</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name>getCommand</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><call><name>setDest</name><argument_list>(<argument><expr><name>inputDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setExecuteStreamHandler</name><argument_list>(<argument><expr><name>handler</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>super</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <finally>finally <block>{
+                <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>errors</name> =<init> <expr><call><name><name>handler</name>.<name>getErrors</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><name>null</name> != <name>errors</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>errors</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></finally></try>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>CVSEntry</name><index>[]</index></type> <name>entrySet</name> =<init> <expr><call><name><name>parser</name>.<name>getEntrySetAsArray</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>CVSEntry</name><index>[]</index></type> <name>filteredEntrySet</name> =<init> <expr><call><name>filterEntrySet</name><argument_list>(<argument><expr><name>entrySet</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name>replaceAuthorIdWithName</name><argument_list>(<argument><expr><name>userList</name></expr></argument>, <argument><expr><name>filteredEntrySet</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><call><name>writeChangeLog</name><argument_list>(<argument><expr><name>filteredEntrySet</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><name>inputDir</name> = <name>savedDir</name></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Validate the parameters specified for task.
+     *
+     * @throws BuildException if fails validation checks
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>validate</name><parameter_list>()</parameter_list>
+         <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>null</name> == <name>inputDir</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>inputDir</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getBaseDir</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>null</name> == <name>destFile</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>message</name> =<init> <expr>"Destfile must be set."</expr></init></decl>;</decl_stmt>
+
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<call><name><name>inputDir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>message</name> =<init> <expr>"Cannot find base dir "
+                 + <call><name><name>inputDir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>null</name> != <name>usersFile</name> &amp;&amp; !<call><name><name>usersFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>message</name> =<init> <expr>"Cannot find user lookup list "
+                 + <call><name><name>usersFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr>(<name>null</name> != <name>startTag</name> || <name>null</name> != <name>endTag</name>)
+            &amp;&amp; (<name>null</name> != <name>startDate</name> || <name>null</name> != <name>endDate</name>)</expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>message</name> =<init> <expr>"Specify either a tag or date range,"
+                + " not both"</expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Load the userlist from the userList file (if specified) and add to
+     * list of users.
+     *
+     * @param userList the file of users
+     * @throws BuildException if file can not be loaded for some reason
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>loadUserlist</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Properties</name></type> <name>userList</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>null</name> != <name>usersFile</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>userList</name>.<name>load</name></name><argument_list>(<argument><expr>new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>usersFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><specifier>final</specifier> <name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name><name>ioe</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>ioe</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Filter the specified entries according to an appropriate rule.
+     *
+     * @param entrySet the entry set to filter
+     * @return the filtered entry set
+     */</comment>
+    <function><type><specifier>private</specifier> <name>CVSEntry</name><index>[]</index></type> <name>filterEntrySet</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name><name>CVSEntry</name><index>[]</index></name></type> <name>entrySet</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Vector</name></type> <name>results</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>entrySet</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>CVSEntry</name></type> <name>cvsEntry</name> =<init> <expr><name><name>entrySet</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>Date</name></type> <name>date</name> =<init> <expr><call><name><name>cvsEntry</name>.<name>getDate</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">//bug#30471</comment>
+            <comment type="line">//this is caused by Date.after throwing a NullPointerException</comment>
+            <comment type="line">//for some reason there's no date set in the CVSEntry</comment>
+            <comment type="line">//Java 1.3.1 API</comment>
+            <comment type="line">//http://java.sun.com/j2se/1.3/docs/api/java/util/Date.html#after(java.util.Date)</comment>
+            <comment type="line">//doesn't throw NullPointerException</comment>
+            <comment type="line">//Java 1.4.2 + 1.5 API</comment>
+            <comment type="line">//http://java.sun.com/j2se/1.4.2/docs/api/java/util/Date.html#after(java.util.Date)</comment>
+            <comment type="line">//according to the docs it doesn't throw, according to the bug report it does</comment>
+            <comment type="line">//http://java.sun.com/j2se/1.5.0/docs/api/java/util/Date.html#after(java.util.Date)</comment>
+            <comment type="line">//according to the docs it does throw</comment>
+
+            <comment type="line">//for now skip entries which are missing a date</comment>
+            <if>if <condition>(<expr><name>null</name> == <name>date</name></expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>null</name> != <name>startDate</name> &amp;&amp; <call><name><name>startDate</name>.<name>after</name></name><argument_list>(<argument><expr><name>date</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">//Skip dates that are too early</comment>
+                <continue>continue;</continue>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>null</name> != <name>endDate</name> &amp;&amp; <call><name><name>endDate</name>.<name>before</name></name><argument_list>(<argument><expr><name>date</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">//Skip dates that are too late</comment>
+                <continue>continue;</continue>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>results</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>cvsEntry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>CVSEntry</name><index>[]</index></type> <name>resultArray</name> =<init> <expr>new <name><name>CVSEntry</name><index>[<expr><call><name><name>results</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name><name>results</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>resultArray</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>resultArray</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * replace all known author's id's with their maven specified names
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>replaceAuthorIdWithName</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Properties</name></type> <name>userList</name></decl></param>,
+                                         <param><decl><type><specifier>final</specifier> <name><name>CVSEntry</name><index>[]</index></name></type> <name>entrySet</name></decl></param>)</parameter_list> <block>{
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>entrySet</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+
+            <decl_stmt><decl><type><specifier>final</specifier> <name>CVSEntry</name></type> <name>entry</name> =<init> <expr><name><name>entrySet</name><index>[ <expr><name>i</name></expr> ]</index></name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>userList</name>.<name>containsKey</name></name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>getAuthor</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>entry</name>.<name>setAuthor</name></name><argument_list>(<argument><expr><call><name><name>userList</name>.<name>getProperty</name></name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>getAuthor</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Print changelog to file specified in task.
+     *
+     * @param entrySet the entry set to write.
+     * @throws BuildException if there is an error writing changelog.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>writeChangeLog</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name><name>CVSEntry</name><index>[]</index></name></type> <name>entrySet</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>FileOutputStream</name></type> <name>output</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <try>try <block>{
+            <expr_stmt><expr><name>output</name> = new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><specifier>final</specifier> <name>PrintWriter</name></type> <name>writer</name> =<init>
+                <expr>new <call><name>PrintWriter</name><argument_list>(<argument><expr>new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr><name>output</name></expr></argument>, <argument><expr>"UTF-8"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><specifier>final</specifier> <name>ChangeLogWriter</name></type> <name>serializer</name> =<init> <expr>new <call><name>ChangeLogWriter</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name><name>serializer</name>.<name>printChangeLog</name></name><argument_list>(<argument><expr><name>writer</name></expr></argument>, <argument><expr><name>entrySet</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><call><name><name>writer</name>.<name>checkError</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Encountered an error writing changelog"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><specifier>final</specifier> <name>UnsupportedEncodingException</name></type> <name>uee</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>log</name><argument_list>(<argument><expr><call><name><name>uee</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><specifier>final</specifier> <name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name><name>ioe</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>ioe</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>output</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+}</block></class>
+
+</unit>

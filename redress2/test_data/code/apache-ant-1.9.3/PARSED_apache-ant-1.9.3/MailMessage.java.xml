@@ -1,0 +1,528 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\mail\MailMessage.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<comment type="block">/*
+ * The original version of this class was donated by Jason Hunter,
+ * who wrote the class as part of the com.oreilly.servlet
+ * package for his book "Java Servlet Programming" (O'Reilly).
+ * See http://www.servlets.com.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>mail</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>Socket</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>InetAddress</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+
+<comment type="javadoc">/**
+ * A class to help send SMTP email.
+ * This class is an improvement on the sun.net.smtp.SmtpClient class
+ * found in the JDK.  This version has extra functionality, and can be used
+ * with JVMs that did not extend from the JDK.  It's not as robust as
+ * the JavaMail Standard Extension classes, but it's easier to use and
+ * easier to install, and has an Open Source license.
+ * &lt;p&gt;
+ * It can be used like this:
+ * &lt;blockquote&gt;&lt;pre&gt;
+ * String mailhost = "localhost";  // or another mail host
+ * String from = "Mail Message Servlet &amp;lt;MailMessage@server.com&amp;gt;";
+ * String to = "to@you.com";
+ * String cc1 = "cc1@you.com";
+ * String cc2 = "cc2@you.com";
+ * String bcc = "bcc@you.com";
+ * &amp;nbsp;
+ * MailMessage msg = new MailMessage(mailhost);
+ * msg.setPort(25);
+ * msg.from(from);
+ * msg.to(to);
+ * msg.cc(cc1);
+ * msg.cc(cc2);
+ * msg.bcc(bcc);
+ * msg.setSubject("Test subject");
+ * PrintStream out = msg.getPrintStream();
+ * &amp;nbsp;
+ * Enumeration enum = req.getParameterNames();
+ * while (enum.hasMoreElements()) {
+ *   String name = (String)enum.nextElement();
+ *   String value = req.getParameter(name);
+ *   out.println(name + " = " + value);
+ * }
+ * &amp;nbsp;
+ * msg.sendAndClose();
+ * &lt;/pre&gt;&lt;/blockquote&gt;
+ * &lt;p&gt;
+ * Be sure to set the from address, then set the recipient
+ * addresses, then set the subject and other headers, then get the
+ * PrintStream, then write the message, and finally send and close.
+ * The class does minimal error checking internally; it counts on the mail
+ * host to complain if there's any malformatted input or out of order
+ * execution.
+ * &lt;p&gt;
+ * An attachment mechanism based on RFC 1521 could be implemented on top of
+ * this class.  In the meanwhile, JavaMail is the best solution for sending
+ * email with attachments.
+ * &lt;p&gt;
+ * Still to do:
+ * &lt;ul&gt;
+ * &lt;li&gt;Figure out how to close the connection in case of error
+ * &lt;/ul&gt;
+ *
+ * @version 1.1, 2000/03/19, added angle brackets to address, helps some servers
+ * version 1.0, 1999/12/29
+ */</comment>
+<class><specifier>public</specifier> class <name>MailMessage</name> <block>{
+
+    <comment type="javadoc">/** default mailhost */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_HOST</name> =<init> <expr>"localhost"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** default port for SMTP: 25 */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEFAULT_PORT</name> =<init> <expr>25</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** host name for the mail server */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>host</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** host port for the mail server */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>port</name> =<init> <expr><name>DEFAULT_PORT</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** sender email address */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>from</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** list of email addresses to reply to */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>replyto</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** list of email addresses to send to */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>to</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** list of email addresses to cc to */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>cc</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** headers to send in the mail */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>headersKeys</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>headersValues</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>MailPrintStream</name></type> <name>out</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>SmtpResponseReader</name></type> <name>in</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Socket</name></type> <name>socket</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>OK_READY</name> =<init> <expr>220</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>OK_HELO</name> =<init> <expr>250</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>OK_FROM</name> =<init> <expr>250</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>OK_RCPT_1</name> =<init> <expr>250</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>OK_RCPT_2</name> =<init> <expr>251</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>OK_DATA</name> =<init> <expr>354</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>OK_DOT</name> =<init> <expr>250</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>OK_QUIT</name> =<init> <expr>221</expr></init></decl>;</decl_stmt>
+
+  <comment type="javadoc">/**
+   * Constructs a new MailMessage to send an email.
+   * Use localhost as the mail server with port 25.
+   *
+   * @exception IOException if there's any problem contacting the mail server
+   */</comment>
+  <constructor><specifier>public</specifier> <name>MailMessage</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>DEFAULT_HOST</name></expr></argument>, <argument><expr><name>DEFAULT_PORT</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></constructor>
+
+  <comment type="javadoc">/**
+   * Constructs a new MailMessage to send an email.
+   * Use the given host as the mail server with port 25.
+   *
+   * @param host the mail server to use
+   * @exception IOException if there's any problem contacting the mail server
+   */</comment>
+  <constructor><specifier>public</specifier> <name>MailMessage</name><parameter_list>(<param><decl><type><name>String</name></type> <name>host</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>host</name></expr></argument>, <argument><expr><name>DEFAULT_PORT</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></constructor>
+
+  <comment type="javadoc">/**
+   * Constructs a new MailMessage to send an email.
+   * Use the given host and port as the mail server.
+   *
+   * @param host the mail server to use
+   * @param port the port to connect to
+   * @exception IOException if there's any problem contacting the mail server
+   */</comment>
+  <constructor><specifier>public</specifier> <name>MailMessage</name><parameter_list>(<param><decl><type><name>String</name></type> <name>host</name></decl></param>, <param><decl><type><name>int</name></type> <name>port</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <expr_stmt><expr><name><name>this</name>.<name>port</name></name> = <name>port</name></expr>;</expr_stmt>
+    <expr_stmt><expr><name><name>this</name>.<name>host</name></name> = <name>host</name></expr>;</expr_stmt>
+    <expr_stmt><expr><name>replyto</name> = new <call><name>Vector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><name>to</name> = new <call><name>Vector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><name>cc</name> = new <call><name>Vector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><name>headersKeys</name> = new <call><name>Vector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><name>headersValues</name> = new <call><name>Vector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name>connect</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name>sendHelo</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+  }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Set the port to connect to the SMTP host.
+     * @param port the port to use for connection.
+     * @see #DEFAULT_PORT
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPort</name><parameter_list>(<param><decl><type><name>int</name></type> <name>port</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>port</name></name> = <name>port</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the from address.  Also sets the "From" header.  This method should
+     * be called only once.
+     * @param from the from address
+     * @exception IOException if there's any problem reported by the mail server
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>from</name><parameter_list>(<param><decl><type><name>String</name></type> <name>from</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>sendFrom</name><argument_list>(<argument><expr><name>from</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>from</name></name> = <name>from</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the replyto address
+     * This method may be
+     * called multiple times.
+     * @param rto the replyto address
+     *
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>replyto</name><parameter_list>(<param><decl><type><name>String</name></type> <name>rto</name></decl></param>)</parameter_list> <block>{
+      <expr_stmt><expr><call><name><name>this</name>.<name>replyto</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>rto</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+  <comment type="javadoc">/**
+   * Sets the to address.  Also sets the "To" header.  This method may be
+   * called multiple times.
+   *
+   * @param to the to address
+   * @exception IOException if there's any problem reported by the mail server
+   */</comment>
+  <function><type><specifier>public</specifier> <name>void</name></type> <name>to</name><parameter_list>(<param><decl><type><name>String</name></type> <name>to</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <expr_stmt><expr><call><name>sendRcpt</name><argument_list>(<argument><expr><name>to</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name><name>this</name>.<name>to</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>to</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+
+  <comment type="javadoc">/**
+   * Sets the cc address.  Also sets the "Cc" header.  This method may be
+   * called multiple times.
+   *
+   * @param cc the cc address
+   * @exception IOException if there's any problem reported by the mail server
+   */</comment>
+  <function><type><specifier>public</specifier> <name>void</name></type> <name>cc</name><parameter_list>(<param><decl><type><name>String</name></type> <name>cc</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <expr_stmt><expr><call><name>sendRcpt</name><argument_list>(<argument><expr><name>cc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name><name>this</name>.<name>cc</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>cc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+
+  <comment type="javadoc">/**
+   * Sets the bcc address.  Does NOT set any header since it's a *blind* copy.
+   * This method may be called multiple times.
+   *
+   * @param bcc the bcc address
+   * @exception IOException if there's any problem reported by the mail server
+   */</comment>
+  <function><type><specifier>public</specifier> <name>void</name></type> <name>bcc</name><parameter_list>(<param><decl><type><name>String</name></type> <name>bcc</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <expr_stmt><expr><call><name>sendRcpt</name><argument_list>(<argument><expr><name>bcc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    <comment type="line">// No need to keep track of Bcc'd addresses</comment>
+  }</block></function>
+
+  <comment type="javadoc">/**
+   * Sets the subject of the mail message.  Actually sets the "Subject"
+   * header.
+   * @param subj the subject of the mail message
+   */</comment>
+  <function><type><specifier>public</specifier> <name>void</name></type> <name>setSubject</name><parameter_list>(<param><decl><type><name>String</name></type> <name>subj</name></decl></param>)</parameter_list> <block>{
+    <expr_stmt><expr><call><name>setHeader</name><argument_list>(<argument><expr>"Subject"</expr></argument>, <argument><expr><name>subj</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+
+  <comment type="javadoc">/**
+   * Sets the named header to the given value.  RFC 822 provides the rules for
+   * what text may constitute a header name and value.
+   * @param name name of the header
+   * @param value contents of the header
+   */</comment>
+  <function><type><specifier>public</specifier> <name>void</name></type> <name>setHeader</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+    <comment type="line">// Blindly trust the user doesn't set any invalid headers</comment>
+    <expr_stmt><expr><call><name><name>headersKeys</name>.<name>add</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name><name>headersValues</name>.<name>add</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+
+  <comment type="javadoc">/**
+   * Returns a PrintStream that can be used to write the body of the message.
+   * A stream is used since email bodies are byte-oriented.  A writer can
+   * be wrapped on top if necessary for internationalization.
+   * This is actually done in Message.java
+   *
+   * @return a printstream containing the data and the headers of the email
+   * @exception IOException if there's any problem reported by the mail server
+   * @see org.apache.tools.ant.taskdefs.email.Message
+   */</comment>
+  <function><type><specifier>public</specifier> <name>PrintStream</name></type> <name>getPrintStream</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <expr_stmt><expr><call><name>setFromHeader</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name>setReplyToHeader</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name>setToHeader</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name>setCcHeader</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name>setHeader</name><argument_list>(<argument><expr>"X-Mailer"</expr></argument>, <argument><expr>"org.apache.tools.mail.MailMessage (ant.apache.org)"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name>sendData</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name>flushHeaders</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <return>return <expr><name>out</name></expr>;</return>
+  }</block></function>
+
+
+  <comment type="line">// RFC 822 s4.1: "From:" header must be sent</comment>
+  <comment type="line">// We rely on error checking by the MTA</comment>
+  <function><type><name>void</name></type> <name>setFromHeader</name><parameter_list>()</parameter_list> <block>{
+    <expr_stmt><expr><call><name>setHeader</name><argument_list>(<argument><expr>"From"</expr></argument>, <argument><expr><name>from</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+
+  <comment type="line">// RFC 822 s4.1: "Reply-To:" header is optional</comment>
+  <function><type><name>void</name></type> <name>setReplyToHeader</name><parameter_list>()</parameter_list> <block>{
+    <if>if <condition>(<expr>!<call><name><name>replyto</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+      <expr_stmt><expr><call><name>setHeader</name><argument_list>(<argument><expr>"Reply-To"</expr></argument>, <argument><expr><call><name>vectorToList</name><argument_list>(<argument><expr><name>replyto</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></then></if>
+  }</block></function>
+
+  <function><type><name>void</name></type> <name>setToHeader</name><parameter_list>()</parameter_list> <block>{
+    <if>if <condition>(<expr>!<call><name><name>to</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+      <expr_stmt><expr><call><name>setHeader</name><argument_list>(<argument><expr>"To"</expr></argument>, <argument><expr><call><name>vectorToList</name><argument_list>(<argument><expr><name>to</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></then></if>
+  }</block></function>
+
+  <function><type><name>void</name></type> <name>setCcHeader</name><parameter_list>()</parameter_list> <block>{
+    <if>if <condition>(<expr>!<call><name><name>cc</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+      <expr_stmt><expr><call><name>setHeader</name><argument_list>(<argument><expr>"Cc"</expr></argument>, <argument><expr><call><name>vectorToList</name><argument_list>(<argument><expr><name>cc</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></then></if>
+  }</block></function>
+
+  <function><type><name>String</name></type> <name>vectorToList</name><parameter_list>(<param><decl><type><name>Vector</name></type> <name>v</name></decl></param>)</parameter_list> <block>{
+    <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>v</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+      <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+      <if>if <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>", "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+      }</block></then></if>
+    }</block></while>
+    <return>return <expr><call><name><name>buf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+  }</block></function>
+
+  <function><type><name>void</name></type> <name>flushHeaders</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <comment type="line">// RFC 822 s4.1:</comment>
+    <comment type="line">//   "Header fields are NOT required to occur in any particular order,</comment>
+    <comment type="line">//    except that the message body MUST occur AFTER the headers"</comment>
+    <comment type="line">// (the same section specifies a reccommended order, which we ignore)</comment>
+   <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>headersKeys</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+   <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+      <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr>(<name>String</name>) <call><name><name>headersKeys</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+      <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr>(<name>String</name>) <call><name><name>headersValues</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+      <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name>name</name> + ": " + <name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></for>
+    <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name><name>out</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+
+  <comment type="javadoc">/**
+   * Sends the message and closes the connection to the server.
+   * The MailMessage object cannot be reused.
+   *
+   * @exception IOException if there's any problem reported by the mail server
+   */</comment>
+  <function><type><specifier>public</specifier> <name>void</name></type> <name>sendAndClose</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+      <try>try <block>{
+          <expr_stmt><expr><call><name>sendDot</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+          <expr_stmt><expr><call><name>sendQuit</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+      }</block> <finally>finally <block>{
+          <expr_stmt><expr><call><name>disconnect</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+      }</block></finally></try>
+  }</block></function>
+
+  <comment type="line">// Make a limited attempt to extract a sanitized email address</comment>
+  <comment type="line">// Prefer text in &lt;brackets&gt;, ignore anything in (parentheses)</comment>
+  <function><type><specifier>static</specifier> <name>String</name></type> <name>sanitizeAddress</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+    <decl_stmt><decl><type><name>int</name></type> <name>paramDepth</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><name>int</name></type> <name>start</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><name>int</name></type> <name>end</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><name>int</name></type> <name>len</name> =<init> <expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>len</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+      <decl_stmt><decl><type><name>char</name></type> <name>c</name> =<init> <expr><call><name><name>s</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+      <if>if <condition>(<expr><name>c</name> == '('</expr>)</condition><then> <block>{
+        <expr_stmt><expr><name>paramDepth</name>++</expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>start</name> == 0</expr>)</condition><then> <block>{
+          <expr_stmt><expr><name>end</name> = <name>i</name></expr>;</expr_stmt>  <comment type="line">// support "address (name)"</comment>
+        }</block></then></if>
+      }</block></then> <else>else <if>if <condition>(<expr><name>c</name> == ')'</expr>)</condition><then> <block>{
+        <expr_stmt><expr><name>paramDepth</name>--</expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>end</name> == 0</expr>)</condition><then> <block>{
+          <expr_stmt><expr><name>start</name> = <name>i</name> + 1</expr>;</expr_stmt>  <comment type="line">// support "(name) address"</comment>
+        }</block></then></if>
+      }</block></then> <else>else <if>if <condition>(<expr><name>paramDepth</name> == 0 &amp;&amp; <name>c</name> == '&lt;'</expr>)</condition><then> <block>{
+        <expr_stmt><expr><name>start</name> = <name>i</name> + 1</expr>;</expr_stmt>
+      }</block></then> <else>else <if>if <condition>(<expr><name>paramDepth</name> == 0 &amp;&amp; <name>c</name> == '&gt;'</expr>)</condition><then> <block>{
+        <expr_stmt><expr><name>end</name> = <name>i</name></expr>;</expr_stmt>
+      }</block></then></if></else></if></else></if></else></if>
+    }</block></for>
+
+    <if>if <condition>(<expr><name>end</name> == 0</expr>)</condition><then> <block>{
+      <expr_stmt><expr><name>end</name> = <name>len</name></expr>;</expr_stmt>
+    }</block></then></if>
+
+    <return>return <expr><call><name><name>s</name>.<name>substring</name></name><argument_list>(<argument><expr><name>start</name></expr></argument>, <argument><expr><name>end</name></expr></argument>)</argument_list></call></expr>;</return>
+  }</block></function>
+
+  <comment type="line">// * * * * * Raw protocol methods below here * * * * *</comment>
+
+  <function><type><name>void</name></type> <name>connect</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <expr_stmt><expr><name>socket</name> = new <call><name>Socket</name><argument_list>(<argument><expr><name>host</name></expr></argument>, <argument><expr><name>port</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><name>out</name> = new <call><name>MailPrintStream</name><argument_list>(
+          <argument><expr>new <call><name>BufferedOutputStream</name><argument_list>(
+          <argument><expr><call><name><name>socket</name>.<name>getOutputStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><name>in</name> = new <call><name>SmtpResponseReader</name><argument_list>(<argument><expr><call><name><name>socket</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    <expr_stmt><expr><call><name>getReady</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+
+  <function><type><name>void</name></type> <name>getReady</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <decl_stmt><decl><type><name>String</name></type> <name>response</name> =<init> <expr><call><name><name>in</name>.<name>getResponse</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>ok</name> =<init> <expr><block>{<expr><name>OK_READY</name></expr>}</block></expr></init></decl>;</decl_stmt>
+    <if>if <condition>(<expr>!<call><name>isResponseOK</name><argument_list>(<argument><expr><name>response</name></expr></argument>, <argument><expr><name>ok</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+      <throw>throw <expr>new <call><name>IOException</name><argument_list>(
+        <argument><expr>"Didn't get introduction from server: " + <name>response</name></expr></argument>)</argument_list></call></expr>;</throw>
+    }</block></then></if>
+  }</block></function>
+  <function><type><name>void</name></type> <name>sendHelo</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <decl_stmt><decl><type><name>String</name></type> <name>local</name> =<init> <expr><call><name><name>InetAddress</name>.<name>getLocalHost</name></name><argument_list>()</argument_list></call>.<call><name>getHostName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>ok</name> =<init> <expr><block>{<expr><name>OK_HELO</name></expr>}</block></expr></init></decl>;</decl_stmt>
+    <expr_stmt><expr><call><name>send</name><argument_list>(<argument><expr>"HELO " + <name>local</name></expr></argument>, <argument><expr><name>ok</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+  <function><type><name>void</name></type> <name>sendFrom</name><parameter_list>(<param><decl><type><name>String</name></type> <name>from</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>ok</name> =<init> <expr><block>{<expr><name>OK_FROM</name></expr>}</block></expr></init></decl>;</decl_stmt>
+    <expr_stmt><expr><call><name>send</name><argument_list>(<argument><expr>"MAIL FROM: " + "&lt;" + <call><name>sanitizeAddress</name><argument_list>(<argument><expr><name>from</name></expr></argument>)</argument_list></call> + "&gt;"</expr></argument>, <argument><expr><name>ok</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+  <function><type><name>void</name></type> <name>sendRcpt</name><parameter_list>(<param><decl><type><name>String</name></type> <name>rcpt</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>ok</name> =<init> <expr><block>{<expr><name>OK_RCPT_1</name></expr>, <expr><name>OK_RCPT_2</name></expr>}</block></expr></init></decl>;</decl_stmt>
+    <expr_stmt><expr><call><name>send</name><argument_list>(<argument><expr>"RCPT TO: " + "&lt;" + <call><name>sanitizeAddress</name><argument_list>(<argument><expr><name>rcpt</name></expr></argument>)</argument_list></call> + "&gt;"</expr></argument>, <argument><expr><name>ok</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+
+  <function><type><name>void</name></type> <name>sendData</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>ok</name> =<init> <expr><block>{<expr><name>OK_DATA</name></expr>}</block></expr></init></decl>;</decl_stmt>
+    <expr_stmt><expr><call><name>send</name><argument_list>(<argument><expr>"DATA"</expr></argument>, <argument><expr><name>ok</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+
+  <function><type><name>void</name></type> <name>sendDot</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+    <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>ok</name> =<init> <expr><block>{<expr><name>OK_DOT</name></expr>}</block></expr></init></decl>;</decl_stmt>
+    <expr_stmt><expr><call><name>send</name><argument_list>(<argument><expr>"\r\n."</expr></argument>, <argument><expr><name>ok</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>  <comment type="line">// make sure dot is on new line</comment>
+  }</block></function>
+
+    <function><type><name>void</name></type> <name>sendQuit</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>ok</name> =<init> <expr><block>{<expr><name>OK_QUIT</name></expr>}</block></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><call><name>send</name><argument_list>(<argument><expr>"QUIT"</expr></argument>, <argument><expr><name>ok</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>ErrorInQuitException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <function><type><name>void</name></type> <name>send</name><parameter_list>(<param><decl><type><name>String</name></type> <name>msg</name></decl></param>, <param><decl><type><name><name>int</name><index>[]</index></name></type> <name>ok</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>out</name>.<name>rawPrint</name></name><argument_list>(<argument><expr><name>msg</name> + "\r\n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>  <comment type="line">// raw supports &lt;CRLF&gt;.&lt;CRLF&gt;</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>response</name> =<init> <expr><call><name><name>in</name>.<name>getResponse</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<call><name>isResponseOK</name><argument_list>(<argument><expr><name>response</name></expr></argument>, <argument><expr><name>ok</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Unexpected reply to command: "
+                                  + <name>msg</name> + ": " + <name>response</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+  <function><type><name>boolean</name></type> <name>isResponseOK</name><parameter_list>(<param><decl><type><name>String</name></type> <name>response</name></decl></param>, <param><decl><type><name><name>int</name><index>[]</index></name></type> <name>ok</name></decl></param>)</parameter_list> <block>{
+    <comment type="line">// Check that the response is one of the valid codes</comment>
+    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>ok</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+      <if>if <condition>(<expr><call><name><name>response</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"" + <name><name>ok</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+        <return>return <expr>true</expr>;</return>
+      }</block></then></if>
+    }</block></for>
+    <return>return <expr>false</expr>;</return>
+  }</block></function>
+
+    <function><type><name>void</name></type> <name>disconnect</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>out</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>out</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>in</name> != <name>null</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>in</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">// ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>socket</name> != <name>null</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>socket</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">// ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+    }</block></function>
+}</block></class>
+
+<comment type="javadoc">/**
+ * This PrintStream subclass makes sure that &lt;CRLF&gt;. becomes &lt;CRLF&gt;..
+ *  per RFC 821.  It also ensures that new lines are always \r\n.
+*/</comment>
+<class>class <name>MailPrintStream</name> <super><extends>extends <name>PrintStream</name></extends></super> <block>{
+
+  <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>lastChar</name></decl>;</decl_stmt>
+
+  <constructor><specifier>public</specifier> <name>MailPrintStream</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+    <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>  <comment type="line">// deprecated, but email is byte-oriented</comment>
+  }</block></constructor>
+
+  <comment type="line">// Mac does \n\r, but that's tough to distinguish from Windows \r\n\r\n.</comment>
+  <comment type="line">// Don't tackle that problem right now.</comment>
+  <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>int</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+    <if>if <condition>(<expr><name>b</name> == '\n' &amp;&amp; <name>lastChar</name> != '\r'</expr>)</condition><then> <block>{
+      <expr_stmt><expr><call><name>rawWrite</name><argument_list>(<argument><expr>'\r'</expr></argument>)</argument_list></call></expr>;</expr_stmt>  <comment type="line">// ensure always \r\n</comment>
+      <expr_stmt><expr><call><name>rawWrite</name><argument_list>(<argument><expr><name>b</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></then> <else>else <if>if <condition>(<expr><name>b</name> == '.' &amp;&amp; <name>lastChar</name> == '\n'</expr>)</condition><then> <block>{
+      <expr_stmt><expr><call><name>rawWrite</name><argument_list>(<argument><expr>'.'</expr></argument>)</argument_list></call></expr>;</expr_stmt>  <comment type="line">// add extra dot</comment>
+      <expr_stmt><expr><call><name>rawWrite</name><argument_list>(<argument><expr><name>b</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></then> <else>else <block>{
+      <expr_stmt><expr><call><name>rawWrite</name><argument_list>(<argument><expr><name>b</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></else></if></else></if>
+    <expr_stmt><expr><name>lastChar</name> = <name>b</name></expr>;</expr_stmt>
+  }</block></function>
+
+  <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>buf</name></decl></param>, <param><decl><type><name>int</name></type> <name>off</name></decl></param>, <param><decl><type><name>int</name></type> <name>len</name></decl></param>)</parameter_list> <block>{
+    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>len</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+      <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr><name><name>buf</name><index>[<expr><name>off</name> + <name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></for>
+  }</block></function>
+
+  <function><type><name>void</name></type> <name>rawWrite</name><parameter_list>(<param><decl><type><name>int</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+    <expr_stmt><expr><call><name><name>super</name>.<name>write</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+  }</block></function>
+
+  <function><type><name>void</name></type> <name>rawPrint</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+    <decl_stmt><decl><type><name>int</name></type> <name>len</name> =<init> <expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>len</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+      <expr_stmt><expr><call><name>rawWrite</name><argument_list>(<argument><expr><call><name><name>s</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></for>
+  }</block></function>
+}</block></class>
+
+</unit>

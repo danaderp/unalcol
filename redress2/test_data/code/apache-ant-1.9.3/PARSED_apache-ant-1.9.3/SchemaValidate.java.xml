@@ -1,0 +1,530 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\SchemaValidate.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name></name>;</package>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>XmlConstants</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>XMLReader</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>SAXNotRecognizedException</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>SAXNotSupportedException</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>SAXException</name></name>;</import>
+
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>SAXParserFactory</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>SAXParser</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>ParserConfigurationException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>MalformedURLException</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Validate XML Schema documents.
+ * This task validates XML schema documents. It requires an XML parser
+ * that handles the relevant SAX, Xerces or JAXP options.
+ *
+ * To resolve remote referencies, Ant may need its proxy set up, using the
+ * setproxy task.
+ *
+ * Hands off most of the work to its parent, {@link XMLValidateTask}
+ * @since Ant1.7
+ */</comment>
+
+<class><specifier>public</specifier> class <name>SchemaValidate</name> <super><extends>extends <name>XMLValidateTask</name></extends></super> <block>{
+
+    <comment type="javadoc">/** map of all declared schemas; we catch and complain about redefinitions */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>HashMap</name></type> <name>schemaLocations</name> =<init> <expr>new <call><name>HashMap</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** full checking of a schema */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>fullChecking</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * flag to disable DTD support. Best left enabled.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>disableDTD</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * default URL for nonamespace schemas
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>SchemaLocation</name></type> <name>anonymousSchema</name></decl>;</decl_stmt>
+
+    <comment type="line">// Error strings</comment>
+    <comment type="javadoc">/** SAX1 not supported */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_SAX_1</name> =<init> <expr>"SAX1 parsers are not supported"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** schema features not supported */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_XSD_SUPPORT</name>
+        =<init> <expr>"Parser does not support Xerces or JAXP schema features"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** too many default schemas */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_TOO_MANY_DEFAULT_SCHEMAS</name>
+        =<init> <expr>"Only one of defaultSchemaFile and defaultSchemaURL allowed"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** unable to create parser */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_PARSER_CREATION_FAILURE</name>
+        =<init> <expr>"Could not create parser"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** adding schema */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>MESSAGE_ADDING_SCHEMA</name> =<init> <expr>"Adding schema "</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Duplicate declaration of schema  */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_DUPLICATE_SCHEMA</name>
+        =<init> <expr>"Duplicate declaration of schema "</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Called by the project to let the task initialize properly. The default
+     * implementation is a no-op.
+     *
+     * @throws BuildException if something goes wrong with the build
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>init</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>super</name>.<name>init</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">//validating</comment>
+        <expr_stmt><expr><call><name>setLenient</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Turn on XSD support in Xerces.
+     * @return true on success, false on failure
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>enableXercesSchemaValidation</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <expr_stmt><expr><call><name>setFeature</name><argument_list>(<argument><expr><name><name>XmlConstants</name>.<name>FEATURE_XSD</name></name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//set the schema source for the doc</comment>
+            <expr_stmt><expr><call><name>setNoNamespaceSchemaProperty</name><argument_list>(<argument><expr><name><name>XmlConstants</name>.<name>PROPERTY_NO_NAMESPACE_SCHEMA_LOCATION</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>false</expr>;</return>
+        }</block></catch></try>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * set nonamespace handling up for xerces or other parsers
+     * @param property name of the property to set
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setNoNamespaceSchemaProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>property</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>anonSchema</name> =<init> <expr><call><name>getNoNamespaceSchemaURL</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>anonSchema</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setProperty</name><argument_list>(<argument><expr><name>property</name></expr></argument>, <argument><expr><name>anonSchema</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set schema attributes in a JAXP 1.2 engine.
+     * @see &lt;A href="http://java.sun.com/xml/jaxp/change-requests-11.html"&gt;
+     * JAXP 1.2 Approved CHANGES&lt;/A&gt;
+     * @return true on success, false on failure
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>enableJAXP12SchemaValidation</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <comment type="line">//enable XSD</comment>
+            <expr_stmt><expr><call><name>setProperty</name><argument_list>(<argument><expr><name><name>XmlConstants</name>.<name>FEATURE_JAXP12_SCHEMA_LANGUAGE</name></name></expr></argument>, <argument><expr><name><name>XmlConstants</name>.<name>URI_XSD</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//set the schema source for the doc</comment>
+            <expr_stmt><expr><call><name>setNoNamespaceSchemaProperty</name><argument_list>(<argument><expr><name><name>XmlConstants</name>.<name>FEATURE_JAXP12_SCHEMA_SOURCE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>false</expr>;</return>
+        }</block></catch></try>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add the schema
+     * @param location the schema location.
+     * @throws BuildException if there is no namespace, or if there already
+     * is a declaration of this schema with a different value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredSchema</name><parameter_list>(<param><decl><type><name>SchemaLocation</name></type> <name>location</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"adding schema " + <name>location</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>location</name>.<name>validateNamespace</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>SchemaLocation</name></type> <name>old</name> =<init> <expr>(<name>SchemaLocation</name>) <call><name><name>schemaLocations</name>.<name>get</name></name><argument_list>(<argument><expr><call><name><name>location</name>.<name>getNamespace</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>old</name> != <name>null</name> &amp;&amp; !<call><name><name>old</name>.<name>equals</name></name><argument_list>(<argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_DUPLICATE_SCHEMA</name> + <name>location</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>schemaLocations</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>location</name>.<name>getNamespace</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * enable full schema checking. Slower but better.
+     * @param fullChecking a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFullChecking</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>fullChecking</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>fullChecking</name></name> = <name>fullChecking</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * create a schema location to hold the anonymous
+     * schema
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>createAnonymousSchema</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>anonymousSchema</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>anonymousSchema</name> = new <call><name>SchemaLocation</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>anonymousSchema</name>.<name>setNamespace</name></name><argument_list>(<argument><expr>"(no namespace)"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * identify the URL of the default schema
+     * @param defaultSchemaURL the URL of the default schema.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNoNamespaceURL</name><parameter_list>(<param><decl><type><name>String</name></type> <name>defaultSchemaURL</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createAnonymousSchema</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>this</name>.<name>anonymousSchema</name>.<name>setUrl</name></name><argument_list>(<argument><expr><name>defaultSchemaURL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * identify a file containing the default schema
+     * @param defaultSchemaFile the location of the default schema.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNoNamespaceFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>defaultSchemaFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createAnonymousSchema</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>this</name>.<name>anonymousSchema</name>.<name>setFile</name></name><argument_list>(<argument><expr><name>defaultSchemaFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * flag to disable DTD support.
+     * @param disableDTD a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDisableDTD</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>disableDTD</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>disableDTD</name></name> = <name>disableDTD</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * init the parser : load the parser class, and set features if necessary It
+     * is only after this that the reader is valid
+     *
+     * @throws BuildException if something went wrong
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>initValidator</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>super</name>.<name>initValidator</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">//validate the parser type</comment>
+        <if>if <condition>(<expr><call><name>isSax1Parser</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_SAX_1</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <comment type="line">//enable schema</comment>
+        <comment type="line">//setFeature(XmlConstants.FEATURE_VALIDATION, false);</comment>
+        <expr_stmt><expr><call><name>setFeature</name><argument_list>(<argument><expr><name><name>XmlConstants</name>.<name>FEATURE_NAMESPACES</name></name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr>!<call><name>enableXercesSchemaValidation</name><argument_list>()</argument_list></call> &amp;&amp; !<call><name>enableJAXP12SchemaValidation</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">//couldnt use the xerces or jaxp calls</comment>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_XSD_SUPPORT</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <comment type="line">//enable schema checking</comment>
+        <expr_stmt><expr><call><name>setFeature</name><argument_list>(<argument><expr><name><name>XmlConstants</name>.<name>FEATURE_XSD_FULL_VALIDATION</name></name></expr></argument>, <argument><expr><name>fullChecking</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//turn off DTDs if desired</comment>
+        <expr_stmt><expr><call><name>setFeatureIfSupported</name><argument_list>(<argument><expr><name><name>XmlConstants</name>.<name>FEATURE_DISALLOW_DTD</name></name></expr></argument>, <argument><expr><name>disableDTD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//schema declarations go in next</comment>
+        <expr_stmt><expr><call><name>addSchemaLocations</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a reader if the use of the class did not specify another one.
+     * The reason to not use {@link org.apache.tools.ant.util.JAXPUtils#getXMLReader()} was to
+     * create our own factory with our own options.
+     * @return a default XML parser
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>XMLReader</name></type> <name>createDefaultReader</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>SAXParserFactory</name></type> <name>factory</name> =<init> <expr><call><name><name>SAXParserFactory</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>factory</name>.<name>setValidating</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>factory</name>.<name>setNamespaceAware</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>XMLReader</name></type> <name>reader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>SAXParser</name></type> <name>saxParser</name> =<init> <expr><call><name><name>factory</name>.<name>newSAXParser</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>reader</name> = <call><name><name>saxParser</name>.<name>getXMLReader</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>ParserConfigurationException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_PARSER_CREATION_FAILURE</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>SAXException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_PARSER_CREATION_FAILURE</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+        <return>return <expr><name>reader</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * build a string list of all schema locations, then set the relevant
+     * property.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addSchemaLocations</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Iterator</name></type> <name>it</name> =<init> <expr><call><name><name>schemaLocations</name>.<name>values</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buffer</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>count</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>it</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <if>if <condition>(<expr><name>count</name> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr>' '</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>SchemaLocation</name></type> <name>schemaLocation</name> =<init> <expr>(<name>SchemaLocation</name>) <call><name><name>it</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>tuple</name> =<init> <expr><call><name><name>schemaLocation</name>.<name>getURIandLocation</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>tuple</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Adding schema " + <name>tuple</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>count</name>++</expr>;</expr_stmt>
+        }</block></while>
+        <if>if <condition>(<expr><name>count</name> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setProperty</name><argument_list>(<argument><expr><name><name>XmlConstants</name>.<name>PROPERTY_SCHEMA_LOCATION</name></name></expr></argument>, <argument><expr><call><name><name>buffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get the URL of the no namespace schema
+     * @return the schema URL
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getNoNamespaceSchemaURL</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>anonymousSchema</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then> <else>else <block>{
+            <return>return <expr><call><name><name>anonymousSchema</name>.<name>getSchemaLocationURL</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * set a feature if it is supported, log at verbose level if
+     * not
+     * @param feature the feature.
+     * @param value a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>setFeatureIfSupported</name><parameter_list>(<param><decl><type><name>String</name></type> <name>feature</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <expr_stmt><expr><call><name>getXmlReader</name><argument_list>()</argument_list></call>.<call><name>setFeature</name><argument_list>(<argument><expr><name>feature</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>SAXNotRecognizedException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Not recognizied: " + <name>feature</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>SAXNotSupportedException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Not supported: " + <name>feature</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * handler called on successful file validation.
+     *
+     * @param fileProcessed number of files processed.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>onSuccessfulValidation</name><parameter_list>(<param><decl><type><name>int</name></type> <name>fileProcessed</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>fileProcessed</name> + <name>MESSAGE_FILES_VALIDATED</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * representation of a schema location. This is a URI plus either a file or
+     * a url
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>SchemaLocation</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>namespace</name></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>file</name></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>url</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** No namespace URI */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_URI</name> =<init> <expr>"No namespace URI"</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** Both URL and File were given for schema */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_TWO_LOCATIONS</name>
+            =<init> <expr>"Both URL and File were given for schema "</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** File not found */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_FILE</name> =<init> <expr>"File not found: "</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** Cannot make URL */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_URL_REPRESENTATION</name>
+            =<init> <expr>"Cannot make a URL of "</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** No location provided */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_LOCATION</name>
+            =<init> <expr>"No file or URL supplied for the schema "</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** No arg constructor */</comment>
+        <constructor><specifier>public</specifier> <name>SchemaLocation</name><parameter_list>()</parameter_list> <block>{
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Get the namespace.
+         * @return the namespace.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getNamespace</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>namespace</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * set the namespace of this schema. Any URI
+         * @param namespace the namespace to use.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setNamespace</name><parameter_list>(<param><decl><type><name>String</name></type> <name>namespace</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>namespace</name></name> = <name>namespace</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the file.
+         * @return the file containing the schema.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>File</name></type> <name>getFile</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>file</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * identify a file that contains this namespace's schema.
+         * The file must exist.
+         * @param file the file contains the schema.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>file</name></name> = <name>file</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * The URL containing the schema.
+         * @return the URL string.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getUrl</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>url</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * identify a URL that hosts the schema.
+         * @param url the URL string.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setUrl</name><parameter_list>(<param><decl><type><name>String</name></type> <name>url</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>url</name></name> = <name>url</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * get the URL of the schema
+         * @return a URL to the schema
+         * @throws BuildException if not
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getSchemaLocationURL</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>boolean</name></type> <name>hasFile</name> =<init> <expr><name>file</name> != <name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>boolean</name></type> <name>hasURL</name> =<init> <expr><call><name>isSet</name><argument_list>(<argument><expr><name>url</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <comment type="line">//error if both are empty, or both are set</comment>
+            <if>if <condition>(<expr>!<name>hasFile</name> &amp;&amp; !<name>hasURL</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_LOCATION</name> + <name>namespace</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>hasFile</name> &amp;&amp; <name>hasURL</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_TWO_LOCATIONS</name> + <name>namespace</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>schema</name> =<init> <expr><name>url</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>hasFile</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr>!<call><name><name>file</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_FILE</name> + <name>file</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+
+                <try>try <block>{
+                    <expr_stmt><expr><name>schema</name> = <call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call>.<call><name>getFileURL</name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>e</name></decl></param>) <block>{
+                    <comment type="line">//this is almost implausible, but required handling</comment>
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_URL_REPRESENTATION</name> + <name>file</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></then></if>
+            <return>return <expr><name>schema</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * validate the fields then create a "uri location" string
+         *
+         * @return string of uri and location
+         * @throws BuildException if there is an error.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getURIandLocation</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name>validateNamespace</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buffer</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>namespace</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr>' '</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr><call><name>getSchemaLocationURL</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>new <call><name>String</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * assert that a namespace is valid
+         * @throws BuildException if not
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>validateNamespace</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr>!<call><name>isSet</name><argument_list>(<argument><expr><call><name>getNamespace</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_URI</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * check that a property is set
+         * @param property string to check
+         * @return true if it is not null or empty
+         */</comment>
+        <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isSet</name><parameter_list>(<param><decl><type><name>String</name></type> <name>property</name></decl></param>)</parameter_list> <block>{
+            <return>return <expr><name>property</name> != <name>null</name> &amp;&amp; <call><name><name>property</name>.<name>length</name></name><argument_list>()</argument_list></call> != 0</expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * equality test checks namespace, location and filename. All must match,
+         * @param o object to compare against
+         * @return true iff the objects are considered equal in value
+         */</comment>
+
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>o</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>this</name> == <name>o</name></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr>!(<name>o</name> <name>instanceof</name> <name>SchemaLocation</name>)</expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><specifier>final</specifier> <name>SchemaLocation</name></type> <name>schemaLocation</name> =<init> <expr>(<name>SchemaLocation</name>) <name>o</name></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>file</name> != <name>null</name> ? !<call><name><name>file</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>schemaLocation</name>.<name>file</name></name></expr></argument>)</argument_list></call> : <name><name>schemaLocation</name>.<name>file</name></name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>namespace</name> != <name>null</name> ? !<call><name><name>namespace</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>schemaLocation</name>.<name>namespace</name></name></expr></argument>)</argument_list></call>
+                    : <name><name>schemaLocation</name>.<name>namespace</name></name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>url</name> != <name>null</name> ? !<call><name><name>url</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>schemaLocation</name>.<name>url</name></name></expr></argument>)</argument_list></call> : <name><name>schemaLocation</name>.<name>url</name></name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+
+            <return>return <expr>true</expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Generate a hashcode depending on the namespace, url and file name.
+         * @return the hashcode.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>hashCode</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>result</name></decl>;</decl_stmt>
+            <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+            <expr_stmt><expr><name>result</name> = (<name>namespace</name> != <name>null</name> ? <call><name><name>namespace</name>.<name>hashCode</name></name><argument_list>()</argument_list></call> : 0)</expr>;</expr_stmt>
+            <expr_stmt><expr><name>result</name> = 29 * <name>result</name> + (<name>file</name> != <name>null</name> ? <call><name><name>file</name>.<name>hashCode</name></name><argument_list>()</argument_list></call> : 0)</expr>;</expr_stmt>
+            <expr_stmt><expr><name>result</name> = 29 * <name>result</name> + (<name>url</name> != <name>null</name> ? <call><name><name>url</name>.<name>hashCode</name></name><argument_list>()</argument_list></call> : 0)</expr>;</expr_stmt>
+            <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+            <return>return <expr><name>result</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Returns a string representation of the object for error messages
+         * and the like
+         * @return a string representation of the object.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buffer</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>namespace</name> != <name>null</name> ? <name>namespace</name> : "(anonymous)"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr>' '</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>url</name> != <name>null</name> ? (<name>url</name> + " ") : ""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>file</name> != <name>null</name> ? <call><name><name>file</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call> : ""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><call><name><name>buffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class> <comment type="line">//SchemaLocation</comment>
+}</block></class>
+</unit>

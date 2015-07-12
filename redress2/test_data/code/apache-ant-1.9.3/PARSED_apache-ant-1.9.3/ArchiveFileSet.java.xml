@@ -1,0 +1,567 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\types\ArchiveFileSet.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Stack</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileProvider</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name>.<name>UnixStat</name></name>;</import>
+
+<comment type="javadoc">/**
+ * A ArchiveFileSet is a FileSet with extra attributes useful in the
+ * context of archiving tasks.
+ *
+ * It includes a prefix attribute which is prepended to each entry in
+ * the output archive file as well as a fullpath attribute.  It also
+ * supports Unix file permissions for files and directories.
+ *
+ * @since Ant 1.7
+ */</comment>
+<class><specifier>public</specifier> <specifier>abstract</specifier> class <name>ArchiveFileSet</name> <super><extends>extends <name>FileSet</name></extends></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BASE_OCTAL</name> =<init> <expr>8</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Default value for the dirmode attribute.
+     *
+     * @since Ant 1.5.2
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEFAULT_DIR_MODE</name> =<init>
+        <expr><name><name>UnixStat</name>.<name>DIR_FLAG</name></name> | <name><name>UnixStat</name>.<name>DEFAULT_DIR_PERM</name></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Default value for the filemode attribute.
+     *
+     * @since Ant 1.5.2
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEFAULT_FILE_MODE</name> =<init>
+        <expr><name><name>UnixStat</name>.<name>FILE_FLAG</name></name> | <name><name>UnixStat</name>.<name>DEFAULT_FILE_PERM</name></name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Resource</name></type> <name>src</name>          =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>prefix</name>         =<init> <expr>""</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>fullpath</name>       =<init> <expr>""</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>hasDir</name>        =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>fileMode</name>          =<init> <expr><name>DEFAULT_FILE_MODE</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>dirMode</name>           =<init> <expr><name>DEFAULT_DIR_MODE</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>fileModeHasBeenSet</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>dirModeHasBeenSet</name>  =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_DIR_AND_SRC_ATTRIBUTES</name> =<init> <expr>"Cannot set both dir and src attributes"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_PATH_AND_PREFIX</name> =<init> <expr>"Cannot set both fullpath and prefix attributes"</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>errorOnMissingArchive</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Constructor for ArchiveFileSet */</comment>
+    <constructor><specifier>public</specifier> <name>ArchiveFileSet</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor using a fileset argument.
+     * @param fileset the fileset to use
+     */</comment>
+    <constructor><specifier>protected</specifier> <name>ArchiveFileSet</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>fileset</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>fileset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor using a archive fileset argument.
+     * @param fileset the archivefileset to use
+     */</comment>
+    <constructor><specifier>protected</specifier> <name>ArchiveFileSet</name><parameter_list>(<param><decl><type><name>ArchiveFileSet</name></type> <name>fileset</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>fileset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>src</name> = <name><name>fileset</name>.<name>src</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>prefix</name> = <name><name>fileset</name>.<name>prefix</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>fullpath</name> = <name><name>fileset</name>.<name>fullpath</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>hasDir</name> = <name><name>fileset</name>.<name>hasDir</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>fileMode</name> = <name><name>fileset</name>.<name>fileMode</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>dirMode</name> = <name><name>fileset</name>.<name>dirMode</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>fileModeHasBeenSet</name> = <name><name>fileset</name>.<name>fileModeHasBeenSet</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>dirModeHasBeenSet</name> = <name><name>fileset</name>.<name>dirModeHasBeenSet</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>errorOnMissingArchive</name> = <name><name>fileset</name>.<name>errorOnMissingArchive</name></name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Set the directory for the fileset.
+     * @param dir the directory for the fileset
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dir</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>src</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_DIR_AND_SRC_ATTRIBUTES</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>super</name>.<name>setDir</name></name><argument_list>(<argument><expr><name>dir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>hasDir</name> = true</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the source Archive file for the archivefileset.  Prevents both
+     * "dir" and "src" from being specified.
+     * @param a the archive as a single element Resource collection.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfigured</name><parameter_list>(<param><decl><type><name>ResourceCollection</name></type> <name>a</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name><name>a</name>.<name>size</name></name><argument_list>()</argument_list></call> != 1</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"only single argument resource collections"
+                                     + " are supported as archives"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>setSrcResource</name><argument_list>(<argument><expr><call><name><name>a</name>.<name>iterator</name></name><argument_list>()</argument_list></call>.<call><name>next</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the source Archive file for the archivefileset.  Prevents both
+     * "dir" and "src" from being specified.
+     *
+     * @param srcFile The archive from which to extract entries.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSrc</name><parameter_list>(<param><decl><type><name>File</name></type> <name>srcFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setSrcResource</name><argument_list>(<argument><expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>srcFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the source Archive file for the archivefileset.  Prevents both
+     * "dir" and "src" from being specified.
+     *
+     * @param src The archive from which to extract entries.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSrcResource</name><parameter_list>(<param><decl><type><name>Resource</name></type> <name>src</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkArchiveAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>hasDir</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_DIR_AND_SRC_ATTRIBUTES</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>src</name></name> = <name>src</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the archive from which entries will be extracted.
+     * @param p the project to use
+     * @return the source file
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getSrc</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>ArchiveFileSet</name>) <call><name>getRef</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>).<call><name>getSrc</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name>getSrc</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets whether an error is thrown if an archive does not exist.
+     *
+     * @param errorOnMissingArchive true if missing archives cause errors,
+     *                        false if not.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setErrorOnMissingArchive</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>errorOnMissingArchive</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>errorOnMissingArchive</name></name> = <name>errorOnMissingArchive</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the archive file from which entries will be extracted.
+     * @return the archive in case the archive is a file, null otherwise.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getSrc</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>ArchiveFileSet</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>getSrc</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>src</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>FileProvider</name></type> <name>fp</name> =<init> <expr><call><name><name>src</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>fp</name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><call><name><name>fp</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr>;</return>
+            }</block></then></if>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Performs the check for circular references and returns the
+     * referenced object.
+     * This is an override which does not delegate to the superclass; instead it invokes
+     * {@link #getRef(Project)}, because that contains the special support for fileset
+     * references, which can be handled by all ArchiveFileSets.
+     * @param p the Ant Project instance against which to resolve references.
+     * @return the dereferenced object.
+     * @throws BuildException if the reference is invalid (circular ref, wrong class, etc).
+     * @since Ant 1.8
+     */</comment>
+    <comment type="line">// TODO is the above true? AFAICT the calls look circular :/</comment>
+    <function><type><specifier>protected</specifier> <name>Object</name></type> <name>getCheckedRef</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>getRef</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Prepend this prefix to the path for each archive entry.
+     * Prevents both prefix and fullpath from being specified
+     *
+     * @param prefix The prefix to prepend to entries in the archive file.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPrefix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>prefix</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkArchiveAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr>!"".<call><name>equals</name><argument_list>(<argument><expr><name>prefix</name></expr></argument>)</argument_list></call> &amp;&amp; !"".<call><name>equals</name><argument_list>(<argument><expr><name>fullpath</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_PATH_AND_PREFIX</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>prefix</name></name> = <name>prefix</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the prefix prepended to entries in the archive file.
+     * @param p the project to use
+     * @return the prefix
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getPrefix</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>ArchiveFileSet</name>) <call><name>getRef</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>).<call><name>getPrefix</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>prefix</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the full pathname of the single entry in this fileset.
+     * Prevents both prefix and fullpath from being specified
+     *
+     * @param fullpath the full pathname of the single entry in this fileset.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFullpath</name><parameter_list>(<param><decl><type><name>String</name></type> <name>fullpath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkArchiveAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr>!"".<call><name>equals</name><argument_list>(<argument><expr><name>prefix</name></expr></argument>)</argument_list></call> &amp;&amp; !"".<call><name>equals</name><argument_list>(<argument><expr><name>fullpath</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_PATH_AND_PREFIX</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>fullpath</name></name> = <name>fullpath</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the full pathname of the single entry in this fileset.
+     * @param p the project to use
+     * @return the full path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getFullpath</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>ArchiveFileSet</name>) <call><name>getRef</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>).<call><name>getFullpath</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>fullpath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates a scanner for this type of archive.
+     * @return the scanner.
+     */</comment>
+    <function_decl><type><specifier>protected</specifier> <specifier>abstract</specifier> <name>ArchiveScanner</name></type> <name>newArchiveScanner</name><parameter_list>()</parameter_list>;</function_decl>
+
+    <comment type="javadoc">/**
+     * Return the DirectoryScanner associated with this FileSet.
+     * If the ArchiveFileSet defines a source Archive file, then an ArchiveScanner
+     * is returned instead.
+     * @param p the project to use
+     * @return a directory scanner
+     */</comment>
+    <function><type><specifier>public</specifier> <name>DirectoryScanner</name></type> <name>getDirectoryScanner</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>.<call><name>getDirectoryScanner</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>src</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>super</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<call><name><name>src</name>.<name>isExists</name></name><argument_list>()</argument_list></call> &amp;&amp; <name>errorOnMissingArchive</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                <argument><expr>"The archive " + <call><name><name>src</name>.<name>getName</name></name><argument_list>()</argument_list></call> + " doesn't exist"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>src</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The archive " + <call><name><name>src</name>.<name>getName</name></name><argument_list>()</argument_list></call>
+                                     + " can't be a directory"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>ArchiveScanner</name></type> <name>as</name> =<init> <expr><call><name>newArchiveScanner</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>as</name>.<name>setErrorOnMissingArchive</name></name><argument_list>(<argument><expr><name>errorOnMissingArchive</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>as</name>.<name>setSrc</name></name><argument_list>(<argument><expr><name>src</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>super</name>.<name>setDir</name></name><argument_list>(<argument><expr><call><name><name>p</name>.<name>getBaseDir</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setupDirectoryScanner</name><argument_list>(<argument><expr><name>as</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>as</name>.<name>init</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>as</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fulfill the ResourceCollection contract.
+     * @return Iterator of Resources.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Iterator</name><argument_list>&lt;<argument><name>Resource</name></argument>&gt;</argument_list></name></type> <name>iterator</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>(<call>(<name>ResourceCollection</name>) <argument_list>(<argument><expr><call><name>getRef</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>).<call><name>iterator</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>src</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>super</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>ArchiveScanner</name></type> <name>as</name> =<init> <expr>(<name>ArchiveScanner</name>) <call><name>getDirectoryScanner</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name><name>as</name>.<name>getResourceFiles</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fulfill the ResourceCollection contract.
+     * @return size of the collection as int.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>size</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>(<call>(<name>ResourceCollection</name>) <argument_list>(<argument><expr><call><name>getRef</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>).<call><name>size</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>src</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>super</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>ArchiveScanner</name></type> <name>as</name> =<init> <expr>(<name>ArchiveScanner</name>) <call><name>getDirectoryScanner</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name><name>as</name>.<name>getIncludedFilesCount</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicate whether this ResourceCollection is composed entirely of
+     * Resources accessible via local filesystem conventions.  If true,
+     * all Resources returned from this ResourceCollection should be
+     * instances of FileResource.
+     * @return whether this is a filesystem-only resource collection.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isFilesystemOnly</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>ArchiveFileSet</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>isFilesystemOnly</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>src</name> == <name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A 3 digit octal string, specify the user, group and
+     * other modes in the standard Unix fashion;
+     * optional, default=0644
+     * @param octalString a &lt;code&gt;String&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFileMode</name><parameter_list>(<param><decl><type><name>String</name></type> <name>octalString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkArchiveAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>integerSetFileMode</name><argument_list>(<argument><expr><call><name><name>Integer</name>.<name>parseInt</name></name><argument_list>(<argument><expr><name>octalString</name></expr></argument>, <argument><expr><name>BASE_OCTAL</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * specify the user, group and
+     * other modes in the standard Unix fashion;
+     * optional, default=0644
+     *
+     * &lt;p&gt;We use the strange name so this method doesn't appear in
+     * IntrospectionHelpers list of attribute setters.&lt;/p&gt;
+     * @param mode a &lt;code&gt;int&lt;/code&gt; value
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>integerSetFileMode</name><parameter_list>(<param><decl><type><name>int</name></type> <name>mode</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>fileModeHasBeenSet</name> = true</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>fileMode</name></name> = <name><name>UnixStat</name>.<name>FILE_FLAG</name></name> | <name>mode</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the mode of the archive fileset
+     * @param p the project to use
+     * @return the mode
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getFileMode</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>ArchiveFileSet</name>) <call><name>getRef</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>).<call><name>getFileMode</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>fileMode</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether the user has specified the mode explicitly.
+     * @return true if it has been set
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>hasFileModeBeenSet</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>ArchiveFileSet</name>) <call><name>getRef</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>).<call><name>hasFileModeBeenSet</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>fileModeHasBeenSet</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A 3 digit octal string, specify the user, group and
+     * other modes in the standard Unix fashion;
+     * optional, default=0755
+     * @param octalString a &lt;code&gt;String&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDirMode</name><parameter_list>(<param><decl><type><name>String</name></type> <name>octalString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkArchiveAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>integerSetDirMode</name><argument_list>(<argument><expr><call><name><name>Integer</name>.<name>parseInt</name></name><argument_list>(<argument><expr><name>octalString</name></expr></argument>, <argument><expr><name>BASE_OCTAL</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * specify the user, group and
+     * other modes in the standard Unix fashion;
+     * optional, default=0755
+     * &lt;p&gt;We use the strange name so this method doesn't appear in
+     * IntrospectionHelpers list of attribute setters.&lt;/p&gt;
+     * @param mode a &lt;code&gt;int&lt;/code&gt; value
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>integerSetDirMode</name><parameter_list>(<param><decl><type><name>int</name></type> <name>mode</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>dirModeHasBeenSet</name> = true</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>dirMode</name></name> = <name><name>UnixStat</name>.<name>DIR_FLAG</name></name> | <name>mode</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the dir mode of the archive fileset
+     * @param p the project to use
+     * @return the mode
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getDirMode</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>ArchiveFileSet</name>) <call><name>getRef</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>).<call><name>getDirMode</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>dirMode</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether the user has specified the mode explicitly.
+     *
+     * @return true if it has been set
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>hasDirModeBeenSet</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>ArchiveFileSet</name>) <call><name>getRef</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>).<call><name>hasDirModeBeenSet</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>dirModeHasBeenSet</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A ArchiveFileset accepts another ArchiveFileSet or a FileSet as reference
+     * FileSets are often used by the war task for the lib attribute
+     * @param zfs the project to use
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>configureFileSet</name><parameter_list>(<param><decl><type><name>ArchiveFileSet</name></type> <name>zfs</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>zfs</name>.<name>setPrefix</name></name><argument_list>(<argument><expr><name>prefix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>zfs</name>.<name>setFullpath</name></name><argument_list>(<argument><expr><name>fullpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>zfs</name>.<name>fileModeHasBeenSet</name></name> = <name>fileModeHasBeenSet</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>zfs</name>.<name>fileMode</name></name> = <name>fileMode</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>zfs</name>.<name>dirModeHasBeenSet</name></name> = <name>dirModeHasBeenSet</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>zfs</name>.<name>dirMode</name></name> = <name>dirMode</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a ArchiveFileSet that has the same properties
+     * as this one.
+     * @return the cloned archiveFileSet
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getCheckedRef</name><argument_list>(<argument><expr><name><name>ArchiveFileSet</name>.<name><name/></name></name>class</expr></argument>, <argument><expr><call><name>getDataTypeName</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>clone</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * For file-based archivefilesets, return the same as for normal filesets;
+     * else just return the path of the zip.
+     * @return for file based archivefilesets, included files as a list
+     * of semicolon-separated filenames. else just the name of the zip.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>hasDir</name> &amp;&amp; <call><name>getProject</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>super</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>src</name> == <name>null</name> ? <name>null</name> : <call><name><name>src</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the prefix prepended to entries in the archive file.
+     * @return the prefix.
+     * @deprecated since 1.7.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getPrefix</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>prefix</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the full pathname of the single entryZ in this fileset.
+     * @return the full pathname.
+     * @deprecated since 1.7.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getFullpath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>fullpath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the file mode.
+     * @deprecated since 1.7.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getFileMode</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>fileMode</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the dir mode.
+     * @deprecated since 1.7.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getDirMode</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>dirMode</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A check attributes for archiveFileSet.
+     * If there is a reference, and
+     * it is a ArchiveFileSet, the archive fileset attributes
+     * cannot be used.
+     * (Note, we can only see if the reference is an archive
+     * fileset if the project has been set).
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>checkArchiveAttributesAllowed</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>getProject</name><argument_list>()</argument_list></call> == <name>null</name>
+            || (<call><name>isReference</name><argument_list>()</argument_list></call>
+                &amp;&amp; (<call><name>getRefid</name><argument_list>()</argument_list></call>.<call><name>getReferencedObject</name><argument_list>(
+                        <argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+                    <name>instanceof</name> <name>ArchiveFileSet</name>))</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><specifier>protected</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>dieOnCircularReference</name><parameter_list>(<param><decl><type><name><name>Stack</name><argument_list>&lt;<argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>stk</name></decl></param>, <param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name>isChecked</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <comment type="line">// takes care of nested selectors</comment>
+        <expr_stmt><expr><call><name><name>super</name>.<name>dieOnCircularReference</name></name><argument_list>(<argument><expr><name>stk</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr>!<call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>src</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>pushAndInvokeCircularReferenceCheck</name><argument_list>(<argument><expr><name>src</name></expr></argument>, <argument><expr><name>stk</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+}</block></class>
+</unit>

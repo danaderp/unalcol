@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\extension\JarLibManifestTask.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>extension</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>Attributes</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>Manifest</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>MagicNames</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Generates a manifest that declares all the dependencies.
+ * The dependencies are determined by looking in the
+ * specified path and searching for Extension / "Optional Package"
+ * specifications in the manifests of the jars.
+ *
+ * &lt;p&gt;Prior to JDK1.3, an "Optional Package" was known as an Extension.
+ * The specification for this mechanism is available in the JDK1.3
+ * documentation in the directory
+ * $JDK_HOME/docs/guide/extensions/versioning.html. Alternatively it is
+ * available online at &lt;a href="http://java.sun.com/j2se/1.3/docs/guide/extensions/versioning.html"&gt;
+ * http://java.sun.com/j2se/1.3/docs/guide/extensions/versioning.html&lt;/a&gt;.&lt;/p&gt;
+ *
+ * @ant.task name="jarlib-manifest"
+ */</comment>
+<class><specifier>public</specifier> <specifier>final</specifier> class <name>JarLibManifestTask</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+    <comment type="javadoc">/**
+     * Version of manifest spec that task generates.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>MANIFEST_VERSION</name> =<init> <expr>"1.0"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * "Created-By" string used when creating manifest.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>CREATED_BY</name> =<init> <expr>"Created-By"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The library to display information about.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>destFile</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The extension supported by this library (if any).
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Extension</name></type> <name>extension</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * ExtensionAdapter objects representing
+     * dependencies required by library.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>ArrayList</name></type> <name>dependencies</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * ExtensionAdapter objects representing optional
+     * dependencies required by library.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>ArrayList</name></type> <name>optionals</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Extra attributes the user specifies for main section
+     * in manifest.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>ArrayList</name></type> <name>extraAttributes</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The location where generated manifest is placed.
+     *
+     * @param destFile The location where generated manifest is placed.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestfile</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>File</name></type> <name>destFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destFile</name></name> = <name>destFile</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds an extension that this library implements.
+     *
+     * @param extensionAdapter an extension that this library implements.
+     *
+     * @throws BuildException if there is multiple extensions detected
+     *         in the library.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredExtension</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>ExtensionAdapter</name></type> <name>extensionAdapter</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>null</name> != <name>extension</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Can not have multiple extensions defined in one library."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>extension</name> = <call><name><name>extensionAdapter</name>.<name>toExtension</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a set of extensions that this library requires.
+     *
+     * @param extensionSet a set of extensions that this library requires.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredDepends</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>ExtensionSet</name></type> <name>extensionSet</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>dependencies</name>.<name>add</name></name><argument_list>(<argument><expr><name>extensionSet</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a set of extensions that this library optionally requires.
+     *
+     * @param extensionSet a set of extensions that this library optionally requires.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredOptions</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>ExtensionSet</name></type> <name>extensionSet</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>optionals</name>.<name>add</name></name><argument_list>(<argument><expr><name>extensionSet</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds an attribute that is to be put in main section of manifest.
+     *
+     * @param attribute an attribute that is to be put in main section of manifest.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredAttribute</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>ExtraAttribute</name></type> <name>attribute</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>extraAttributes</name>.<name>add</name></name><argument_list>(<argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Execute the task.
+     *
+     * @throws BuildException if the task fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>validate</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Manifest</name></type> <name>manifest</name> =<init> <expr>new <call><name>Manifest</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Attributes</name></type> <name>attributes</name> =<init> <expr><call><name><name>manifest</name>.<name>getMainAttributes</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>put</name></name><argument_list>(<argument><expr><name><name>Attributes</name>.<name>Name</name>.<name>MANIFEST_VERSION</name></name></expr></argument>, <argument><expr><name>MANIFEST_VERSION</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>putValue</name></name><argument_list>(<argument><expr><name>CREATED_BY</name></expr></argument>, <argument><expr>"Apache Ant "
+                + <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_VERSION</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>appendExtraAttributes</name><argument_list>(<argument><expr><name>attributes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>null</name> != <name>extension</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>Extension</name>.<name>addExtension</name></name><argument_list>(<argument><expr><name>extension</name></expr></argument>, <argument><expr><name>attributes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">//Add all the dependency data to manifest for dependencies</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>ArrayList</name></type> <name>depends</name> =<init> <expr><call><name>toExtensions</name><argument_list>(<argument><expr><name>dependencies</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>appendExtensionList</name><argument_list>(<argument><expr><name>attributes</name></expr></argument>, <argument><expr><name><name>Extension</name>.<name>EXTENSION_LIST</name></name></expr></argument>, <argument><expr>"lib"</expr></argument>, <argument><expr><call><name><name>depends</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>appendLibraryList</name><argument_list>(<argument><expr><name>attributes</name></expr></argument>, <argument><expr>"lib"</expr></argument>, <argument><expr><name>depends</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// Add all the dependency data to manifest for "optional"</comment>
+        <comment type="line">//dependencies</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>ArrayList</name></type> <name>option</name> =<init> <expr><call><name>toExtensions</name><argument_list>(<argument><expr><name>optionals</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>appendExtensionList</name><argument_list>(<argument><expr><name>attributes</name></expr></argument>, <argument><expr><name><name>Extension</name>.<name>OPTIONAL_EXTENSION_LIST</name></name></expr></argument>, <argument><expr>"opt"</expr></argument>, <argument><expr><call><name><name>option</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>appendLibraryList</name><argument_list>(<argument><expr><name>attributes</name></expr></argument>, <argument><expr>"opt"</expr></argument>, <argument><expr><name>option</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <try>try <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Generating manifest " + <call><name><name>destFile</name>.<name>getAbsoluteFile</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>writeManifest</name><argument_list>(<argument><expr><name>manifest</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><specifier>final</specifier> <name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>ioe</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Validate the tasks parameters.
+     *
+     * @throws BuildException if invalid parameters found
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>validate</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>null</name> == <name>destFile</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Destfile attribute not specified."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>destFile</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; !<call><name><name>destFile</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>destFile</name> + " is not a file."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add any extra attributes to the manifest.
+     *
+     * @param attributes the manifest section to write
+     *        attributes to
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>appendExtraAttributes</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Attributes</name></type> <name>attributes</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Iterator</name></type> <name>iterator</name> =<init> <expr><call><name><name>extraAttributes</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>iterator</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>ExtraAttribute</name></type> <name>attribute</name> =<init>
+                <expr>(<name>ExtraAttribute</name>) <call><name><name>iterator</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>attributes</name>.<name>putValue</name></name><argument_list>(<argument><expr><call><name><name>attribute</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                 <argument><expr><call><name><name>attribute</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Write out manifest to destfile.
+     *
+     * @param manifest the manifest
+     * @throws IOException if error writing file
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>writeManifest</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Manifest</name></type> <name>manifest</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>FileOutputStream</name></type> <name>output</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>output</name> = new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>manifest</name>.<name>write</name></name><argument_list>(<argument><expr><name>output</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>output</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>null</name> != <name>output</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>output</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                    <comment type="line">// ignore</comment>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Append specified extensions to specified attributes.
+     * Use the extensionKey to list the extensions, usually "Extension-List:"
+     * for required dependencies and "Optional-Extension-List:" for optional
+     * dependencies. NOTE: "Optional" dependencies are not part of the
+     * specification.
+     *
+     * @param attributes the attributes to add extensions to
+     * @param extensions the list of extensions
+     * @throws BuildException if an error occurs
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>appendLibraryList</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Attributes</name></type> <name>attributes</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>String</name></type> <name>listPrefix</name></decl></param>,
+            <param><decl><type><specifier>final</specifier> <name>ArrayList</name></type> <name>extensions</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>extensions</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>Extension</name></type> <name>ext</name> =<init> <expr>(<name>Extension</name>) <call><name><name>extensions</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>prefix</name> =<init> <expr><name>listPrefix</name> + <name>i</name> + "-"</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>Extension</name>.<name>addExtension</name></name><argument_list>(<argument><expr><name>ext</name></expr></argument>, <argument><expr><name>prefix</name></expr></argument>, <argument><expr><name>attributes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Append an attribute such as "Extension-List: lib0 lib1 lib2"
+     * using specified prefix and counting up to specified size.
+     * Also use specified extensionKey so that can generate list of
+     * optional dependencies aswell.
+     *
+     * @param size the number of librarys to list
+     * @param listPrefix the prefix for all librarys
+     * @param attributes the attributes to add key-value to
+     * @param extensionKey the key to use
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>appendExtensionList</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Attributes</name></type> <name>attributes</name></decl></param>,
+            <param><decl><type><specifier>final</specifier> <name><name>Attributes</name>.<name>Name</name></name></type> <name>extensionKey</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>String</name></type> <name>listPrefix</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>StringBuffer</name></type> <name>sb</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name>listPrefix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>' '</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <comment type="line">//add in something like</comment>
+        <comment type="line">//"Extension-List: javahelp java3d"</comment>
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>put</name></name><argument_list>(<argument><expr><name>extensionKey</name></expr></argument>, <argument><expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convert a list of ExtensionSet objects to extensions.
+     *
+     * @param extensionSets the list of ExtensionSets to add to list
+     * @throws BuildException if an error occurs
+     */</comment>
+    <function><type><specifier>private</specifier> <name>ArrayList</name></type> <name>toExtensions</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>ArrayList</name></type> <name>extensionSets</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>ArrayList</name></type> <name>results</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>extensionSets</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>ExtensionSet</name></type> <name>set</name> =<init> <expr>(<name>ExtensionSet</name>) <call><name><name>extensionSets</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>Extension</name><index>[]</index></type> <name>extensions</name> =<init> <expr><call><name><name>set</name>.<name>toExtensions</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>extensions</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>results</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>extensions</name><index>[ <expr><name>j</name></expr> ]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></for>
+        <return>return <expr><name>results</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

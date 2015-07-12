@@ -1,0 +1,736 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Execute.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>ByteArrayOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>StringReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedHashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name>.<name>Entry</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>Os</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>launcher</name>.<name>CommandLauncher</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Commandline</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Runs an external program.
+ *
+ * @since Ant 1.2
+ */</comment>
+<class><specifier>public</specifier> class <name>Execute</name> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>ONE_SECOND</name> =<init> <expr>1000</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Invalid exit code. set to {@link Integer#MAX_VALUE}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>INVALID</name> =<init> <expr><name><name>Integer</name>.<name>MAX_VALUE</name></name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>cmdl</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>env</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>exitValue</name> =<init> <expr><name>INVALID</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ExecuteStreamHandler</name></type> <name>streamHandler</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>ExecuteWatchdog</name></type> <name>watchdog</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>workingDirectory</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Project</name></type> <name>project</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>newEnvironment</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Controls whether the VM is used to launch commands, where possible. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>useVMLauncher</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>antWorkingDirectory</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"user.dir"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>procEnvironment</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Used to destroy processes when the VM exits. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>ProcessDestroyer</name></type> <name>processDestroyer</name> =<init> <expr>new <call><name>ProcessDestroyer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Used for replacing env variables */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>environmentCaseInSensitive</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    static <block>{
+        <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"windows"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>environmentCaseInSensitive</name> = true</expr>;</expr_stmt>
+        }</block></then></if>
+    }</block>
+
+    <comment type="javadoc">/**
+     * Set whether or not you want the process to be spawned.
+     * Default is not spawned.
+     *
+     * @param spawn if true you do not want Ant
+     *              to wait for the end of the process.
+     *              Has no influence in here, the calling task contains
+     *              and acts accordingly
+     *
+     * @since Ant 1.6
+     * @deprecated
+     */</comment>
+    <function><type><annotation>@<name>Deprecated</name></annotation>
+    <specifier>public</specifier> <name>void</name></type> <name>setSpawn</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>spawn</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Method did not do anything to begin with</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find the list of environment variables for this process.
+     *
+     * @return a map containing the environment variables.
+     * @since Ant 1.8.2
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <specifier>synchronized</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>,<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>getEnvironmentVariables</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>procEnvironment</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>procEnvironment</name></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"openvms"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>procEnvironment</name> = <call><name><name>System</name>.<name>getenv</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><name>procEnvironment</name></expr>;</return>
+            }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>x</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name><name>x</name>.<name>printStackTrace</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>procEnvironment</name> = new <call><name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>ByteArrayOutputStream</name></type> <name>out</name> =<init> <expr>new <call><name>ByteArrayOutputStream</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Execute</name></type> <name>exe</name> =<init> <expr>new <call><name>Execute</name><argument_list>(<argument><expr>new <call><name>PumpStreamHandler</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>exe</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><call><name>getProcEnvCommand</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// Make sure we do not recurse forever</comment>
+            <expr_stmt><expr><call><name><name>exe</name>.<name>setNewenvironment</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>retval</name> =<init> <expr><call><name><name>exe</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>retval</name> != 0</expr>)</condition><then> <block>{
+                <comment type="line">// Just try to use what we got</comment>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>BufferedReader</name></type> <name>in</name> =<init>
+                <expr>new <call><name>BufferedReader</name><argument_list>(<argument><expr>new <call><name>StringReader</name><argument_list>(<argument><expr><call><name>toString</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"openvms"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>procEnvironment</name> = <call><name>getVMSLogicals</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><name>procEnvironment</name></expr>;</return>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>var</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>line</name>, <name>lineSep</name> =<init> <expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr>(<name>line</name> = <call><name><name>in</name>.<name>readLine</name></name><argument_list>()</argument_list></call>) != <name>null</name></expr>)</condition> <block>{
+                <if>if <condition>(<expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'='</expr></argument>)</argument_list></call> == -1</expr>)</condition><then> <block>{
+                    <comment type="line">// Chunk part of previous env var (UNIX env vars can</comment>
+                    <comment type="line">// contain embedded new lines).</comment>
+                    <if>if <condition>(<expr><name>var</name> == <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>var</name> = <name>lineSep</name> + <name>line</name></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><name>var</name> += <name>lineSep</name> + <name>line</name></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block></then> <else>else <block>{
+                    <comment type="line">// New env var...append the previous one if we have it.</comment>
+                    <if>if <condition>(<expr><name>var</name> != <name>null</name></expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>int</name></type> <name>eq</name> =<init> <expr><call><name><name>var</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"="</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>procEnvironment</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>var</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>eq</name></expr></argument>)</argument_list></call></expr></argument>,
+                                            <argument><expr><call><name><name>var</name>.<name>substring</name></name><argument_list>(<argument><expr><name>eq</name> + 1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <expr_stmt><expr><name>var</name> = <name>line</name></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></while>
+            <comment type="line">// Since we "look ahead" before adding, there's one last env var.</comment>
+            <if>if <condition>(<expr><name>var</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>eq</name> =<init> <expr><call><name><name>var</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"="</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>procEnvironment</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>var</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>eq</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><call><name><name>var</name>.<name>substring</name></name><argument_list>(<argument><expr><name>eq</name> + 1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name><name>java</name>.<name>io</name>.<name>IOException</name></name></type> <name>exc</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name><name>exc</name>.<name>printStackTrace</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// Just try to see how much we got</comment>
+        }</block></catch></try>
+        <return>return <expr><name>procEnvironment</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find the list of environment variables for this process.
+     *
+     * @return a vector containing the environment variables.
+     * The vector elements are strings formatted like variable = value.
+     * @deprecated use #getEnvironmentVariables instead
+     */</comment>
+    <function><type><annotation>@<name>Deprecated</name></annotation>
+    <specifier>public</specifier> <specifier>static</specifier> <specifier>synchronized</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>getProcEnvironment</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>v</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name><name>Entry</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>entry</name> :<range> <expr><call><name>getEnvironmentVariables</name><argument_list>()</argument_list></call>.<call><name>entrySet</name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+            <expr_stmt><expr><call><name><name>v</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>getKey</name></name><argument_list>()</argument_list></call> + "=" + <call><name><name>entry</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>v</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This is the operation to get our environment.
+     * It is a notorious troublespot pre-Java1.5, and should be approached
+     * with extreme caution.
+     *
+     * @return
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name><index>[]</index></type> <name>getProcEnvCommand</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"os/2"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// OS/2 - use same mechanism as Windows 2000</comment>
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"cmd"</expr>, <expr>"/c"</expr>, <expr>"set"</expr>}</block></expr>;</return>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"windows"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// Determine if we're running under XP/2000/NT or 98/95</comment>
+            <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"win9x"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// Windows 98/95</comment>
+                <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"command.com"</expr>, <expr>"/c"</expr>, <expr>"set"</expr>}</block></expr>;</return>
+            }</block></then> <else>else <block>{
+                <comment type="line">// Windows XP/2000/NT/2003</comment>
+                <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"cmd"</expr>, <expr>"/c"</expr>, <expr>"set"</expr>}</block></expr>;</return>
+            }</block></else></if>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"z/os"</expr></argument>)</argument_list></call> || <call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"unix"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// On most systems one could use: /bin/sh -c env</comment>
+
+            <comment type="line">// Some systems have /bin/env, others /usr/bin/env, just try</comment>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>cmd</name> =<init> <expr>new <name><name>String</name><index>[<expr>1</expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>new <call><name>File</name><argument_list>(<argument><expr>"/bin/env"</expr></argument>)</argument_list></call>.<call><name>canRead</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>cmd</name><index>[<expr>0</expr>]</index></name> = "/bin/env"</expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr>new <call><name>File</name><argument_list>(<argument><expr>"/usr/bin/env"</expr></argument>)</argument_list></call>.<call><name>canRead</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>cmd</name><index>[<expr>0</expr>]</index></name> = "/usr/bin/env"</expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">// rely on PATH</comment>
+                <expr_stmt><expr><name><name>cmd</name><index>[<expr>0</expr>]</index></name> = "env"</expr>;</expr_stmt>
+            }</block></else></if></else></if>
+            <return>return <expr><name>cmd</name></expr>;</return>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"netware"</expr></argument>)</argument_list></call> || <call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"os/400"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// rely on PATH</comment>
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"env"</expr>}</block></expr>;</return>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"openvms"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"show"</expr>, <expr>"logical"</expr>}</block></expr>;</return>
+        }</block></then> <else>else <block>{
+            <comment type="line">// MAC OS 9 and previous</comment>
+            <comment type="line">// TODO: I have no idea how to get it, someone must fix it</comment>
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></else></if></else></if></else></if></else></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * ByteArrayOutputStream#toString doesn't seem to work reliably on
+     * OS/390, at least not the way we use it in the execution
+     * context.
+     *
+     * @param bos the output stream that one wants to read.
+     * @return the output stream as a string, read with
+     * special encodings in the case of z/os and os/400.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>toString</name><parameter_list>(<param><decl><type><name>ByteArrayOutputStream</name></type> <name>bos</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"z/os"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <return>return <expr><call><name><name>bos</name>.<name>toString</name></name><argument_list>(<argument><expr>"Cp1047"</expr></argument>)</argument_list></call></expr>;</return>
+            }</block> <catch>catch (<param><decl><type><name><name>java</name>.<name>io</name>.<name>UnsupportedEncodingException</name></name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">// noop default encoding used</comment>
+            }</block></catch></try>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"os/400"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <return>return <expr><call><name><name>bos</name>.<name>toString</name></name><argument_list>(<argument><expr>"Cp500"</expr></argument>)</argument_list></call></expr>;</return>
+            }</block> <catch>catch (<param><decl><type><name><name>java</name>.<name>io</name>.<name>UnsupportedEncodingException</name></name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">// noop default encoding used</comment>
+            }</block></catch></try>
+        }</block></then></if></else></if>
+        <return>return <expr><call><name><name>bos</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates a new execute object using &lt;code&gt;PumpStreamHandler&lt;/code&gt; for
+     * stream handling.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Execute</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr>new <call><name>PumpStreamHandler</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates a new execute object.
+     *
+     * @param streamHandler the stream handler used to handle the input and
+     *        output streams of the subprocess.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Execute</name><parameter_list>(<param><decl><type><name>ExecuteStreamHandler</name></type> <name>streamHandler</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>streamHandler</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates a new execute object.
+     *
+     * @param streamHandler the stream handler used to handle the input and
+     *        output streams of the subprocess.
+     * @param watchdog a watchdog for the subprocess or &lt;code&gt;null&lt;/code&gt;
+     *        to disable a timeout for the subprocess.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Execute</name><parameter_list>(<param><decl><type><name>ExecuteStreamHandler</name></type> <name>streamHandler</name></decl></param>,
+                   <param><decl><type><name>ExecuteWatchdog</name></type> <name>watchdog</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setStreamHandler</name><argument_list>(<argument><expr><name>streamHandler</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>watchdog</name></name> = <name>watchdog</name></expr>;</expr_stmt>
+        <comment type="line">// By default, use the shell launcher for VMS</comment>
+        <comment type="line">//</comment>
+        <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"openvms"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>useVMLauncher</name> = false</expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Set the stream handler to use.
+     *
+     * @param streamHandler ExecuteStreamHandler.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setStreamHandler</name><parameter_list>(<param><decl><type><name>ExecuteStreamHandler</name></type> <name>streamHandler</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>streamHandler</name></name> = <name>streamHandler</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the commandline used to create a subprocess.
+     *
+     * @return the commandline used to create a subprocess.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getCommandline</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>cmdl</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the commandline of the subprocess to launch.
+     *
+     * @param commandline the commandline of the subprocess to launch.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCommandline</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>commandline</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>cmdl</name> = <name>commandline</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether to propagate the default environment or not.
+     *
+     * @param newenv whether to propagate the process environment.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNewenvironment</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>newenv</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>newEnvironment</name> = <name>newenv</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the environment used to create a subprocess.
+     *
+     * @return the environment used to create a subprocess.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getEnvironment</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>(<name>env</name> == <name>null</name> || <name>newEnvironment</name>)
+            ? <name>env</name> : <call><name>patchEnvironment</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the environment variables for the subprocess to launch.
+     *
+     * @param env array of Strings, each element of which has
+     * an environment variable settings in format &lt;em&gt;key=value&lt;/em&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEnvironment</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>env</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>env</name></name> = <name>env</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the working directory of the process to execute.
+     *
+     * &lt;p&gt;This is emulated using the antRun scripts unless the OS is
+     * Windows NT in which case a cmd.exe is spawned,
+     * or MRJ and setting user.dir works, or JDK 1.3 and there is
+     * official support in java.lang.Runtime.
+     *
+     * @param wd the working directory of the process.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setWorkingDirectory</name><parameter_list>(<param><decl><type><name>File</name></type> <name>wd</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>workingDirectory</name> =
+            (<name>wd</name> == <name>null</name> || <call><name><name>wd</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name>antWorkingDirectory</name></expr></argument>)</argument_list></call>)
+            ? <name>null</name> : <name>wd</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the working directory.
+     *
+     * @return the directory as a File.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getWorkingDirectory</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>workingDirectory</name> == <name>null</name> ? new <call><name>File</name><argument_list>(<argument><expr><name>antWorkingDirectory</name></expr></argument>)</argument_list></call>
+                                        : <name>workingDirectory</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of the antRun script using the project's value.
+     *
+     * @param project the current project.
+     * @throws BuildException not clear when it is going to throw an exception, but
+     * it is the method's signature.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAntRun</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>project</name></name> = <name>project</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Launch this execution through the VM, where possible, rather than through
+     * the OS's shell. In some cases and operating systems using the shell will
+     * allow the shell to perform additional processing such as associating an
+     * executable with a script, etc.
+     *
+     * @param useVMLauncher true if exec should launch through the VM,
+     *                   false if the shell should be used to launch the
+     *                   command.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVMLauncher</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>useVMLauncher</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>useVMLauncher</name></name> = <name>useVMLauncher</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates a process that runs a command.
+     *
+     * @param project the Project, only used for logging purposes, may be null.
+     * @param command the command to run.
+     * @param env the environment for the command.
+     * @param dir the working directory for the command.
+     * @param useVM use the built-in exec command for JDK 1.3 if available.
+     * @return the process started.
+     * @throws IOException forwarded from the particular launcher used.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>Process</name></type> <name>launch</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>command</name></decl></param>,
+                                 <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>env</name></decl></param>, <param><decl><type><name>File</name></type> <name>dir</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>useVM</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>dir</name> != <name>null</name> &amp;&amp; !<call><name><name>dir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>dir</name> + " doesn't exist."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>CommandLauncher</name></type> <name>vmLauncher</name> =<init> <expr><call><name><name>CommandLauncher</name>.<name>getVMLauncher</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>CommandLauncher</name></type> <name>launcher</name> =<init> <expr>(<name>useVM</name> &amp;&amp; <name>vmLauncher</name> != <name>null</name>)
+            ? <name>vmLauncher</name> : <call><name><name>CommandLauncher</name>.<name>getShellLauncher</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name><name>launcher</name>.<name>exec</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><name>command</name></expr></argument>, <argument><expr><name>env</name></expr></argument>, <argument><expr><name>dir</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Runs a process defined by the command line and returns its exit status.
+     *
+     * @return the exit status of the subprocess or &lt;code&gt;INVALID&lt;/code&gt;.
+     * @exception java.io.IOException The exception is thrown, if launching
+     *            of the subprocess failed.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>workingDirectory</name> != <name>null</name> &amp;&amp; !<call><name><name>workingDirectory</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>workingDirectory</name> + " doesn't exist."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Process</name></type> <name>process</name> =<init> <expr><call><name>launch</name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><call><name>getCommandline</name><argument_list>()</argument_list></call></expr></argument>,
+                                       <argument><expr><call><name>getEnvironment</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>workingDirectory</name></expr></argument>,
+                                       <argument><expr><name>useVMLauncher</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>streamHandler</name>.<name>setProcessInputStream</name></name><argument_list>(<argument><expr><call><name><name>process</name>.<name>getOutputStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>streamHandler</name>.<name>setProcessOutputStream</name></name><argument_list>(<argument><expr><call><name><name>process</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>streamHandler</name>.<name>setProcessErrorStream</name></name><argument_list>(<argument><expr><call><name><name>process</name>.<name>getErrorStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name><name>process</name>.<name>destroy</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <throw>throw <expr><name>e</name></expr>;</throw>
+        }</block></catch></try>
+        <expr_stmt><expr><call><name><name>streamHandler</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <try>try <block>{
+            <comment type="line">// add the process to the list of those to destroy if the VM exits</comment>
+            <comment type="line">//</comment>
+            <expr_stmt><expr><call><name><name>processDestroyer</name>.<name>add</name></name><argument_list>(<argument><expr><name>process</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>watchdog</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>watchdog</name>.<name>start</name></name><argument_list>(<argument><expr><name>process</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>waitFor</name><argument_list>(<argument><expr><name>process</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>watchdog</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>watchdog</name>.<name>stop</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>streamHandler</name>.<name>stop</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>closeStreams</name><argument_list>(<argument><expr><name>process</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>watchdog</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>watchdog</name>.<name>checkException</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return <expr><call><name>getExitValue</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>ThreadDeath</name></type> <name>t</name></decl></param>) <block>{
+            <comment type="line">// #31928: forcibly kill it before continuing.</comment>
+            <expr_stmt><expr><call><name><name>process</name>.<name>destroy</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <throw>throw <expr><name>t</name></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <comment type="line">// remove the process to the list of those to destroy if</comment>
+            <comment type="line">// the VM exits</comment>
+            <comment type="line">//</comment>
+            <expr_stmt><expr><call><name><name>processDestroyer</name>.<name>remove</name></name><argument_list>(<argument><expr><name>process</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Starts a process defined by the command line.
+     * Ant will not wait for this process, nor log its output.
+     *
+     * @throws java.io.IOException The exception is thrown, if launching
+     *            of the subprocess failed.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>spawn</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>workingDirectory</name> != <name>null</name> &amp;&amp; !<call><name><name>workingDirectory</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>workingDirectory</name> + " doesn't exist."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Process</name></type> <name>process</name> =<init> <expr><call><name>launch</name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><call><name>getCommandline</name><argument_list>()</argument_list></call></expr></argument>,
+                                       <argument><expr><call><name>getEnvironment</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>workingDirectory</name></expr></argument>,
+                                       <argument><expr><name>useVMLauncher</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"windows"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>Thread</name>.<name>sleep</name></name><argument_list>(<argument><expr><name>ONE_SECOND</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>e</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr>"interruption in the sleep after having spawned a"
+                            + " process"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>OutputStream</name></type> <name>dummyOut</name> =<init> <expr>new <class><super><name>OutputStream</name></super><argument_list>()</argument_list> <block>{
+            <function><type><annotation>@<name>Override</name></annotation>
+            <specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>int</name></type> <name>b</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+                <comment type="line">// Method intended to swallow whatever comes at it</comment>
+            }</block></function>
+        }</block></class></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>ExecuteStreamHandler</name></type> <name>handler</name> =<init> <expr>new <call><name>PumpStreamHandler</name><argument_list>(<argument><expr><name>dummyOut</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>handler</name>.<name>setProcessErrorStream</name></name><argument_list>(<argument><expr><call><name><name>process</name>.<name>getErrorStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>handler</name>.<name>setProcessOutputStream</name></name><argument_list>(<argument><expr><call><name><name>process</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>handler</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>process</name>.<name>getOutputStream</name></name><argument_list>()</argument_list></call>.<call><name>close</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr>"spawned process " + <call><name><name>process</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Wait for a given process.
+     *
+     * @param process the process one wants to wait for.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>waitFor</name><parameter_list>(<param><decl><type><name>Process</name></type> <name>process</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>process</name>.<name>waitFor</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setExitValue</name><argument_list>(<argument><expr><call><name><name>process</name>.<name>exitValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name><name>process</name>.<name>destroy</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the exit value.
+     *
+     * @param value exit value of the process.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>setExitValue</name><parameter_list>(<param><decl><type><name>int</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>exitValue</name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Query the exit value of the process.
+     *
+     * @return the exit value or Execute.INVALID if no exit value has
+     * been received.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getExitValue</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>exitValue</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Checks whether &lt;code&gt;exitValue&lt;/code&gt; signals a failure on the current
+     * system (OS specific).
+     *
+     * &lt;p&gt;&lt;b&gt;Note&lt;/b&gt; that this method relies on the conventions of
+     * the OS, it will return false results if the application you are
+     * running doesn't follow these conventions. One notable
+     * exception is the Java VM provided by HP for OpenVMS - it will
+     * return 0 if successful (like on any other platform), but this
+     * signals a failure on OpenVMS. So if you execute a new Java VM
+     * on OpenVMS, you cannot trust this method.&lt;/p&gt;
+     *
+     * @param exitValue the exit value (return code) to be checked.
+     * @return &lt;code&gt;true&lt;/code&gt; if &lt;code&gt;exitValue&lt;/code&gt; signals a failure.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>isFailure</name><parameter_list>(<param><decl><type><name>int</name></type> <name>exitValue</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// on openvms even exit value signals failure;</comment>
+        <comment type="line">// for other platforms nonzero exit value signals failure</comment>
+        <return>return <expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"openvms"</expr></argument>)</argument_list></call>
+            ? (<name>exitValue</name> % 2 == 0) : (<name>exitValue</name> != 0)</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Did this execute return in a failure.
+     *
+     * @see #isFailure(int)
+     * @return true if and only if the exit code is interpreted as a failure
+     * @since Ant1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isFailure</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>isFailure</name><argument_list>(<argument><expr><call><name>getExitValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test for an untimely death of the process.
+     *
+     * @return true if a watchdog had to kill the process.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>killedProcess</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>watchdog</name> != <name>null</name> &amp;&amp; <call><name><name>watchdog</name>.<name>killedProcess</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Patch the current environment with the new values from the user.
+     *
+     * @return the patched environment.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>patchEnvironment</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">// On OpenVMS Runtime#exec() doesn't support the environment array,</comment>
+        <comment type="line">// so we only return the new values which then will be set in</comment>
+        <comment type="line">// the generated DCL script, inheriting the parent process environment</comment>
+        <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"openvms"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>env</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>osEnv</name> =<init>
+            <expr>new <call><name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><call><name>getEnvironmentVariables</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>env</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>keyValue</name> =<init> <expr><name><name>env</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr><call><name><name>keyValue</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>keyValue</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'='</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <comment type="line">// Find the key in the current enviroment copy</comment>
+            <comment type="line">// and remove it.</comment>
+
+            <comment type="line">// Try without changing case first</comment>
+            <if>if <condition>(<expr><call><name><name>osEnv</name>.<name>remove</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call> == <name>null</name> &amp;&amp; <name>environmentCaseInSensitive</name></expr>)</condition><then> <block>{
+                <comment type="line">// not found, maybe perform a case insensitive search</comment>
+
+                <for>for (<init><decl><type><name>String</name></type> <name>osEnvItem</name> :<range> <expr><call><name><name>osEnv</name>.<name>keySet</name></name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+                    <comment type="line">// Nb: using default locale as key is a env name</comment>
+                    <if>if <condition>(<expr><call><name><name>osEnvItem</name>.<name>toLowerCase</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><call><name><name>key</name>.<name>toLowerCase</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// Use the original casiness of the key</comment>
+                        <expr_stmt><expr><name>key</name> = <name>osEnvItem</name></expr>;</expr_stmt>
+                        <break>break;</break>
+                    }</block></then></if>
+                }</block></for>
+            }</block></then></if>
+
+            <comment type="line">// Add the key to the enviromnent copy</comment>
+            <expr_stmt><expr><call><name><name>osEnv</name>.<name>put</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr><call><name><name>keyValue</name>.<name>substring</name></name><argument_list>(<argument><expr><call><name><name>key</name>.<name>length</name></name><argument_list>()</argument_list></call> + 1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <decl_stmt><decl><type><name><name>ArrayList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>l</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name><name>Entry</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>entry</name> :<range> <expr><call><name><name>osEnv</name>.<name>entrySet</name></name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+            <expr_stmt><expr><call><name><name>l</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>getKey</name></name><argument_list>()</argument_list></call> + "=" + <call><name><name>entry</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><call><name><name>l</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>osEnv</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A utility method that runs an external command. Writes the output and
+     * error streams of the command to the project log.
+     *
+     * @param task The task that the command is part of. Used for logging
+     * @param cmdline The command to execute.
+     * @throws BuildException if the command does not exit successfully.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>runCommand</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>task</name></decl></param>, <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>cmdline</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>task</name>.<name>log</name></name><argument_list>(<argument><expr><call><name><name>Commandline</name>.<name>describeCommand</name></name><argument_list>(<argument><expr><name>cmdline</name></expr></argument>)</argument_list></call></expr></argument>,
+                     <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>Execute</name></type> <name>exe</name> =<init> <expr>new <call><name>Execute</name><argument_list>(
+                <argument><expr>new <call><name>LogStreamHandler</name><argument_list>(<argument><expr><name>task</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>exe</name>.<name>setAntRun</name></name><argument_list>(<argument><expr><call><name><name>task</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>exe</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><name>cmdline</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>retval</name> =<init> <expr><call><name><name>exe</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name>isFailure</name><argument_list>(<argument><expr><name>retval</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name><name>cmdline</name><index>[<expr>0</expr>]</index></name>
+                    + " failed with return code " + <name>retval</name></expr></argument>, <argument><expr><call><name><name>task</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name><name>java</name>.<name>io</name>.<name>IOException</name></name></type> <name>exc</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Could not launch " + <name><name>cmdline</name><index>[<expr>0</expr>]</index></name> + ": "
+                + <name>exc</name></expr></argument>, <argument><expr><call><name><name>task</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Close the streams belonging to the given Process.
+     *
+     * @param process the &lt;code&gt;Process&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>closeStreams</name><parameter_list>(<param><decl><type><name>Process</name></type> <name>process</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><call><name><name>process</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><call><name><name>process</name>.<name>getOutputStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><call><name><name>process</name>.<name>getErrorStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This method is VMS specific and used by getEnvironmentVariables().
+     *
+     * Parses VMS logicals from &lt;code&gt;in&lt;/code&gt; and returns them as a Map.
+     * &lt;code&gt;in&lt;/code&gt; is expected to be the
+     * output of "SHOW LOGICAL". The method takes care of parsing the output
+     * correctly as well as making sure that a logical defined in multiple
+     * tables only gets added from the highest order table. Logicals with
+     * multiple equivalence names are mapped to a variable with multiple
+     * values separated by a comma (,).
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>getVMSLogicals</name><parameter_list>(<param><decl><type><name>BufferedReader</name></type> <name>in</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name><name>HashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>logicals</name> =<init> <expr>new <call><name><name>HashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>logName</name> =<init> <expr><name>null</name></expr></init>, <name>logValue</name> =<init> <expr><name>null</name></expr></init>, <name>newLogName</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+        <while>while <condition>(<expr>(<name>line</name> = <call><name><name>in</name>.<name>readLine</name></name><argument_list>()</argument_list></call>) != <name>null</name></expr>)</condition> <block>{
+            <comment type="line">// parse the VMS logicals into required format ("VAR=VAL[,VAL2]")</comment>
+            <if>if <condition>(<expr><call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"\t="</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// further equivalence name of previous logical</comment>
+                <if>if <condition>(<expr><name>logName</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>logValue</name> += "," + <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>4</expr></argument>, <argument><expr><call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call> - 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"  \""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// new logical?</comment>
+                <if>if <condition>(<expr><name>logName</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>logicals</name>.<name>put</name></name><argument_list>(<argument><expr><name>logName</name></expr></argument>, <argument><expr><name>logValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>int</name></type> <name>eqIndex</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'='</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>newLogName</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>3</expr></argument>, <argument><expr><name>eqIndex</name> - 2</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><call><name><name>logicals</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>newLogName</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <comment type="line">// already got this logical from a higher order table</comment>
+                    <expr_stmt><expr><name>logName</name> = <name>null</name></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>logName</name> = <name>newLogName</name></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>logValue</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>eqIndex</name> + 3</expr></argument>, <argument><expr><call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call> - 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then></if></else></if>
+        }</block></while>
+        <comment type="line">// CheckStyle:MagicNumber ON</comment>
+        <comment type="line">// Since we "look ahead" before adding, there's one last env var.</comment>
+        <if>if <condition>(<expr><name>logName</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>logicals</name>.<name>put</name></name><argument_list>(<argument><expr><name>logName</name></expr></argument>, <argument><expr><name>logValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>logicals</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

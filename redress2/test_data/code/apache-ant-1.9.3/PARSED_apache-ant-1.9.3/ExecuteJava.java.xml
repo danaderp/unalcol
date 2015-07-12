@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\ExecuteJava.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>InvocationTargetException</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Method</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Modifier</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>AntClassLoader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>ProjectComponent</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>Os</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Commandline</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>CommandlineJava</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Permissions</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>JavaEnvUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>TimeoutObserver</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>Watchdog</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Execute a Java class.
+ * @since Ant 1.2
+ */</comment>
+<class><specifier>public</specifier> class <name>ExecuteJava</name> <super><implements>implements <name>Runnable</name>, <name>TimeoutObserver</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Commandline</name></type> <name>javaCommand</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>classpath</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>CommandlineJava</name>.<name>SysProperties</name></name></type> <name>sysProperties</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Permissions</name></type>  <name>perm</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Method</name></type> <name>main</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Long</name></type> <name>timeout</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>volatile</name> <name>Throwable</name></type> <name>caught</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>volatile</name> <name>boolean</name></type> <name>timedOut</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Thread</name></type> <name>thread</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Set the Java "command" for this ExecuteJava.
+     * @param javaCommand the classname and arguments in a Commandline.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setJavaCommand</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>javaCommand</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>javaCommand</name></name> = <name>javaCommand</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath to be used when running the Java class.
+     *
+     * @param p an Ant Path object containing the classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>classpath</name> = <name>p</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the system properties to use when running the Java class.
+     * @param s CommandlineJava system properties.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSystemProperties</name><parameter_list>(<param><decl><type><name><name>CommandlineJava</name>.<name>SysProperties</name></name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>sysProperties</name> = <name>s</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the permissions for the application run.
+     * @param permissions the Permissions to use.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPermissions</name><parameter_list>(<param><decl><type><name>Permissions</name></type> <name>permissions</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>perm</name> = <name>permissions</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the stream to which all output (System.out as well as System.err)
+     * will be written.
+     * @param out the PrintStream where output should be sent.
+     * @deprecated since 1.4.x.
+     *             manage output at the task level.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutput</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the timeout for this ExecuteJava.
+     * @param timeout timeout as Long.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTimeout</name><parameter_list>(<param><decl><type><name>Long</name></type> <name>timeout</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>timeout</name></name> = <name>timeout</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Execute the Java class against the specified Ant Project.
+     * @param project the Project to use.
+     * @throws BuildException on error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>classname</name> =<init> <expr><call><name><name>javaCommand</name>.<name>getExecutable</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>AntClassLoader</name></type> <name>loader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <if>if <condition>(<expr><name>sysProperties</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>sysProperties</name>.<name>setSystem</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>target</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <if>if <condition>(<expr><name>classpath</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>target</name> = <call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>loader</name> = <call><name><name>project</name>.<name>createClassLoader</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>loader</name>.<name>setParent</name></name><argument_list>(<argument><expr><call><name><name>project</name>.<name>getCoreLoader</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>loader</name>.<name>setParentFirst</name></name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>loader</name>.<name>addJavaLibraries</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>loader</name>.<name>setIsolated</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>loader</name>.<name>setThreadContextLoader</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>loader</name>.<name>forceLoadClass</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>target</name> = <call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>, <argument><expr>true</expr></argument>, <argument><expr><name>loader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Could not find " + <name>classname</name> + "."
+                                         + " Make sure you have it in your"
+                                         + " classpath"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+            <expr_stmt><expr><name>main</name> = <call><name><name>target</name>.<name>getMethod</name></name><argument_list>(<argument><expr>"main"</expr></argument>, <argument><expr>new <name><name>Class</name><index>[]</index></name> <block>{<expr><name><name>String</name><index>[]</index></name>.class</expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>main</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Could not find main() method in "
+                                         + <name>classname</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr>(<call><name><name>main</name>.<name>getModifiers</name></name><argument_list>()</argument_list></call> &amp; <name><name>Modifier</name>.<name>STATIC</name></name>) == 0</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"main() method in " + <name>classname</name>
+                    + " is not declared static"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>timeout</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>run</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>thread</name> = new <call><name>Thread</name><argument_list>(<argument><expr><name>this</name></expr></argument>, <argument><expr>"ExecuteJava"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>Task</name></type> <name>currentThreadTask</name>
+                    =<init> <expr><call><name><name>project</name>.<name>getThreadTask</name></name><argument_list>(<argument><expr><call><name><name>Thread</name>.<name>currentThread</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <comment type="line">// TODO is the following really necessary? it is in the same thread group...</comment>
+                <expr_stmt><expr><call><name><name>project</name>.<name>registerThreadTask</name></name><argument_list>(<argument><expr><name>thread</name></expr></argument>, <argument><expr><name>currentThreadTask</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <comment type="line">// if we run into a timeout, the run-away thread shall not</comment>
+                <comment type="line">// make the VM run forever - if no timeout occurs, Ant's</comment>
+                <comment type="line">// main thread will still be there to let the new thread</comment>
+                <comment type="line">// finish</comment>
+                <expr_stmt><expr><call><name><name>thread</name>.<name>setDaemon</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>Watchdog</name></type> <name>w</name> =<init> <expr>new <call><name>Watchdog</name><argument_list>(<argument><expr><call><name><name>timeout</name>.<name>longValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>w</name>.<name>addTimeoutObserver</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+                    <expr_stmt><expr><call><name><name>thread</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>w</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name>wait</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>e</name></decl></param>) <block>{
+                        <comment type="line">// ignore</comment>
+                    }</block></catch></try>
+                    <if>if <condition>(<expr><name>timedOut</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr>"Timeout: sub-process interrupted"</expr></argument>,
+                                    <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><name>thread</name> = <name>null</name></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>w</name>.<name>stop</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block></synchronized>
+            }</block></else></if>
+            <if>if <condition>(<expr><name>caught</name> != <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr><name>caught</name></expr>;</throw>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr><name>e</name></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>SecurityException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr><name>e</name></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>ThreadDeath</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// TODO could perhaps also call thread.stop(); not sure if anyone cares</comment>
+            <throw>throw <expr><name>e</name></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>Throwable</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <if>if <condition>(<expr><name>loader</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>loader</name>.<name>resetThreadContextLoader</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>loader</name>.<name>cleanup</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>loader</name> = <name>null</name></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>sysProperties</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>sysProperties</name>.<name>restoreSystem</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Run this ExecuteJava in a Thread.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>run</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Object</name><index>[]</index></type> <name>argument</name> =<init> <expr><block>{<expr><call><name><name>javaCommand</name>.<name>getArguments</name></name><argument_list>()</argument_list></call></expr>}</block></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <if>if <condition>(<expr><name>perm</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>perm</name>.<name>setSecurityManager</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>main</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>null</name></expr></argument>, <argument><expr><name>argument</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>e</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>Throwable</name></type> <name>t</name> =<init> <expr><call><name><name>e</name>.<name>getTargetException</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!(<name>t</name> <name>instanceof</name> <name>InterruptedException</name>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>caught</name> = <name>t</name></expr>;</expr_stmt>
+            }</block></then></if> <comment type="block">/* else { swallow, probably due to timeout } */</comment>
+        }</block></catch> <catch>catch (<param><decl><type><name>Throwable</name></type> <name>t</name></decl></param>) <block>{
+            <expr_stmt><expr><name>caught</name> = <name>t</name></expr>;</expr_stmt>
+        }</block></catch> <finally>finally <block>{
+            <if>if <condition>(<expr><name>perm</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>perm</name>.<name>restoreSecurityManager</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+                <expr_stmt><expr><call><name>notifyAll</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></synchronized>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Mark timeout as having occurred.
+     * @param w the responsible Watchdog.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>timeoutOccured</name><parameter_list>(<param><decl><type><name>Watchdog</name></type> <name>w</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>thread</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>timedOut</name> = true</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>thread</name>.<name>interrupt</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>notifyAll</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get whether the process was killed.
+     * @return &lt;code&gt;true&lt;/code&gt; if the process was killed, false otherwise.
+     * @since 1.19, Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>boolean</name></type> <name>killedProcess</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>timedOut</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Run the Java command in a separate VM, this does not give you
+     * the full flexibility of the Java task, but may be enough for
+     * simple needs.
+     * @param pc the ProjectComponent to use for logging, etc.
+     * @return the exit status of the subprocess.
+     * @throws BuildException on error.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>fork</name><parameter_list>(<param><decl><type><name>ProjectComponent</name></type> <name>pc</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>CommandlineJava</name></type> <name>cmdl</name> =<init> <expr>new <call><name>CommandlineJava</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>cmdl</name>.<name>setClassname</name></name><argument_list>(<argument><expr><call><name><name>javaCommand</name>.<name>getExecutable</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>args</name> =<init> <expr><call><name><name>javaCommand</name>.<name>getArguments</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>args</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>cmdl</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmdl</name>.<name>createClasspath</name></name><argument_list>(<argument><expr><call><name><name>pc</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>sysProperties</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmdl</name>.<name>addSysproperties</name></name><argument_list>(<argument><expr><name>sysProperties</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Redirector</name></type> <name>redirector</name> =<init> <expr>new <call><name>Redirector</name><argument_list>(<argument><expr><name>pc</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Execute</name></type> <name>exe</name>
+            =<init> <expr>new <call><name>Execute</name><argument_list>(<argument><expr><call><name><name>redirector</name>.<name>createHandler</name></name><argument_list>()</argument_list></call></expr></argument>,
+                          <argument><expr><name>timeout</name> == <name>null</name>
+                          ? <name>null</name>
+                          : new <call><name>ExecuteWatchdog</name><argument_list>(<argument><expr><call><name><name>timeout</name>.<name>longValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>exe</name>.<name>setAntRun</name></name><argument_list>(<argument><expr><call><name><name>pc</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"openvms"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setupCommandLineForVMS</name><argument_list>(<argument><expr><name>exe</name></expr></argument>, <argument><expr><call><name><name>cmdl</name>.<name>getCommandline</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>exe</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><call><name><name>cmdl</name>.<name>getCommandline</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>rc</name> =<init> <expr><call><name><name>exe</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>redirector</name>.<name>complete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>rc</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><name>timedOut</name> = <call><name><name>exe</name>.<name>killedProcess</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * On VMS platform, we need to create a special java options file
+     * containing the arguments and classpath for the java command.
+     * The special file is supported by the "-V" switch on the VMS JVM.
+     *
+     * @param exe the Execute instance to alter.
+     * @param command the command-line.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>setupCommandLineForVMS</name><parameter_list>(<param><decl><type><name>Execute</name></type> <name>exe</name></decl></param>, <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>command</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">//Use the VM launcher instead of shell launcher on VMS</comment>
+        <expr_stmt><expr><call><name><name>exe</name>.<name>setVMLauncher</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>vmsJavaOptionFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>String</name> <index>[]</index></type> <name>args</name> =<init> <expr>new <name><name>String</name><index>[<expr><name><name>command</name>.<name>length</name></name> - 1</expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>command</name></expr></argument>, <argument><expr>1</expr></argument>, <argument><expr><name>args</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>command</name>.<name>length</name></name> - 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>vmsJavaOptionFile</name> = <call><name><name>JavaEnvUtils</name>.<name>createVmsJavaOptionFile</name></name><argument_list>(<argument><expr><name>args</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//we mark the file to be deleted on exit.</comment>
+            <comment type="line">//the alternative would be to cache the filename and delete</comment>
+            <comment type="line">//after execution finished, which is much better for long-lived runtimes</comment>
+            <comment type="line">//though spawning complicates things...</comment>
+            <expr_stmt><expr><call><name><name>vmsJavaOptionFile</name>.<name>deleteOnExit</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name> <index>[]</index></type> <name>vmsCmd</name> =<init> <expr><block>{<expr><name><name>command</name><index>[<expr>0</expr>]</index></name></expr>, <expr>"-V"</expr>, <expr><call><name><name>vmsJavaOptionFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr>}</block></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>exe</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><name>vmsCmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Failed to create a temporary file for \"-V\" switch"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+}</block></class>
+</unit>

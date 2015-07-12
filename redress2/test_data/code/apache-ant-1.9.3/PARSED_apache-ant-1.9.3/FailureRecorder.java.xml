@@ -1,0 +1,450 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\junit\FailureRecorder.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>junit</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>text</name>.<name>SimpleDateFormat</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Date</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>SortedSet</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>TreeSet</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+<import>import <name><name>junit</name>.<name>framework</name>.<name>AssertionFailedError</name></name>;</import>
+<import>import <name><name>junit</name>.<name>framework</name>.<name>Test</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildEvent</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildListener</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>ProjectComponent</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * &lt;p&gt;Collects all failing test &lt;i&gt;cases&lt;/i&gt; and creates a new JUnit test class containing
+ * a suite() method which calls these failed tests.&lt;/p&gt;
+ * &lt;p&gt;Having classes &lt;i&gt;A&lt;/i&gt; ... &lt;i&gt;D&lt;/i&gt; with each several testcases you could earn a new
+ * test class like
+ * &lt;pre&gt;
+ * // generated on: 2007.08.06 09:42:34,555
+ * import junit.framework.*;
+ * public class FailedTests extends TestCase {
+ *     public FailedTests(String testname) {
+ *         super(testname);
+ *     }
+ *     public static Test suite() {
+ *         TestSuite suite = new TestSuite();
+ *         suite.addTest( new B("test04") );
+ *         suite.addTest( new org.D("test10") );
+ *         return suite;
+ *     }
+ * }
+ * &lt;/pre&gt;
+ *
+ * Because each running test case gets its own formatter, we collect
+ * the failing test cases in a static list. Because we dont have a finalizer
+ * method in the formatters "lifecycle", we register this formatter as
+ * BuildListener and generate the new java source on taskFinished event.
+ *
+ * @since Ant 1.8.0
+ */</comment>
+<class><specifier>public</specifier> class <name>FailureRecorder</name> <super><extends>extends <name>ProjectComponent</name></extends> <implements>implements <name>JUnitResultFormatter</name>, <name>BuildListener</name></implements></super> <block>{
+
+    <comment type="javadoc">/**
+     * This is the name of a magic System property ({@value}). The value of this
+     * &lt;b&gt;System&lt;/b&gt; property should point to the location where to store the
+     * generated class (without suffix).
+     * Default location and name is defined in DEFAULT_CLASS_LOCATION.
+     * @see #DEFAULT_CLASS_LOCATION
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>MAGIC_PROPERTY_CLASS_LOCATION</name>
+        =<init> <expr>"ant.junit.failureCollector"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Default location and name for the generated JUnit class file,
+     *  in the temp directory + FailedTests */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_CLASS_LOCATION</name>
+        =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.io.tmpdir"</expr></argument>)</argument_list></call> + "FailedTests"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Prefix for logging. {@value} */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>LOG_PREFIX</name> =<init> <expr>"    [junit]"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Class names of failed tests without duplicates. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>SortedSet</name></type><comment type="block">/*&lt;TestInfos&gt;*/</comment> <name>failedTests</name> =<init> <expr>new <call><name>TreeSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** A writer for writing the generated source to. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>BufferedWriter</name></type> <name>writer</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Location and name of the generated JUnit class.
+     * Lazy instantiated via getLocationName().
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>locationName</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Returns the (lazy evaluated) location for the collector class.
+     * Order for evaluation: System property &gt; Ant property &gt; default value
+     * @return location for the collector class
+     * @see #MAGIC_PROPERTY_CLASS_LOCATION
+     * @see #DEFAULT_CLASS_LOCATION
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>getLocationName</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>locationName</name> == <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>syspropValue</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>MAGIC_PROPERTY_CLASS_LOCATION</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>antpropValue</name> =<init> <expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr><name>MAGIC_PROPERTY_CLASS_LOCATION</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>syspropValue</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>locationName</name> = <name>syspropValue</name></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>verbose</name><argument_list>(<argument><expr>"System property '" + <name>MAGIC_PROPERTY_CLASS_LOCATION</name> + "' set, so use "
+                        + "its value '" + <name>syspropValue</name> + "' as location for collector class."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name>antpropValue</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>locationName</name> = <name>antpropValue</name></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>verbose</name><argument_list>(<argument><expr>"Ant property '" + <name>MAGIC_PROPERTY_CLASS_LOCATION</name> + "' set, so use "
+                        + "its value '" + <name>antpropValue</name> + "' as location for collector class."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>locationName</name> = <name>DEFAULT_CLASS_LOCATION</name></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>verbose</name><argument_list>(<argument><expr>"System property '" + <name>MAGIC_PROPERTY_CLASS_LOCATION</name> + "' not set, so use "
+                        + "value as location for collector class: '"
+                        + <name>DEFAULT_CLASS_LOCATION</name> + "'"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if></else></if>
+
+            <decl_stmt><decl><type><name>File</name></type> <name>locationFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>locationName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name><name>locationFile</name>.<name>isAbsolute</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getBaseDir</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>locationName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>locationName</name> = <call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>verbose</name><argument_list>(<argument><expr>"Location file is relative (" + <name>locationFile</name> + ")"
+                        + " use absolute path instead (" + <name>locationName</name> + ")"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+
+        <return>return <expr><name>locationName</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This method is called by the Ant runtime by reflection. We use the project reference for
+     * registration of this class as BuildListener.
+     *
+     * @param project
+     *            project reference
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProject</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// store project reference for logging</comment>
+        <expr_stmt><expr><call><name><name>super</name>.<name>setProject</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// check if already registered</comment>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>alreadyRegistered</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Vector</name></type> <name>allListeners</name> =<init> <expr><call><name><name>project</name>.<name>getBuildListeners</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>allListeners</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Object</name></type> <name>listener</name> =<init> <expr><call><name><name>allListeners</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>listener</name> <name>instanceof</name> <name>FailureRecorder</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>alreadyRegistered</name> = true</expr>;</expr_stmt>
+                <continue>continue;</continue>
+            }</block></then></if>
+        }</block></for>
+        <comment type="line">// register if needed</comment>
+        <if>if <condition>(<expr>!<name>alreadyRegistered</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>verbose</name><argument_list>(<argument><expr>"Register FailureRecorder (@" + <call><name><name>this</name>.<name>hashCode</name></name><argument_list>()</argument_list></call> + ") as BuildListener"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>project</name>.<name>addBuildListener</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="line">// ===== JUnitResultFormatter =====</comment>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>endTestSuite</name><parameter_list>(<param><decl><type><name>JUnitTest</name></type> <name>suite</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add the failed test to the list.
+     * @param test the test that errored.
+     * @param throwable the reason it errored.
+     * @see junit.framework.TestListener#addError(junit.framework.Test, java.lang.Throwable)
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addError</name><parameter_list>(<param><decl><type><name>Test</name></type> <name>test</name></decl></param>, <param><decl><type><name>Throwable</name></type> <name>throwable</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>failedTests</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name>TestInfos</name><argument_list>(<argument><expr><name>test</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="line">// CheckStyle:LineLengthCheck OFF - @see is long</comment>
+    <comment type="javadoc">/**
+     * Add the failed test to the list.
+     * @param test the test that failed.
+     * @param error the assertion that failed.
+     * @see junit.framework.TestListener#addFailure(junit.framework.Test, junit.framework.AssertionFailedError)
+     */</comment>
+    <comment type="line">// CheckStyle:LineLengthCheck ON</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFailure</name><parameter_list>(<param><decl><type><name>Test</name></type> <name>test</name></decl></param>, <param><decl><type><name>AssertionFailedError</name></type> <name>error</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>failedTests</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name>TestInfos</name><argument_list>(<argument><expr><name>test</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutput</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// unused, close output file so it can be deleted before the VM exits</comment>
+        <if>if <condition>(<expr><name>out</name> != <name><name>System</name>.<name>out</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSystemError</name><parameter_list>(<param><decl><type><name>String</name></type> <name>err</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSystemOutput</name><parameter_list>(<param><decl><type><name>String</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>startTestSuite</name><parameter_list>(<param><decl><type><name>JUnitTest</name></type> <name>suite</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>endTest</name><parameter_list>(<param><decl><type><name>Test</name></type> <name>test</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>startTest</name><parameter_list>(<param><decl><type><name>Test</name></type> <name>test</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="line">// ===== "Templates" for generating the JUnit class =====</comment>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>writeJavaClass</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>sourceFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr>(<call><name>getLocationName</name><argument_list>()</argument_list></call> + ".java")</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>verbose</name><argument_list>(<argument><expr>"Write collector class to '" + <call><name><name>sourceFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call> + "'"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><call><name><name>sourceFile</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; !<call><name><name>sourceFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"could not delete " + <name>sourceFile</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><name>writer</name> = new <call><name>BufferedWriter</name><argument_list>(<argument><expr>new <call><name>FileWriter</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><call><name>createClassHeader</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>createSuiteMethod</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>createClassFooter</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name><name>e</name>.<name>printStackTrace</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>writer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>createClassHeader</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>className</name> =<init> <expr><call><name>getLocationName</name><argument_list>()</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>className</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'/'</expr></argument>)</argument_list></call> &gt; -1</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>className</name> = <call><name><name>className</name>.<name>substring</name></name><argument_list>(<argument><expr><call><name><name>className</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>'/'</expr></argument>)</argument_list></call> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>SimpleDateFormat</name></type> <name>sdf</name> =<init> <expr>new <call><name>SimpleDateFormat</name><argument_list>(<argument><expr>"yyyy.MM.dd HH:mm:ss,SSS"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"// generated on: "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>sdf</name>.<name>format</name></name><argument_list>(<argument><expr>new <call><name>Date</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"import junit.framework.*;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"public class "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// If this class does not extend TC, Ant doesnt run these</comment>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>" extends TestCase {"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// standard String-constructor</comment>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"    public "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"(String testname) {"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"        super(testname);"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"    }"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>createSuiteMethod</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"    public static Test suite() {"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"        TestSuite suite = new TestSuite();"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name>Iterator</name></type> <name>iter</name> =<init> <expr><call><name><name>failedTests</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>iter</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>TestInfos</name></type> <name>testInfos</name> =<init> <expr>(<name>TestInfos</name>) <call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"        suite.addTest("</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>testInfos</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>");"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"        return suite;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"    }"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>createClassFooter</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>"}"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="line">// ===== Helper classes and methods =====</comment>
+
+    <comment type="javadoc">/**
+     * Logging facade in INFO-mode.
+     * @param message Log-message
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>log</name><parameter_list>(<param><decl><type><name>String</name></type> <name>message</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>log</name><argument_list>(<argument><expr><name>LOG_PREFIX</name> + " " + <name>message</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Logging facade in VERBOSE-mode.
+     * @param message Log-message
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>verbose</name><parameter_list>(<param><decl><type><name>String</name></type> <name>message</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>log</name><argument_list>(<argument><expr><name>LOG_PREFIX</name> + " " + <name>message</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * TestInfos holds information about a given test for later use.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>TestInfos</name> <super><implements>implements <name>Comparable</name></implements></super> <block>{
+
+        <comment type="javadoc">/** The class name of the test. */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>String</name></type> <name>className</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** The method name of the testcase. */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>String</name></type> <name>methodName</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * This constructor extracts the needed information from the given test.
+         * @param test Test to analyze
+         */</comment>
+        <constructor><specifier>public</specifier> <name>TestInfos</name><parameter_list>(<param><decl><type><name>Test</name></type> <name>test</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>className</name> = <call><name><name>test</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>_methodName</name> =<init> <expr><call><name><name>test</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>methodName</name> = <call><name><name>_methodName</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>_methodName</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'('</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * This String-Representation can directly be used for instantiation of
+         * the JUnit testcase.
+         * @return the string representation.
+         * @see java.lang.Object#toString()
+         * @see FailureRecorder#createSuiteMethod()
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>"new " + <name>className</name> + "(\"" + <name>methodName</name> + "\")"</expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * The SortedMap needs comparable elements.
+         * @param other the object to compare to.
+         * @return the result of the comparison.
+         * @see java.lang.Comparable#compareTo
+         * @see SortedSet#comparator()
+         */</comment>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>compareTo</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>other</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>other</name> <name>instanceof</name> <name>TestInfos</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>TestInfos</name></type> <name>otherInfos</name> =<init> <expr>(<name>TestInfos</name>) <name>other</name></expr></init></decl>;</decl_stmt>
+                <return>return <expr><call><name>toString</name><argument_list>()</argument_list></call>.<call><name>compareTo</name><argument_list>(<argument><expr><call><name><name>otherInfos</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></then> <else>else <block>{
+                <return>return <expr>-1</expr>;</return>
+            }</block></else></if>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>obj</name></decl></param>)</parameter_list> <block>{
+            <return>return <expr><name>obj</name> <name>instanceof</name> <name>TestInfos</name> &amp;&amp; <call><name>toString</name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><call><name><name>obj</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>hashCode</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name>toString</name><argument_list>()</argument_list></call>.<call><name>hashCode</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="line">// ===== BuildListener =====</comment>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>messageLogged</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The task outside of this JUnitResultFormatter is the &lt;junit&gt; task. So all tests passed
+     * and we could create the new java class.
+     * @param event  not used
+     * @see org.apache.tools.ant.BuildListener#taskFinished(org.apache.tools.ant.BuildEvent)
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<call><name><name>failedTests</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>writeJavaClass</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Not used
+     * {@inheritDoc}
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+}</block></class>
+</unit>

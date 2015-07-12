@@ -1,0 +1,403 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\junit\FormatterElement.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>junit</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Field</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>InvocationTargetException</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Method</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>PropertyHelper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>EnumeratedAttribute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>KeepAliveOutputStream</name></name>;</import>
+
+<comment type="javadoc">/**
+ * &lt;p&gt; A wrapper for the implementations of &lt;code&gt;JUnitResultFormatter&lt;/code&gt;.
+ * In particular, used as a nested &lt;code&gt;&amp;lt;formatter&amp;gt;&lt;/code&gt; element in
+ * a &lt;code&gt;&amp;lt;junit&amp;gt;&lt;/code&gt; task.
+ * &lt;p&gt; For example,
+ * &lt;code&gt;&lt;pre&gt;
+ *       &amp;lt;junit printsummary="no" haltonfailure="yes" fork="false"&amp;gt;
+ *           &amp;lt;formatter type="plain" usefile="false" /&amp;gt;
+ *           &amp;lt;test name="org.apache.ecs.InternationalCharTest" /&amp;gt;
+ *       &amp;lt;/junit&amp;gt;&lt;/pre&gt;&lt;/code&gt;
+ * adds a &lt;code&gt;plain&lt;/code&gt; type implementation
+ * (&lt;code&gt;PlainJUnitResultFormatter&lt;/code&gt;) to display the results of the test.
+ *
+ * &lt;p&gt; Either the &lt;code&gt;type&lt;/code&gt; or the &lt;code&gt;classname&lt;/code&gt; attribute
+ * must be set.
+ *
+ * @see JUnitTask
+ * @see XMLJUnitResultFormatter
+ * @see BriefJUnitResultFormatter
+ * @see PlainJUnitResultFormatter
+ * @see FailureRecorder
+ * @see JUnitResultFormatter
+ */</comment>
+<class><specifier>public</specifier> class <name>FormatterElement</name> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>classname</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>extension</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>OutputStream</name></type> <name>out</name> =<init> <expr>new <call><name>KeepAliveOutputStream</name><argument_list>(<argument><expr><name><name>System</name>.<name>out</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>outFile</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>useFile</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>ifCond</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>unlessCond</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Store the project reference for passing it to nested components.
+     * @since Ant 1.8
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Project</name></type> <name>project</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** xml formatter class */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>XML_FORMATTER_CLASS_NAME</name> =<init>
+        <expr>"org.apache.tools.ant.taskdefs.optional.junit.XMLJUnitResultFormatter"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** brief formatter class */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>BRIEF_FORMATTER_CLASS_NAME</name> =<init>
+        <expr>"org.apache.tools.ant.taskdefs.optional.junit.BriefJUnitResultFormatter"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** plain formatter class */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>PLAIN_FORMATTER_CLASS_NAME</name> =<init>
+        <expr>"org.apache.tools.ant.taskdefs.optional.junit.PlainJUnitResultFormatter"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** failure recorder class */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>FAILURE_RECORDER_CLASS_NAME</name> =<init>
+        <expr>"org.apache.tools.ant.taskdefs.optional.junit.FailureRecorder"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * &lt;p&gt; Quick way to use a standard formatter.
+     *
+     * &lt;p&gt; At the moment, there are three supported standard formatters.
+     * &lt;ul&gt;
+     * &lt;li&gt; The &lt;code&gt;xml&lt;/code&gt; type uses a &lt;code&gt;XMLJUnitResultFormatter&lt;/code&gt;.
+     * &lt;li&gt; The &lt;code&gt;brief&lt;/code&gt; type uses a &lt;code&gt;BriefJUnitResultFormatter&lt;/code&gt;.
+     * &lt;li&gt; The &lt;code&gt;plain&lt;/code&gt; type (the default) uses a &lt;code&gt;PlainJUnitResultFormatter&lt;/code&gt;.
+     * &lt;li&gt; The &lt;code&gt;failure&lt;/code&gt; type uses a &lt;code&gt;FailureRecorder&lt;/code&gt;.
+     * &lt;/ul&gt;
+     *
+     * &lt;p&gt; Sets &lt;code&gt;classname&lt;/code&gt; attribute - so you can't use that
+     * attribute if you use this one.
+     * @param type the enumerated value to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setType</name><parameter_list>(<param><decl><type><name>TypeAttribute</name></type> <name>type</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>"xml".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>type</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setClassname</name><argument_list>(<argument><expr><name>XML_FORMATTER_CLASS_NAME</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <if>if <condition>(<expr>"brief".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>type</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>setClassname</name><argument_list>(<argument><expr><name>BRIEF_FORMATTER_CLASS_NAME</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <if>if <condition>(<expr>"failure".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>type</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>setClassname</name><argument_list>(<argument><expr><name>FAILURE_RECORDER_CLASS_NAME</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{ <comment type="line">// must be plain, ensured by TypeAttribute</comment>
+                    <expr_stmt><expr><call><name>setClassname</name><argument_list>(<argument><expr><name>PLAIN_FORMATTER_CLASS_NAME</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></else></if>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * &lt;p&gt; Set name of class to be used as the formatter.
+     *
+     * &lt;p&gt; This class must implement &lt;code&gt;JUnitResultFormatter&lt;/code&gt;
+     * @param classname the name of the formatter class.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClassname</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>classname</name></name> = <name>classname</name></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name><name>XML_FORMATTER_CLASS_NAME</name>.<name>equals</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+           <expr_stmt><expr><call><name>setExtension</name><argument_list>(<argument><expr>".xml"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>PLAIN_FORMATTER_CLASS_NAME</name>.<name>equals</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+           <expr_stmt><expr><call><name>setExtension</name><argument_list>(<argument><expr>".txt"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>BRIEF_FORMATTER_CLASS_NAME</name>.<name>equals</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+           <expr_stmt><expr><call><name>setExtension</name><argument_list>(<argument><expr>".txt"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if></else></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get name of class to be used as the formatter.
+     * @return the name of the class.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getClassname</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>classname</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the extension to use for the report file.
+     * @param ext the extension to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setExtension</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ext</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>extension</name></name> = <name>ext</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the extension used for the report file.
+     * @return the extension.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getExtension</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>extension</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * &lt;p&gt; Set the file which the formatte should log to.
+     *
+     * &lt;p&gt; Note that logging to file must be enabled .
+     */</comment>
+    <function><type><name>void</name></type> <name>setOutfile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>outFile</name></name> = <name>out</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * &lt;p&gt; Set output stream for formatter to use.
+     *
+     * &lt;p&gt; Defaults to standard out.
+     * @param out the output stream to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutput</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>out</name> == <name><name>System</name>.<name>out</name></name> || <name>out</name> == <name><name>System</name>.<name>err</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>out</name> = new <call><name>KeepAliveOutputStream</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>out</name></name> = <name>out</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether the formatter should log to file.
+     * @param useFile if true use a file, if false send
+     *                to standard out.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUseFile</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>useFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>useFile</name></name> = <name>useFile</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get whether the formatter should log to file.
+     */</comment>
+    <function><type><name>boolean</name></type> <name>getUseFile</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>useFile</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether this formatter should be used.  It will be used if
+     * the expression evaluates to true or the name of a property
+     * which has been set, otherwise it won't.
+     * @param ifCond name of property
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIf</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>ifCond</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>ifCond</name></name> = <name>ifCond</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether this formatter should be used.  It will be used if
+     * the expression evaluates to true or the name of a property
+     * which has been set, otherwise it won't.
+     * @param ifCond name of property
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIf</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ifCond</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setIf</name><argument_list>(<argument><expr>(<name>Object</name>) <name>ifCond</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether this formatter should NOT be used. It will be used
+     * if the expression evaluates to false or the name of a property
+     * which has not been set, orthwise it will not be used.
+     * @param unlessCond name of property
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUnless</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>unlessCond</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>unlessCond</name></name> = <name>unlessCond</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether this formatter should NOT be used. It will be used
+     * if the expression evaluates to false or the name of a property
+     * which has not been set, orthwise it will not be used.
+     * @param unlessCond name of property
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUnless</name><parameter_list>(<param><decl><type><name>String</name></type> <name>unlessCond</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setUnless</name><argument_list>(<argument><expr>(<name>Object</name>) <name>unlessCond</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Ensures that the selector passes the conditions placed
+     * on it with &lt;code&gt;if&lt;/code&gt; and &lt;code&gt;unless&lt;/code&gt; properties.
+     * @param t the task the this formatter is used in.
+     * @return true if the formatter should be used.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>shouldUse</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>t</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>PropertyHelper</name></type> <name>ph</name> =<init> <expr><call><name><name>PropertyHelper</name>.<name>getPropertyHelper</name></name><argument_list>(<argument><expr><call><name><name>t</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name><name>ph</name>.<name>testIfCondition</name></name><argument_list>(<argument><expr><name>ifCond</name></expr></argument>)</argument_list></call>
+            &amp;&amp; <call><name><name>ph</name>.<name>testUnlessCondition</name></name><argument_list>(<argument><expr><name>unlessCond</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @since Ant 1.2
+     */</comment>
+    <function><type><name><name>JUnitTaskMirror</name>.<name>JUnitResultFormatterMirror</name></name></type> <name>createFormatter</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <return>return <expr><call><name>createFormatter</name><argument_list>(<argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Store the project reference for passing it to nested components.
+     * @param project the reference
+     * @since Ant 1.8
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProject</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>project</name></name> = <name>project</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * @since Ant 1.6
+     */</comment>
+    <function><type><name><name>JUnitTaskMirror</name>.<name>JUnitResultFormatterMirror</name></name></type> <name>createFormatter</name><parameter_list>(<param><decl><type><name>ClassLoader</name></type> <name>loader</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <if>if <condition>(<expr><name>classname</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"you must specify type or classname"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <comment type="line">//although this code appears to duplicate that of ClasspathUtils.newInstance,</comment>
+        <comment type="line">//we cannot use that because this formatter may run in a forked process,</comment>
+        <comment type="line">//without that class.</comment>
+        <decl_stmt><decl><type><name>Class</name></type> <name>f</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <if>if <condition>(<expr><name>loader</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>f</name> = <call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>f</name> = <call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>, <argument><expr>true</expr></argument>, <argument><expr><name>loader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                <argument><expr>"Using loader " + <name>loader</name> + " on class " + <name>classname</name>
+                + ": " + <name>e</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>NoClassDefFoundError</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                <argument><expr>"Using loader " + <name>loader</name> + " on class " + <name>classname</name>
+                + ": " + <name>e</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+
+        <decl_stmt><decl><type><name>Object</name></type> <name>o</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>o</name> = <call><name><name>f</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>InstantiationException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+
+        <if>if <condition>(<expr>!(<name>o</name> <name>instanceof</name> <name><name>JUnitTaskMirror</name>.<name>JUnitResultFormatterMirror</name></name>)</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>classname</name> + " is not a JUnitResultFormatter"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name><name>JUnitTaskMirror</name>.<name>JUnitResultFormatterMirror</name></name></type> <name>r</name> =<init>
+            <expr>(<name><name>JUnitTaskMirror</name>.<name>JUnitResultFormatterMirror</name></name>) <name>o</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>useFile</name> &amp;&amp; <name>outFile</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>out</name> = new <call><name>DelayedFileOutputStream</name><argument_list>(<argument><expr><name>outFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>r</name>.<name>setOutput</name></name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+
+        <decl_stmt><decl><type><name>boolean</name></type> <name>needToSetProjectReference</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Field</name></type> <name>field</name> =<init> <expr><call><name><name>r</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getField</name><argument_list>(<argument><expr>"project"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Object</name></type> <name>value</name> =<init> <expr><call><name><name>field</name>.<name>get</name></name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>value</name> <name>instanceof</name> <name>Project</name></expr>)</condition><then> <block>{
+                <comment type="line">// there is already a project reference so dont overwrite this</comment>
+                <expr_stmt><expr><name>needToSetProjectReference</name> = false</expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>NoSuchFieldException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// no field present, so no previous reference exists</comment>
+        }</block></catch> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+
+        <if>if <condition>(<expr><name>needToSetProjectReference</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Method</name></type> <name>setter</name></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>setter</name> = <call><name><name>r</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getMethod</name><argument_list>(<argument><expr>"setProject"</expr></argument>, <argument><expr>new <name><name>Class</name><index>[]</index></name> <block>{<expr><name><name>Project</name>.<name><name/></name></name>class</expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>setter</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>r</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>project</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>NoSuchMethodException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">// no setProject to invoke; just ignore</comment>
+            }</block></catch> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></then></if>
+
+        <return>return <expr><name>r</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * &lt;p&gt; Enumerated attribute with the values "plain", "xml", "brief" and "failure".
+     *
+     * &lt;p&gt; Use to enumerate options for &lt;code&gt;type&lt;/code&gt; attribute.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>TypeAttribute</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <comment type="javadoc">/** {@inheritDoc}. */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"plain"</expr>, <expr>"xml"</expr>, <expr>"brief"</expr>, <expr>"failure"</expr>}</block></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * A standard FileOutputStream creates a file as soon as it's opened. This
+     * class delays the creation of the file until the first time a caller attempts
+     * to write to it so we don't end up with empty files if the listeners don't use
+     * them.
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>DelayedFileOutputStream</name> <super><extends>extends <name>OutputStream</name></extends></super> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>BufferedOutputStream</name></type> <name>outputStream</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>File</name></type> <name>file</name></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>DelayedFileOutputStream</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>file</name></name> = <name>file</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><annotation>@<name>Override</name></annotation>
+        <specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>int</name></type> <name>b</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+                <if>if <condition>(<expr><name>outputStream</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>outputStream</name> = new <call><name>BufferedOutputStream</name><argument_list>(<argument><expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></synchronized>
+            <expr_stmt><expr><call><name><name>outputStream</name>.<name>write</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><annotation>@<name>Override</name></annotation>
+        <specifier>public</specifier> <name>void</name></type> <name>flush</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><name>outputStream</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>outputStream</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></function>
+
+        <function><type><annotation>@<name>Override</name></annotation>
+        <specifier>public</specifier> <name>void</name></type> <name>close</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><name>outputStream</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>outputStream</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></function>
+    }</block></class>
+}</block></class>
+</unit>

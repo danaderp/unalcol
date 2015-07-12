@@ -1,0 +1,785 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\ExecuteOn.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashSet</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Commandline</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>AbstractFileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>DirSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>EnumeratedAttribute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileList</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Mapper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>ResourceCollection</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileProvider</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>Union</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileNameMapper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>ResourceUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>SourceFileScanner</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Executes a given command, supplying a set of files as arguments.
+ *
+ * @since Ant 1.2
+ *
+ * @ant.task category="control" name="apply"
+ */</comment>
+<class><specifier>public</specifier> class <name>ExecuteOn</name> <super><extends>extends <name>ExecTask</name></extends></super> <block>{
+
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+
+    <comment type="line">// filesets has been protected so we need to keep that even after</comment>
+    <comment type="line">// switching to resource collections.  In fact, they will still</comment>
+    <comment type="line">// get a different treatment form the other resource collections</comment>
+    <comment type="line">// even in execute since we have some subtle special features like</comment>
+    <comment type="line">// switching type to "dir" when we encounter a DirSet that would</comment>
+    <comment type="line">// be more difficult to achieve otherwise.</comment>
+
+    <decl_stmt><decl><type><specifier>protected</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>AbstractFileSet</name></argument>&gt;</argument_list></name></type> <name>filesets</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>AbstractFileSet</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt> <comment type="line">// contains AbstractFileSet</comment>
+                                              <comment type="line">// (both DirSet and FileSet)</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Union</name></type> <name>resources</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>relative</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>parallel</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>forwardSlash</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>type</name> =<init> <expr><name><name>FileDirBoth</name>.<name>FILE</name></name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name><name>Commandline</name>.<name>Marker</name></name></type> <name>srcFilePos</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>skipEmpty</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name><name>Commandline</name>.<name>Marker</name></name></type> <name>targetFilePos</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Mapper</name></type> <name>mapperElement</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>FileNameMapper</name></type> <name>mapper</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>File</name></type> <name>destDir</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>maxParallel</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>addSourceFile</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>verbose</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>ignoreMissing</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>force</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Has &amp;lt;srcfile&amp;gt; been specified before &amp;lt;targetfile&amp;gt;
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>srcIsFirst</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+    <comment type="javadoc">/**
+     * Add a set of files upon which to operate.
+     * @param set the FileSet to add.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileset</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>set</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filesets</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>set</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a set of directories upon which to operate.
+     *
+     * @param  set the DirSet to add.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addDirset</name><parameter_list>(<param><decl><type><name>DirSet</name></type> <name>set</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filesets</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>set</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a list of source files upon which to operate.
+     * @param list the FileList to add.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFilelist</name><parameter_list>(<param><decl><type><name>FileList</name></type> <name>list</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>list</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a collection of resources upon which to operate.
+     * @param rc resource collection to add.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>ResourceCollection</name></type> <name>rc</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>resources</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>resources</name> = new <call><name>Union</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>resources</name>.<name>add</name></name><argument_list>(<argument><expr><name>rc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether the filenames should be passed on the command line as
+     * absolute or relative pathnames. Paths are relative to the base
+     * directory of the corresponding fileset for source files or the
+     * dest attribute for target files.
+     * @param relative whether to pass relative pathnames.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRelative</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>relative</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>relative</name></name> = <name>relative</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set whether to execute in parallel mode.
+     * If true, run the command only once, appending all files as arguments.
+     * If false, command will be executed once for every file. Defaults to false.
+     * @param parallel whether to run in parallel.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setParallel</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>parallel</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>parallel</name></name> = <name>parallel</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether the command works only on files, directories or both.
+     * @param type a FileDirBoth EnumeratedAttribute.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setType</name><parameter_list>(<param><decl><type><name>FileDirBoth</name></type> <name>type</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>type</name></name> = <call><name><name>type</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether empty filesets will be skipped.  If true and
+     * no source files have been found or are newer than their
+     * corresponding target files, the command will not be run.
+     * @param skip whether to skip empty filesets.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSkipEmptyFilesets</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>skip</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>skipEmpty</name> = <name>skip</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specify the directory where target files are to be placed.
+     * @param destDir the File object representing the destination directory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDest</name><parameter_list>(<param><decl><type><name>File</name></type> <name>destDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destDir</name></name> = <name>destDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether the source and target file names on Windows and OS/2
+     * must use the forward slash as file separator.
+     * @param forwardSlash whether the forward slash will be forced.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setForwardslash</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>forwardSlash</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>forwardSlash</name></name> = <name>forwardSlash</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Limit the command line length by passing at maximum this many
+     * sourcefiles at once to the command.
+     *
+     * &lt;p&gt;Set to &amp;lt;= 0 for unlimited - this is the default.&lt;/p&gt;
+     *
+     * @param max &lt;code&gt;int&lt;/code&gt; maximum number of sourcefiles
+     *            passed to the executable.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMaxParallel</name><parameter_list>(<param><decl><type><name>int</name></type> <name>max</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>maxParallel</name> = <name>max</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether to send the source file name on the command line.
+     *
+     * &lt;p&gt;Defaults to &lt;code&gt;true&lt;/code&gt;.
+     *
+     * @param b whether to add the source file to the command line.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAddsourcefile</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>addSourceFile</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether to operate in verbose mode.
+     * If true, a verbose summary will be printed after execution.
+     * @param b whether to operate in verbose mode.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVerbose</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>verbose</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether to ignore nonexistent files from filelists.
+     * @param b whether to ignore missing files.
+     *
+     * @since Ant 1.6.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIgnoremissing</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>ignoreMissing</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether to bypass timestamp comparisons for target files.
+     * @param b whether to bypass timestamp comparisons.
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setForce</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>force</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a placeholder indicating where on the command line
+     * the name of the source file should be inserted.
+     * @return &lt;code&gt;Commandline.Marker&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Commandline</name>.<name>Marker</name></name></type> <name>createSrcfile</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>srcFilePos</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name>getTaskType</name><argument_list>()</argument_list></call> + " doesn\'t support multiple "
+                                     + "srcfile elements."</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>srcFilePos</name> = <call><name><name>cmdl</name>.<name>createMarker</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>srcFilePos</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a placeholder indicating where on the command line
+     * the name of the target file should be inserted.
+     * @return &lt;code&gt;Commandline.Marker&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Commandline</name>.<name>Marker</name></name></type> <name>createTargetfile</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>targetFilePos</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name>getTaskType</name><argument_list>()</argument_list></call> + " doesn\'t support multiple "
+                                     + "targetfile elements."</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>targetFilePos</name> = <call><name><name>cmdl</name>.<name>createMarker</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>srcIsFirst</name> = (<name>srcFilePos</name> != <name>null</name>)</expr>;</expr_stmt>
+        <return>return <expr><name>targetFilePos</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a nested Mapper element to use for mapping
+     * source files to target files.
+     * @return &lt;code&gt;Mapper&lt;/code&gt;.
+     * @throws BuildException if more than one mapper is defined.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Mapper</name></type> <name>createMapper</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>mapperElement</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Cannot define more than one mapper"</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>mapperElement</name> = new <call><name>Mapper</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>mapperElement</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a nested FileNameMapper.
+     * @param fileNameMapper the mapper to add.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>FileNameMapper</name></type> <name>fileNameMapper</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createMapper</name><argument_list>()</argument_list></call>.<call><name>add</name><argument_list>(<argument><expr><name>fileNameMapper</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check the configuration of this ExecuteOn instance.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>checkConfiguration</name><parameter_list>()</parameter_list> <block>{
+<comment type="line">//     * @TODO using taskName here is brittle, as a user could override it.</comment>
+<comment type="line">//     *       this should probably be modified to use the classname instead.</comment>
+        <if>if <condition>(<expr>"execon".<call><name>equals</name><argument_list>(<argument><expr><call><name>getTaskName</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"!! execon is deprecated. Use apply instead. !!"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>super</name>.<name>checkConfiguration</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name><name>filesets</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0 &amp;&amp; <name>resources</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"no resources specified"</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>targetFilePos</name> != <name>null</name> &amp;&amp; <name>mapperElement</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"targetfile specified without mapper"</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>destDir</name> != <name>null</name> &amp;&amp; <name>mapperElement</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"dest specified without mapper"</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>mapperElement</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>mapper</name> = <call><name><name>mapperElement</name>.<name>getImplementation</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create the ExecuteStreamHandler instance that will be used
+     * during execution.
+     * @return &lt;code&gt;ExecuteStreamHandler&lt;/code&gt;.
+     * @throws BuildException on error.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>ExecuteStreamHandler</name></type> <name>createHandler</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="line">//if we have a RedirectorElement, return a decoy</comment>
+        <return>return <expr>(<name>redirectorElement</name> == <name>null</name>)
+            ? <call><name><name>super</name>.<name>createHandler</name></name><argument_list>()</argument_list></call> : new <call><name>PumpStreamHandler</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set up the I/O Redirector.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>setupRedirector</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>super</name>.<name>setupRedirector</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>redirector</name>.<name>setAppendProperties</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Run the specified Execute object.
+     * @param exe the Execute instance representing the external process.
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>runExec</name><parameter_list>(<param><decl><type><name>Execute</name></type> <name>exe</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>totalFiles</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>totalDirs</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>haveExecuted</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>fileNames</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>File</name></argument>&gt;</argument_list></name></type> <name>baseDirs</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>File</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>filesets</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>currentType</name> =<init> <expr><name>type</name></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>AbstractFileSet</name></type> <name>fs</name> =<init> <expr><call><name><name>filesets</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>fs</name> <name>instanceof</name> <name>DirSet</name></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr>!<call><name><name>FileDirBoth</name>.<name>DIR</name>.<name>equals</name></name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found a nested dirset but type is " + <name>type</name> + ". "
+                            + "Temporarily switching to type=\"dir\" on the"
+                            + " assumption that you really did mean"
+                            + " &lt;dirset&gt; not &lt;fileset&gt;."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>currentType</name> = <name><name>FileDirBoth</name>.<name>DIR</name></name></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>File</name></type> <name>base</name> =<init> <expr><call><name><name>fs</name>.<name>getDir</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name><name>fs</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr>!<call><name><name>FileDirBoth</name>.<name>DIR</name>.<name>equals</name></name><argument_list>(<argument><expr><name>currentType</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>s</name> =<init> <expr><call><name>getFiles</name><argument_list>(<argument><expr><name>base</name></expr></argument>, <argument><expr><name>ds</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>s</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                        <expr_stmt><expr><name>totalFiles</name>++</expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>fileNames</name>.<name>addElement</name></name><argument_list>(<argument><expr><name><name>s</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>baseDirs</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>base</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></for>
+                }</block></then></if>
+                <if>if <condition>(<expr>!<call><name><name>FileDirBoth</name>.<name>FILE</name>.<name>equals</name></name><argument_list>(<argument><expr><name>currentType</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>s</name> =<init> <expr><call><name>getDirs</name><argument_list>(<argument><expr><name>base</name></expr></argument>, <argument><expr><name>ds</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>s</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                        <expr_stmt><expr><name>totalDirs</name>++</expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>fileNames</name>.<name>addElement</name></name><argument_list>(<argument><expr><name><name>s</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>baseDirs</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>base</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></for>
+                }</block></then></if>
+                <if>if <condition>(<expr><call><name><name>fileNames</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0 &amp;&amp; <name>skipEmpty</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>logSkippingFileset</name><argument_list>(<argument><expr><name>currentType</name></expr></argument>, <argument><expr><name>ds</name></expr></argument>, <argument><expr><name>base</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <continue>continue;</continue>
+                }</block></then></if>
+                <if>if <condition>(<expr>!<name>parallel</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>s</name> =<init> <expr>new <name><name>String</name><index>[<expr><call><name><name>fileNames</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>fileNames</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>s</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>command</name> =<init> <expr><call><name>getCommandline</name><argument_list>(<argument><expr><name><name>s</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>, <argument><expr><name>base</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>Commandline</name>.<name>describeCommand</name></name><argument_list>(<argument><expr><name>command</name></expr></argument>)</argument_list></call></expr></argument>,
+                            <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>exe</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><name>command</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                        <if>if <condition>(<expr><name>redirectorElement</name> != <name>null</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name>setupRedirector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><call><name><name>redirectorElement</name>.<name>configure</name></name><argument_list>(<argument><expr><name>redirector</name></expr></argument>, <argument><expr><name><name>s</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                        <if>if <condition>(<expr><name>redirectorElement</name> != <name>null</name> || <name>haveExecuted</name></expr>)</condition><then> <block>{
+                            <comment type="line">// need to reset the stream handler to restart</comment>
+                            <comment type="line">// reading of pipes;</comment>
+                            <comment type="line">// go ahead and do it always w/ nested redirectors</comment>
+                            <expr_stmt><expr><call><name><name>exe</name>.<name>setStreamHandler</name></name><argument_list>(<argument><expr><call><name><name>redirector</name>.<name>createHandler</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                        <expr_stmt><expr><call><name>runExecute</name><argument_list>(<argument><expr><name>exe</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>haveExecuted</name> = true</expr>;</expr_stmt>
+                    }</block></for>
+                    <expr_stmt><expr><call><name><name>fileNames</name>.<name>removeAllElements</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>baseDirs</name>.<name>removeAllElements</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+
+            <if>if <condition>(<expr><name>resources</name> != <name>null</name></expr>)</condition><then> <block>{
+                <for>for (<init><decl><type><name>Resource</name></type> <name>res</name> :<range> <expr><name>resources</name></expr></range></decl></init>) <block>{
+
+                    <if>if <condition>(<expr>!<call><name><name>res</name>.<name>isExists</name></name><argument_list>()</argument_list></call> &amp;&amp; <name>ignoreMissing</name></expr>)</condition><then> <block>{
+                        <continue>continue;</continue>
+                    }</block></then></if>
+
+                    <decl_stmt><decl><type><name>File</name></type> <name>base</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>res</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>FileProvider</name></type> <name>fp</name> =<init> <expr><call><name><name>res</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>fp</name> != <name>null</name></expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>FileResource</name></type> <name>fr</name> =<init> <expr><call><name><name>ResourceUtils</name>.<name>asFileResource</name></name><argument_list>(<argument><expr><name>fp</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><name>base</name> = <call><name><name>fr</name>.<name>getBaseDir</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        <if>if <condition>(<expr><name>base</name> == <name>null</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>name</name> = <call><name><name>fr</name>.<name>getFile</name></name><argument_list>()</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block></then></if>
+
+                    <if>if <condition>(<expr><call><name>restrict</name><argument_list>(<argument><expr>new <name><name>String</name><index>[]</index></name></expr></argument></argument_list></call></expr></condition><then> <block>{<expr_stmt><expr><name>name</name></expr></expr_stmt>}</block></then></if>, <expr_stmt><expr><name>base</name></expr></expr_stmt>)</block><expr_stmt><expr>.<name>length</name> == 0</expr></expr_stmt></for>)</block> <block>{
+                        <continue>continue;</continue>
+                    }</block></then></if>
+
+                    <if>if <condition>(<expr>(!<call><name><name>res</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call> || !<call><name><name>res</name>.<name>isExists</name></name><argument_list>()</argument_list></call>)
+                        &amp;&amp; !<call><name><name>FileDirBoth</name>.<name>DIR</name>.<name>equals</name></name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>totalFiles</name>++</expr>;</expr_stmt>
+                    }</block></then> <else>else <if>if <condition>(<expr><call><name><name>res</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call>
+                               &amp;&amp; !<call><name><name>FileDirBoth</name>.<name>FILE</name>.<name>equals</name></name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>totalDirs</name>++</expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <continue>continue;</continue>
+                    }</block></else></if></else></if>
+
+                    <expr_stmt><expr><call><name><name>baseDirs</name>.<name>add</name></name><argument_list>(<argument><expr><name>base</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>fileNames</name>.<name>add</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                    <if>if <condition>(<expr>!<name>parallel</name></expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>command</name> =<init> <expr><call><name>getCommandline</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>base</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>Commandline</name>.<name>describeCommand</name></name><argument_list>(<argument><expr><name>command</name></expr></argument>)</argument_list></call></expr></argument>,
+                            <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>exe</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><name>command</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                        <if>if <condition>(<expr><name>redirectorElement</name> != <name>null</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name>setupRedirector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><call><name><name>redirectorElement</name>.<name>configure</name></name><argument_list>(<argument><expr><name>redirector</name></expr></argument>, <argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                        <if>if <condition>(<expr><name>redirectorElement</name> != <name>null</name> || <name>haveExecuted</name></expr>)</condition><then> <block>{
+                            <comment type="line">// need to reset the stream handler to restart</comment>
+                            <comment type="line">// reading of pipes;</comment>
+                            <comment type="line">// go ahead and do it always w/ nested redirectors</comment>
+                            <expr_stmt><expr><call><name><name>exe</name>.<name>setStreamHandler</name></name><argument_list>(<argument><expr><call><name><name>redirector</name>.<name>createHandler</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                        <expr_stmt><expr><call><name>runExecute</name><argument_list>(<argument><expr><name>exe</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>haveExecuted</name> = true</expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>fileNames</name>.<name>removeAllElements</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>baseDirs</name>.<name>removeAllElements</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></try>
+            }</block></function>
+            <if>if <condition>(<expr><name>parallel</name> &amp;&amp; (<call><name><name>fileNames</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0 || !<name>skipEmpty</name>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>runParallel</name><argument_list>(<argument><expr><name>exe</name></expr></argument>, <argument><expr><name>fileNames</name></expr></argument>, <argument><expr><name>baseDirs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>haveExecuted</name> = true</expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>haveExecuted</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Applied " + <call><name><name>cmdl</name>.<name>getExecutable</name></name><argument_list>()</argument_list></call> + " to "
+                    + <name>totalFiles</name> + " file"
+                    + (<name>totalFiles</name> != 1 ? "s" : "") + " and "
+                    + <name>totalDirs</name> + " director"
+                    + (<name>totalDirs</name> != 1 ? "ies" : "y") + "."</expr></argument>,
+                    <argument><expr><name>verbose</name> ? <name><name>Project</name>.<name>MSG_INFO</name></name> : <name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></class> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Execute failed: " + <name>e</name></expr></argument>, <argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <comment type="line">// close the output file if required</comment>
+            <expr_stmt><expr><call><name>logFlush</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>redirector</name>.<name>setAppendProperties</name></name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>redirector</name>.<name>setProperties</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally>
+    }
+
+    <comment type="javadoc">/**
+     * log a message for skipping a fileset.
+     * @param currentType the current type.
+     * @param ds the directory scanner.
+     * @param base the dir base
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>logSkippingFileset</name><parameter_list>(
+        <param><decl><type><name>String</name></type> <name>currentType</name></decl></param>, <param><decl><type><name>DirectoryScanner</name></type> <name>ds</name></decl></param>, <param><decl><type><name>File</name></type> <name>base</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>includedCount</name>
+            =<init> <expr>((!<call><name><name>FileDirBoth</name>.<name>DIR</name>.<name>equals</name></name><argument_list>(<argument><expr><name>currentType</name></expr></argument>)</argument_list></call>)
+               ? <call><name><name>ds</name>.<name>getIncludedFilesCount</name></name><argument_list>()</argument_list></call> : 0)
+            + ((!<call><name><name>FileDirBoth</name>.<name>FILE</name>.<name>equals</name></name><argument_list>(<argument><expr><name>currentType</name></expr></argument>)</argument_list></call>)
+               ? <call><name><name>ds</name>.<name>getIncludedDirsCount</name></name><argument_list>()</argument_list></call> : 0)</expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Skipping fileset for directory " + <name>base</name> + ". It is "
+            + ((<name>includedCount</name> &gt; 0) ? "up to date." : "empty.")</expr></argument>,
+             <argument><expr><name>verbose</name> ? <name><name>Project</name>.<name>MSG_INFO</name></name> : <name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Construct the command line for parallel execution.
+     *
+     * @param srcFiles The filenames to add to the commandline.
+     * @param baseDirs filenames are relative to this dir.
+     * @return the command line in the form of a String[].
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name><index>[]</index></type> <name>getCommandline</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>srcFiles</name></decl></param>, <param><decl><type><name><name>File</name><index>[]</index></name></type> <name>baseDirs</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>char</name></type> <name>fileSeparator</name> =<init> <expr><name><name>File</name>.<name>separatorChar</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>targets</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>targetFilePos</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name><name>HashSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>addedFiles</name> =<init> <expr>new <call><name><name>HashSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>srcFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>subTargets</name> =<init> <expr><call><name><name>mapper</name>.<name>mapFileName</name></name><argument_list>(<argument><expr><name><name>srcFiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>subTargets</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>subTargets</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr>!<name>relative</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>name</name> = new <call><name>File</name><argument_list>(<argument><expr><name>destDir</name></expr></argument>, <argument><expr><name><name>subTargets</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>)</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        }</block></then> <else>else <block>{
+                            <expr_stmt><expr><name>name</name> = <name><name>subTargets</name><index>[<expr><name>j</name></expr>]</index></name></expr>;</expr_stmt>
+                        }</block></else></if>
+                        <if>if <condition>(<expr><name>forwardSlash</name> &amp;&amp; <name>fileSeparator</name> != '/'</expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>name</name> = <call><name><name>name</name>.<name>replace</name></name><argument_list>(<argument><expr><name>fileSeparator</name></expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                        <if>if <condition>(<expr>!<call><name><name>addedFiles</name>.<name>contains</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name><name>targets</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><call><name><name>addedFiles</name>.<name>add</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block></for>
+                }</block></then></if>
+            }</block></for>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>targetFiles</name> =<init> <expr>(<name><name>String</name><index>[]</index></name>) <call><name><name>targets</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>targets</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr>!<name>addSourceFile</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>srcFiles</name> = new <name><name>String</name><index>[<expr>0</expr>]</index></name></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>orig</name> =<init> <expr><call><name><name>cmdl</name>.<name>getCommandline</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>result</name>
+            =<init> <expr>new <name><name>String</name><index>[<expr><name><name>orig</name>.<name>length</name></name> + <name><name>srcFiles</name>.<name>length</name></name> + <name><name>targetFiles</name>.<name>length</name></name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>srcIndex</name> =<init> <expr><name><name>orig</name>.<name>length</name></name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>srcFilePos</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>srcIndex</name> = <call><name><name>srcFilePos</name>.<name>getPosition</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>targetFilePos</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>targetIndex</name> =<init> <expr><call><name><name>targetFilePos</name>.<name>getPosition</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>srcIndex</name> &lt; <name>targetIndex</name>
+                || (<name>srcIndex</name> == <name>targetIndex</name> &amp;&amp; <name>srcIsFirst</name>)</expr>)</condition><then> <block>{
+
+                <comment type="line">// 0 --&gt; srcIndex</comment>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>orig</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>result</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>srcIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// srcIndex --&gt; targetIndex</comment>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>orig</name></expr></argument>, <argument><expr><name>srcIndex</name></expr></argument>, <argument><expr><name>result</name></expr></argument>,
+                                 <argument><expr><name>srcIndex</name> + <name><name>srcFiles</name>.<name>length</name></name></expr></argument>,
+                                 <argument><expr><name>targetIndex</name> - <name>srcIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name>insertTargetFiles</name><argument_list>(<argument><expr><name>targetFiles</name></expr></argument>, <argument><expr><name>result</name></expr></argument>,
+                                  <argument><expr><name>targetIndex</name> + <name><name>srcFiles</name>.<name>length</name></name></expr></argument>,
+                                  <argument><expr><call><name><name>targetFilePos</name>.<name>getPrefix</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                  <argument><expr><call><name><name>targetFilePos</name>.<name>getSuffix</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// targetIndex --&gt; end</comment>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>orig</name></expr></argument>, <argument><expr><name>targetIndex</name></expr></argument>, <argument><expr><name>result</name></expr></argument>,
+                    <argument><expr><name>targetIndex</name> + <name><name>srcFiles</name>.<name>length</name></name> + <name><name>targetFiles</name>.<name>length</name></name></expr></argument>,
+                    <argument><expr><name><name>orig</name>.<name>length</name></name> - <name>targetIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">// 0 --&gt; targetIndex</comment>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>orig</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>result</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>targetIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name>insertTargetFiles</name><argument_list>(<argument><expr><name>targetFiles</name></expr></argument>, <argument><expr><name>result</name></expr></argument>, <argument><expr><name>targetIndex</name></expr></argument>,
+                                  <argument><expr><call><name><name>targetFilePos</name>.<name>getPrefix</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                  <argument><expr><call><name><name>targetFilePos</name>.<name>getSuffix</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// targetIndex --&gt; srcIndex</comment>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>orig</name></expr></argument>, <argument><expr><name>targetIndex</name></expr></argument>, <argument><expr><name>result</name></expr></argument>,
+                                 <argument><expr><name>targetIndex</name> + <name><name>targetFiles</name>.<name>length</name></name></expr></argument>,
+                                 <argument><expr><name>srcIndex</name> - <name>targetIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// srcIndex --&gt; end</comment>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>orig</name></expr></argument>, <argument><expr><name>srcIndex</name></expr></argument>, <argument><expr><name>result</name></expr></argument>,
+                    <argument><expr><name>srcIndex</name> + <name><name>srcFiles</name>.<name>length</name></name> + <name><name>targetFiles</name>.<name>length</name></name></expr></argument>,
+                    <argument><expr><name><name>orig</name>.<name>length</name></name> - <name>srcIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>srcIndex</name> += <name><name>targetFiles</name>.<name>length</name></name></expr>;</expr_stmt>
+            }</block></else></if>
+
+        }</block></then> <else>else <block>{ <comment type="line">// no targetFilePos</comment>
+
+            <comment type="line">// 0 --&gt; srcIndex</comment>
+            <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>orig</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>result</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>srcIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// srcIndex --&gt; end</comment>
+            <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>orig</name></expr></argument>, <argument><expr><name>srcIndex</name></expr></argument>, <argument><expr><name>result</name></expr></argument>,
+                             <argument><expr><name>srcIndex</name> + <name><name>srcFiles</name>.<name>length</name></name></expr></argument>,
+                             <argument><expr><name><name>orig</name>.<name>length</name></name> - <name>srcIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <comment type="line">// fill in source file names</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>srcFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>src</name></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>relative</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>src</name> = <name><name>srcFiles</name><index>[<expr><name>i</name></expr>]</index></name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>src</name> = new <call><name>File</name><argument_list>(<argument><expr><name><name>baseDirs</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>, <argument><expr><name><name>srcFiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <if>if <condition>(<expr><name>forwardSlash</name> &amp;&amp; <name>fileSeparator</name> != '/'</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>src</name> = <call><name><name>src</name>.<name>replace</name></name><argument_list>(<argument><expr><name>fileSeparator</name></expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>srcFilePos</name> != <name>null</name> &amp;&amp;
+                (<call><name><name>srcFilePos</name>.<name>getPrefix</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0
+                 || <call><name><name>srcFilePos</name>.<name>getSuffix</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>src</name> = <call><name><name>srcFilePos</name>.<name>getPrefix</name></name><argument_list>()</argument_list></call> + <name>src</name> + <call><name><name>srcFilePos</name>.<name>getSuffix</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><name><name>result</name><index>[<expr><name>srcIndex</name> + <name>i</name></expr>]</index></name> = <name>src</name></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Construct the command line for serial execution.
+     *
+     * @param srcFile The filename to add to the commandline.
+     * @param baseDir filename is relative to this dir.
+     * @return the command line in the form of a String[].
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name><index>[]</index></type> <name>getCommandline</name><parameter_list>(<param><decl><type><name>String</name></type> <name>srcFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>baseDir</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>getCommandline</name><argument_list>(<argument><expr>new <name><name>String</name><index>[]</index></name> <block>{<expr><name>srcFile</name></expr>}</block></expr></argument>, <argument><expr>new <name><name>File</name><index>[]</index></name> <block>{<expr><name>baseDir</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the list of files from this DirectoryScanner that should
+     * be included on the command line.
+     * @param baseDir the File base directory.
+     * @param ds the DirectoryScanner to use for file scanning.
+     * @return a String[] containing the filenames.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name><index>[]</index></type> <name>getFiles</name><parameter_list>(<param><decl><type><name>File</name></type> <name>baseDir</name></decl></param>, <param><decl><type><name>DirectoryScanner</name></type> <name>ds</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>restrict</name><argument_list>(<argument><expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>baseDir</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the list of Directories from this DirectoryScanner that
+     * should be included on the command line.
+     * @param baseDir the File base directory.
+     * @param ds the DirectoryScanner to use for file scanning.
+     * @return a String[] containing the directory names.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name><index>[]</index></type> <name>getDirs</name><parameter_list>(<param><decl><type><name>File</name></type> <name>baseDir</name></decl></param>, <param><decl><type><name>DirectoryScanner</name></type> <name>ds</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>restrict</name><argument_list>(<argument><expr><call><name><name>ds</name>.<name>getIncludedDirectories</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>baseDir</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the list of files or directories from this FileList that
+     * should be included on the command line.
+     * @param list the FileList to check.
+     * @return a String[] containing the directory names.
+     *
+     * @since Ant 1.6.2
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name><index>[]</index></type> <name>getFilesAndDirs</name><parameter_list>(<param><decl><type><name>FileList</name></type> <name>list</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>restrict</name><argument_list>(<argument><expr><call><name><name>list</name>.<name>getFiles</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><call><name><name>list</name>.<name>getDir</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>restrict</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>s</name></decl></param>, <param><decl><type><name>File</name></type> <name>baseDir</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>(<name>mapper</name> == <name>null</name> || <name>force</name>) ? <name>s</name>
+            : new <call><name>SourceFileScanner</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call>.<call><name>restrict</name><argument_list>(<argument><expr><name>s</name></expr></argument>, <argument><expr><name>baseDir</name></expr></argument>, <argument><expr><name>destDir</name></expr></argument>, <argument><expr><name>mapper</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Run the command in "parallel" mode, making sure that at most
+     * maxParallel sourcefiles get passed on the command line.
+     * @param exe the Executable to use.
+     * @param fileNames the Vector of filenames.
+     * @param baseDirs the Vector of base directories corresponding to fileNames.
+     * @throws IOException  on I/O errors.
+     * @throws BuildException on other errors.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>runParallel</name><parameter_list>(<param><decl><type><name>Execute</name></type> <name>exe</name></decl></param>, <param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>fileNames</name></decl></param>,
+                               <param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>File</name></argument>&gt;</argument_list></name></type> <name>baseDirs</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>s</name> =<init> <expr>new <name><name>String</name><index>[<expr><call><name><name>fileNames</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>fileNames</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>b</name> =<init> <expr>new <name><name>File</name><index>[<expr><call><name><name>baseDirs</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>baseDirs</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>maxParallel</name> &lt;= 0
+            || <name><name>s</name>.<name>length</name></name> == 0</expr> <comment type="block">/* this is skipEmpty == false */</comment>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>command</name> =<init> <expr><call><name>getCommandline</name><argument_list>(<argument><expr><name>s</name></expr></argument>, <argument><expr><name>b</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>Commandline</name>.<name>describeCommand</name></name><argument_list>(<argument><expr><name>command</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>exe</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><name>command</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>redirectorElement</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>setupRedirector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>redirectorElement</name>.<name>configure</name></name><argument_list>(<argument><expr><name>redirector</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>exe</name>.<name>setStreamHandler</name></name><argument_list>(<argument><expr><call><name><name>redirector</name>.<name>createHandler</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>runExecute</name><argument_list>(<argument><expr><name>exe</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>stillToDo</name> =<init> <expr><call><name><name>fileNames</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>currentOffset</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><name>stillToDo</name> &gt; 0</expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>currentAmount</name> =<init> <expr><call><name><name>Math</name>.<name>min</name></name><argument_list>(<argument><expr><name>stillToDo</name></expr></argument>, <argument><expr><name>maxParallel</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>cs</name> =<init> <expr>new <name><name>String</name><index>[<expr><name>currentAmount</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>s</name></expr></argument>, <argument><expr><name>currentOffset</name></expr></argument>, <argument><expr><name>cs</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>currentAmount</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>cb</name> =<init> <expr>new <name><name>File</name><index>[<expr><name>currentAmount</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>, <argument><expr><name>currentOffset</name></expr></argument>, <argument><expr><name>cb</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>currentAmount</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>command</name> =<init> <expr><call><name>getCommandline</name><argument_list>(<argument><expr><name>cs</name></expr></argument>, <argument><expr><name>cb</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>Commandline</name>.<name>describeCommand</name></name><argument_list>(<argument><expr><name>command</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>exe</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><name>command</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>redirectorElement</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>setupRedirector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>redirectorElement</name>.<name>configure</name></name><argument_list>(<argument><expr><name>redirector</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <if>if <condition>(<expr><name>redirectorElement</name> != <name>null</name> || <name>currentOffset</name> &gt; 0</expr>)</condition><then> <block>{
+                    <comment type="line">// need to reset the stream handler to restart</comment>
+                    <comment type="line">// reading of pipes;</comment>
+                    <comment type="line">// go ahead and do it always w/ nested redirectors</comment>
+                    <expr_stmt><expr><call><name><name>exe</name>.<name>setStreamHandler</name></name><argument_list>(<argument><expr><call><name><name>redirector</name>.<name>createHandler</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><call><name>runExecute</name><argument_list>(<argument><expr><name>exe</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>stillToDo</name> -= <name>currentAmount</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>currentOffset</name> += <name>currentAmount</name></expr>;</expr_stmt>
+            }</block></while>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Inserts target file names (which are already absolute paths)
+     * into the list of arguments, taking prefix and postfix into
+     * account.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>insertTargetFiles</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>targetFiles</name></decl></param>,
+                                          <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>arguments</name></decl></param>,
+                                          <param><decl><type><name>int</name></type> <name>insertPosition</name></decl></param>,
+                                          <param><decl><type><name>String</name></type> <name>prefix</name></decl></param>, <param><decl><type><name>String</name></type> <name>suffix</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>prefix</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0 &amp;&amp; <call><name><name>suffix</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>targetFiles</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>arguments</name></expr></argument>, <argument><expr><name>insertPosition</name></expr></argument>,
+                             <argument><expr><name><name>targetFiles</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>targetFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><name><name>arguments</name><index>[<expr><name>insertPosition</name> + <name>i</name></expr>]</index></name> =
+                    <name>prefix</name> + <name><name>targetFiles</name><index>[<expr><name>i</name></expr>]</index></name> + <name>suffix</name></expr>;</expr_stmt>
+            }</block></for>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Enumerated attribute with the values "file", "dir" and "both"
+     * for the type attribute.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>FileDirBoth</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <comment type="javadoc">/** File value */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>FILE</name> =<init> <expr>"file"</expr></init></decl>;</decl_stmt>
+        <comment type="javadoc">/** Dir value */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DIR</name> =<init> <expr>"dir"</expr></init></decl>;</decl_stmt>
+        <comment type="javadoc">/**
+         * @see EnumeratedAttribute#getValues
+         */</comment>
+        <comment type="javadoc">/** {@inheritDoc}. */</comment>
+       <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr><name>FILE</name></expr>, <expr><name>DIR</name></expr>, <expr>"both"</expr>}</block></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+}
+</unit>

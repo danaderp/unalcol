@@ -1,0 +1,414 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\listener\MailLogger.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>listener</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Properties</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>StringTokenizer</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildEvent</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DefaultLogger</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>email</name>.<name>EmailAddress</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>email</name>.<name>Header</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>email</name>.<name>Message</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>email</name>.<name>Mailer</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>ClasspathUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>DateUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>mail</name>.<name>MailMessage</name></name>;</import>
+
+<comment type="javadoc">/**
+ *  Buffers log messages from DefaultLogger, and sends an e-mail with the
+ *  results. The following Project properties are used to send the mail.
+ *  &lt;ul&gt;
+ *    &lt;li&gt; MailLogger.mailhost [default: localhost] - Mail server to use&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.port [default: 25] - Default port for SMTP &lt;/li&gt;
+ *    &lt;li&gt; Maillogger.user [no default] - user name for SMTP auth
+ *    (requires JavaMail)&lt;/li&gt;
+ *    &lt;li&gt; Maillogger.password [no default] - password for SMTP auth
+ *    (requires JavaMail)&lt;/li&gt;
+ *    &lt;li&gt; Maillogger.ssl [default: false] - on or true if ssl is
+ *    needed (requires JavaMail)&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.from [required] - Mail "from" address&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.from [no default] - Mail "replyto" address(es),
+ *    comma-separated&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.failure.notify [default: true] - Send build failure
+ *    e-mails?&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.success.notify [default: true] - Send build success
+ *    e-mails?&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.failure.to [required if failure mail to be sent] - Address
+ *    to send failure messages to&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.success.to [required if success mail to be sent] - Address
+ *    to send success messages to&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.failure.subject [default: "Build Failure"] - Subject of
+ *    failed build&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.success.subject [default: "Build Success"] - Subject of
+ *    successful build&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.failure.body [default: none] - fixed text of
+ *    mail body for a failed build, default is to send the logfile&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.success.body [default: none] - fixed text of
+ *    mail body for a successful build, default is to send the logfile&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.mimeType [default: text/plain] - MIME-Type of email&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.charset [no default] - character set of email&lt;/li&gt;
+ *    &lt;li&gt; Maillogger.starttls.enable [default: false] - on or true if
+ *    STARTTLS should be supported (requires JavaMail)&lt;/li&gt;
+ *    &lt;li&gt; MailLogger.properties.file [no default] - Filename of
+ *    properties file that will override other values.&lt;/li&gt;
+ *  &lt;/ul&gt;
+ *  These properties are set using standard Ant property setting mechanisms
+ *  (&amp;lt;property&amp;gt;, command-line -D, etc). Ant properties can be overridden
+ *  by specifying the filename of a properties file in the &lt;i&gt;
+ *  MailLogger.properties.file property&lt;/i&gt; . Any properties defined in that
+ *  file will override Ant properties.
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>MailLogger</name> <super><extends>extends <name>DefaultLogger</name></extends></super> <block>{
+    <comment type="javadoc">/** Buffer in which the message is constructed prior to sending */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>StringBuffer</name></type> <name>buffer</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_MIME_TYPE</name> =<init> <expr>"text/plain"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  Sends an e-mail with the log results.
+     *
+     * @param event the build finished event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>super</name>.<name>buildFinished</name></name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>Project</name></type> <name>project</name> =<init> <expr><call><name><name>event</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>properties</name> =<init> <expr><call><name><name>project</name>.<name>getProperties</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// overlay specified properties file (if any), which overrides project</comment>
+        <comment type="line">// settings</comment>
+        <decl_stmt><decl><type><name>Properties</name></type> <name>fileProperties</name> =<init> <expr>new <call><name>Properties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>filename</name> =<init> <expr>(<name>String</name>) <call><name><name>properties</name>.<name>get</name></name><argument_list>(<argument><expr>"MailLogger.properties.file"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>filename</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>InputStream</name></type> <name>is</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>is</name> = new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>fileProperties</name>.<name>load</name></name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                <comment type="line">// ignore because properties file is not required</comment>
+            }</block></catch> <finally>finally <block>{
+                <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></finally></try>
+        }</block></then></if>
+
+        <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>fileProperties</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr>(<name>String</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name><name>fileProperties</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>properties</name>.<name>put</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr><call><name><name>project</name>.<name>replaceProperties</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <decl_stmt><decl><type><name>boolean</name></type> <name>success</name> =<init> <expr>(<call><name><name>event</name>.<name>getException</name></name><argument_list>()</argument_list></call> == <name>null</name>)</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>prefix</name> =<init> <expr><name>success</name> ? "success" : "failure"</expr></init></decl>;</decl_stmt>
+
+        <try>try <block>{
+            <decl_stmt><decl><type><name>boolean</name></type> <name>notify</name> =<init> <expr><call><name><name>Project</name>.<name>toBoolean</name></name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>,
+                    <argument><expr><name>prefix</name> + ".notify"</expr></argument>, <argument><expr>"on"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr>!<name>notify</name></expr>)</condition><then> <block>{
+                <return>return;</return>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>Values</name></type> <name>values</name> =<init> <expr>new <call><name>Values</name><argument_list>()</argument_list></call>
+                .<call><name>mailhost</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>, <argument><expr>"mailhost"</expr></argument>, <argument><expr>"localhost"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>port</name><argument_list>(<argument><expr><call><name><name>Integer</name>.<name>parseInt</name></name><argument_list>(
+                          <argument><expr><call><name>getValue</name><argument_list>(
+                              <argument><expr><name>properties</name></expr></argument>, <argument><expr>"port"</expr></argument>,
+                              <argument><expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name><name>MailMessage</name>.<name>DEFAULT_PORT</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>user</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>, <argument><expr>"user"</expr></argument>, <argument><expr>""</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>password</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>, <argument><expr>"password"</expr></argument>, <argument><expr>""</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>ssl</name><argument_list>(<argument><expr><call><name><name>Project</name>.<name>toBoolean</name></name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>,
+                                                <argument><expr>"ssl"</expr></argument>, <argument><expr>"off"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>starttls</name><argument_list>(<argument><expr><call><name><name>Project</name>.<name>toBoolean</name></name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>,
+                                                     <argument><expr>"starttls.enable"</expr></argument>, <argument><expr>"off"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>from</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>, <argument><expr>"from"</expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>replytoList</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>, <argument><expr>"replyto"</expr></argument>, <argument><expr>""</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>toList</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>, <argument><expr><name>prefix</name> + ".to"</expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>mimeType</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>, <argument><expr>"mimeType"</expr></argument>, <argument><expr><name>DEFAULT_MIME_TYPE</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>charset</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>, <argument><expr>"charset"</expr></argument>, <argument><expr>""</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>body</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(<argument><expr><name>properties</name></expr></argument>, <argument><expr><name>prefix</name> + ".body"</expr></argument>, <argument><expr>""</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                .<call><name>subject</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>(
+                             <argument><expr><name>properties</name></expr></argument>, <argument><expr><name>prefix</name> + ".subject"</expr></argument>,
+                             <argument><expr>(<name>success</name>) ? "Build Success" : "Build Failure"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>values</name>.<name>user</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call>
+                &amp;&amp; <call><name><name>values</name>.<name>password</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call>
+                &amp;&amp; !<call><name><name>values</name>.<name>ssl</name></name><argument_list>()</argument_list></call> &amp;&amp; !<call><name><name>values</name>.<name>starttls</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>sendMail</name><argument_list>(<argument><expr><name>values</name></expr></argument>, <argument><expr><call><name><name>buffer</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>sendMimeMail</name><argument_list>(
+                    <argument><expr><call><name><name>event</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>values</name></expr></argument>, <argument><expr><call><name><name>buffer</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"MailLogger failed to send e-mail!"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>e</name>.<name>printStackTrace</name></name><argument_list>(<argument><expr><name><name>System</name>.<name>err</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+    }</block></function>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>Values</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>mailhost</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>mailhost</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>mailhost</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>mailhost</name><parameter_list>(<param><decl><type><name>String</name></type> <name>mailhost</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>mailhost</name></name> = <name>mailhost</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>port</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>port</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>port</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>port</name><parameter_list>(<param><decl><type><name>int</name></type> <name>port</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>port</name></name> = <name>port</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>user</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>user</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>user</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>user</name><parameter_list>(<param><decl><type><name>String</name></type> <name>user</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>user</name></name> = <name>user</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>password</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>password</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>password</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>password</name><parameter_list>(<param><decl><type><name>String</name></type> <name>password</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>password</name></name> = <name>password</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>ssl</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>ssl</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>ssl</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>ssl</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>ssl</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>ssl</name></name> = <name>ssl</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>from</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>from</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>from</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>from</name><parameter_list>(<param><decl><type><name>String</name></type> <name>from</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>from</name></name> = <name>from</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>replytoList</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>replytoList</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>replytoList</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>replytoList</name><parameter_list>(<param><decl><type><name>String</name></type> <name>replytoList</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>replytoList</name></name> = <name>replytoList</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>toList</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>toList</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>toList</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>toList</name><parameter_list>(<param><decl><type><name>String</name></type> <name>toList</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>toList</name></name> = <name>toList</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>subject</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>subject</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>subject</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>subject</name><parameter_list>(<param><decl><type><name>String</name></type> <name>subject</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>subject</name></name> = <name>subject</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>charset</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>charset</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>charset</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>charset</name><parameter_list>(<param><decl><type><name>String</name></type> <name>charset</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>charset</name></name> = <name>charset</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>mimeType</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>mimeType</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>mimeType</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>mimeType</name><parameter_list>(<param><decl><type><name>String</name></type> <name>mimeType</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>mimeType</name></name> = <name>mimeType</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>body</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>body</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>body</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>body</name><parameter_list>(<param><decl><type><name>String</name></type> <name>body</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>body</name></name> = <name>body</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>starttls</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>starttls</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>starttls</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>Values</name></type> <name>starttls</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>starttls</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>starttls</name></name> = <name>starttls</name></expr>;</expr_stmt>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     *  Receives and buffers log messages.
+     *
+     * @param message the message being logger
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>log</name><parameter_list>(<param><decl><type><name>String</name></type> <name>message</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     *  Gets the value of a property.
+     *
+     * @param  properties     Properties to obtain value from
+     * @param  name           suffix of property name. "MailLogger." will be
+     *      prepended internally.
+     * @param  defaultValue   value returned if not present in the properties.
+     *      Set to null to make required.
+     * @return                The value of the property, or default value.
+     * @exception  Exception  thrown if no default value is specified and the
+     *      property is not present in properties.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>getValue</name><parameter_list>(<param><decl><type><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>properties</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>,
+                            <param><decl><type><name>String</name></type> <name>defaultValue</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>Exception</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>propertyName</name> =<init> <expr>"MailLogger." + <name>name</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr>(<name>String</name>) <call><name><name>properties</name>.<name>get</name></name><argument_list>(<argument><expr><name>propertyName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>value</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>value</name> = <name>defaultValue</name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>value</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>Exception</name><argument_list>(<argument><expr>"Missing required parameter: " + <name>propertyName</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <return>return <expr><name>value</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     *  Send the mail
+     * @param  values           the various values.
+     * @param  message          mail body
+     * @exception  IOException  thrown if sending message fails
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>sendMail</name><parameter_list>(<param><decl><type><name>Values</name></type> <name>values</name></decl></param>, <param><decl><type><name>String</name></type> <name>message</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>MailMessage</name></type> <name>mailMessage</name> =<init> <expr>new <call><name>MailMessage</name><argument_list>(
+            <argument><expr><call><name><name>values</name>.<name>mailhost</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>values</name>.<name>port</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>mailMessage</name>.<name>setHeader</name></name><argument_list>(<argument><expr>"Date"</expr></argument>, <argument><expr><call><name><name>DateUtils</name>.<name>getDateForHeader</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>mailMessage</name>.<name>from</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>from</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr>!<call><name><name>values</name>.<name>replytoList</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>StringTokenizer</name></type> <name>t</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(
+                <argument><expr><call><name><name>values</name>.<name>replytoList</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr>", "</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>t</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <expr_stmt><expr><call><name><name>mailMessage</name>.<name>replyto</name></name><argument_list>(<argument><expr><call><name><name>t</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>StringTokenizer</name></type> <name>t</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><call><name><name>values</name>.<name>toList</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr>", "</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>t</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <expr_stmt><expr><call><name><name>mailMessage</name>.<name>to</name></name><argument_list>(<argument><expr><call><name><name>t</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+
+        <expr_stmt><expr><call><name><name>mailMessage</name>.<name>setSubject</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>subject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name><name>values</name>.<name>charset</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>mailMessage</name>.<name>setHeader</name></name><argument_list>(<argument><expr>"Content-Type"</expr></argument>, <argument><expr><call><name><name>values</name>.<name>mimeType</name></name><argument_list>()</argument_list></call>
+                                  + "; charset=\"" + <call><name><name>values</name>.<name>charset</name></name><argument_list>()</argument_list></call> + "\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>mailMessage</name>.<name>setHeader</name></name><argument_list>(<argument><expr>"Content-Type"</expr></argument>, <argument><expr><call><name><name>values</name>.<name>mimeType</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <decl_stmt><decl><type><name>PrintStream</name></type> <name>ps</name> =<init> <expr><call><name><name>mailMessage</name>.<name>getPrintStream</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>ps</name>.<name>println</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>body</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0 ? <call><name><name>values</name>.<name>body</name></name><argument_list>()</argument_list></call> : <name>message</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>mailMessage</name>.<name>sendAndClose</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+    <comment type="javadoc">/**
+     *  Send the mail  (MimeMail)
+     * @param  project          current ant project
+     * @param  values           various values
+     * @param  message          mail body
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>sendMimeMail</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Values</name></type> <name>values</name></decl></param>, <param><decl><type><name>String</name></type> <name>message</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Mailer</name></type> <name>mailer</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>mailer</name> = (<name>Mailer</name>) <call><name><name>ClasspathUtils</name>.<name>newInstance</name></name><argument_list>(
+                    <argument><expr>"org.apache.tools.ant.taskdefs.email.MimeMailer"</expr></argument>,
+                    <argument><expr><name><name>MailLogger</name>.<name><name/></name></name>class.<call><name>getClassLoader</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Mailer</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>Throwable</name></type> <name>t</name> =<init> <expr><call><name><name>e</name>.<name>getCause</name></name><argument_list>()</argument_list></call> == <name>null</name> ? <name>e</name> : <call><name><name>e</name>.<name>getCause</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Failed to initialise MIME mail: " + <call><name><name>t</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></catch></try>
+        <comment type="line">// convert the replyTo string into a vector of emailaddresses</comment>
+        <decl_stmt><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>EmailAddress</name></argument>&gt;</argument_list></name></type> <name>replyToList</name> =<init> <expr><call><name>vectorizeEmailAddresses</name><argument_list>(<argument><expr><call><name><name>values</name>.<name>replytoList</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setHost</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>mailhost</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setPort</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>port</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setUser</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>user</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setPassword</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>password</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setSSL</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>ssl</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setEnableStartTLS</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>starttls</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>Message</name></type> <name>mymessage</name> =<init>
+            <expr>new <call><name>Message</name><argument_list>(<argument><expr><call><name><name>values</name>.<name>body</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0 ? <call><name><name>values</name>.<name>body</name></name><argument_list>()</argument_list></call> : <name>message</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>mymessage</name>.<name>setProject</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mymessage</name>.<name>setMimeType</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>mimeType</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name><name>values</name>.<name>charset</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>mymessage</name>.<name>setCharset</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>charset</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setMessage</name></name><argument_list>(<argument><expr><name>mymessage</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setFrom</name></name><argument_list>(<argument><expr>new <call><name>EmailAddress</name><argument_list>(<argument><expr><call><name><name>values</name>.<name>from</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setReplyToList</name></name><argument_list>(<argument><expr><name>replyToList</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>EmailAddress</name></argument>&gt;</argument_list></name></type> <name>toList</name> =<init> <expr><call><name>vectorizeEmailAddresses</name><argument_list>(<argument><expr><call><name><name>values</name>.<name>toList</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setToList</name></name><argument_list>(<argument><expr><name>toList</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setCcList</name></name><argument_list>(<argument><expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>EmailAddress</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setBccList</name></name><argument_list>(<argument><expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>EmailAddress</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setFiles</name></name><argument_list>(<argument><expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>File</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setSubject</name></name><argument_list>(<argument><expr><call><name><name>values</name>.<name>subject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>setHeaders</name></name><argument_list>(<argument><expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>Header</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mailer</name>.<name>send</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+    <function><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>EmailAddress</name></argument>&gt;</argument_list></name></type> <name>vectorizeEmailAddresses</name><parameter_list>(<param><decl><type><name>String</name></type> <name>listString</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>EmailAddress</name></argument>&gt;</argument_list></name></type> <name>emailList</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>EmailAddress</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringTokenizer</name></type> <name>tokens</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><name>listString</name></expr></argument>, <argument><expr>","</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>tokens</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <expr_stmt><expr><call><name><name>emailList</name>.<name>addElement</name></name><argument_list>(<argument><expr>new <call><name>EmailAddress</name><argument_list>(<argument><expr><call><name><name>tokens</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><name>emailList</name></expr>;</return>
+    }</block></function>
+}</block></class>
+
+
+</unit>

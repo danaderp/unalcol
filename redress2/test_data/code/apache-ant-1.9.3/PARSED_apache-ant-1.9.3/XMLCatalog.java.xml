@@ -1,0 +1,1123 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\types\XMLCatalog.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Method</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>MalformedURLException</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>URL</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Stack</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>ParserConfigurationException</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>SAXParserFactory</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>transform</name>.<name>Source</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>transform</name>.<name>TransformerException</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>transform</name>.<name>URIResolver</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>transform</name>.<name>sax</name>.<name>SAXSource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>AntClassLoader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>JAXPUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>EntityResolver</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>InputSource</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>SAXException</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>XMLReader</name></name>;</import>
+
+
+
+<comment type="javadoc">/**
+ * &lt;p&gt;This data type provides a catalog of resource locations (such as
+ * DTDs and XML entities), based on the &lt;a
+ * href="http://oasis-open.org/committees/entity/spec-2001-08-06.html"&gt;
+ * OASIS "Open Catalog" standard&lt;/a&gt;.  The catalog entries are used
+ * both for Entity resolution and URI resolution, in accordance with
+ * the {@link org.xml.sax.EntityResolver EntityResolver} and {@link
+ * javax.xml.transform.URIResolver URIResolver} interfaces as defined
+ * in the &lt;a href="http://java.sun.com/xml/jaxp"&gt;Java API for XML
+ * Processing Specification&lt;/a&gt;.&lt;/p&gt;
+ *
+ * &lt;p&gt;Resource locations can be specified either in-line or in
+ * external catalog file(s), or both.  In order to use an external
+ * catalog file, the xml-commons resolver library ("resolver.jar")
+ * must be in your classpath.  External catalog files may be either &lt;a
+ * href="http://oasis-open.org/committees/entity/background/9401.html"&gt;
+ * plain text format&lt;/a&gt; or &lt;a
+ * href="http://www.oasis-open.org/committees/entity/spec-2001-08-06.html"&gt;
+ * XML format&lt;/a&gt;.  If the xml-commons resolver library is not found
+ * in the classpath, external catalog files, specified in
+ * &lt;code&gt;&amp;lt;catalogpath&amp;gt;&lt;/code&gt; paths, will be ignored and a warning will
+ * be logged.  In this case, however, processing of inline entries will proceed
+ * normally.&lt;/p&gt;
+ *
+ * &lt;p&gt;Currently, only &lt;code&gt;&amp;lt;dtd&amp;gt;&lt;/code&gt; and
+ * &lt;code&gt;&amp;lt;entity&amp;gt;&lt;/code&gt; elements may be specified inline; these
+ * correspond to OASIS catalog entry types &lt;code&gt;PUBLIC&lt;/code&gt; and
+ * &lt;code&gt;URI&lt;/code&gt; respectively.&lt;/p&gt;
+ *
+ * &lt;p&gt;The following is a usage example:&lt;/p&gt;
+ *
+ * &lt;code&gt;
+ * &amp;lt;xmlcatalog&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;dtd publicId="" location="/path/to/file.jar" /&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;dtd publicId="" location="/path/to/file2.jar" /&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;entity publicId="" location="/path/to/file3.jar" /&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;entity publicId="" location="/path/to/file4.jar" /&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;catalogpath&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;lt;pathelement location="/etc/sgml/catalog"/&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;/catalogpath&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;catalogfiles dir="/opt/catalogs/" includes="**\catalog.xml" /&amp;gt;&lt;br&gt;
+ * &amp;lt;/xmlcatalog&amp;gt;&lt;br&gt;
+ * &lt;/code&gt;
+ * &lt;p&gt;
+ * Tasks wishing to use &lt;code&gt;&amp;lt;xmlcatalog&amp;gt;&lt;/code&gt; must provide a method called
+ * &lt;code&gt;createXMLCatalog&lt;/code&gt; which returns an instance of
+ * &lt;code&gt;XMLCatalog&lt;/code&gt;. Nested DTD and entity definitions are handled by
+ * the XMLCatalog object and must be labeled &lt;code&gt;dtd&lt;/code&gt; and
+ * &lt;code&gt;entity&lt;/code&gt; respectively.&lt;/p&gt;
+ *
+ * &lt;p&gt;The following is a description of the resolution algorithm:
+ * entities/URIs/dtds are looked up in each of the following contexts,
+ * stopping when a valid and readable resource is found:
+ * &lt;ol&gt;
+ * &lt;li&gt;In the local filesystem&lt;/li&gt;
+ * &lt;li&gt;In the classpath&lt;/li&gt;
+ * &lt;li&gt;Using the Apache xml-commons resolver (if it is available)&lt;/li&gt;
+ * &lt;li&gt;In URL-space&lt;/li&gt;
+ * &lt;/ol&gt;
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;See {@link
+ * org.apache.tools.ant.taskdefs.optional.XMLValidateTask
+ * XMLValidateTask} for an example of a task that has integrated
+ * support for XMLCatalogs.&lt;/p&gt;
+ *
+ * &lt;p&gt;Possible future extension could provide for additional OASIS
+ * entry types to be specified inline.&lt;/p&gt;
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>XMLCatalog</name> <super><extends>extends <name>DataType</name></extends>
+    <implements>implements <name>Cloneable</name>, <name>EntityResolver</name>, <name>URIResolver</name></implements></super> <block>{
+
+    <comment type="javadoc">/** helper for some File.toURL connversions */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">//-- Fields ----------------------------------------------------------------</comment>
+
+    <comment type="javadoc">/** Holds dtd/entity objects until needed. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>ResourceLocation</name></argument>&gt;</argument_list></name></type> <name>elements</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>ResourceLocation</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Classpath in which to attempt to resolve resources.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>classpath</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Path listing external catalog files to search when resolving entities
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>catalogPath</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The name of the bridge to the Apache xml-commons resolver
+     * class, used to determine whether resolver.jar is present in the
+     * classpath.
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>APACHE_RESOLVER</name>
+        =<init> <expr>"org.apache.tools.ant.types.resolver.ApacheCatalogResolver"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Resolver base class
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>CATALOG_RESOLVER</name>
+        =<init> <expr>"org.apache.xml.resolver.tools.CatalogResolver"</expr></init></decl>;</decl_stmt>
+
+        <comment type="line">//-- Methods ---------------------------------------------------------------</comment>
+
+    <comment type="javadoc">/**
+     * Default constructor
+     */</comment>
+    <constructor><specifier>public</specifier> <name>XMLCatalog</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Returns the elements of the catalog - ResourceLocation objects.
+     *
+     * @return the elements of the catalog - ResourceLocation objects
+     */</comment>
+    <function><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>ResourceLocation</name></argument>&gt;</argument_list></name></type> <name>getElements</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getRef</name><argument_list>()</argument_list></call>.<name>elements</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the classpath in which to attempt to resolve resources.
+     *
+     * @return the classpath
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Path</name></type> <name>getClasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getRef</name><argument_list>()</argument_list></call>.<name>classpath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Allows nested classpath elements. Not allowed if this catalog
+     * is itself a reference to another catalog -- that is, a catalog
+     * cannot both refer to another &lt;em&gt;and&lt;/em&gt; contain elements or
+     * other attributes.
+     *
+     * @return a Path instance to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name><name>this</name>.<name>classpath</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>classpath</name></name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>this</name>.<name>classpath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Allows simple classpath string.  Not allowed if this catalog is
+     * itself a reference to another catalog -- that is, a catalog
+     * cannot both refer to another &lt;em&gt;and&lt;/em&gt; contain elements or
+     * other attributes.
+     *
+     * @param classpath the classpath to use to look up entities.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name><name>this</name>.<name>classpath</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>classpath</name></name> = <name>classpath</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>this</name>.<name>classpath</name>.<name>append</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Allows classpath reference.  Not allowed if this catalog is
+     * itself a reference to another catalog -- that is, a catalog
+     * cannot both refer to another &lt;em&gt;and&lt;/em&gt; contain elements or
+     * other attributes.
+     *
+     * @param r an Ant reference containing a classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>createClasspath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/** Creates a nested &lt;code&gt;&amp;lt;catalogpath&amp;gt;&lt;/code&gt; element.
+     * Not allowed if this catalog is itself a reference to another
+     * catalog -- that is, a catalog cannot both refer to another
+     * &lt;em&gt;and&lt;/em&gt; contain elements or other attributes.
+     *
+     * @return a path to be configured as the catalog path.
+     * @exception BuildException
+     * if this is a reference and no nested elements are allowed.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createCatalogPath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name><name>this</name>.<name>catalogPath</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>catalogPath</name></name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>this</name>.<name>catalogPath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Allows catalogpath reference.  Not allowed if this catalog is
+     * itself a reference to another catalog -- that is, a catalog
+     * cannot both refer to another &lt;em&gt;and&lt;/em&gt; contain elements or
+     * other attributes.
+     *
+     * @param r an Ant reference containing a classpath to be used as
+     * the catalog path.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCatalogPathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>createCatalogPath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Returns the catalog path in which to attempt to resolve DTDs.
+     *
+     * @return the catalog path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getCatalogPath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getRef</name><argument_list>()</argument_list></call>.<name>catalogPath</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Creates the nested &lt;code&gt;&amp;lt;dtd&amp;gt;&lt;/code&gt; element.  Not
+     * allowed if this catalog is itself a reference to another
+     * catalog -- that is, a catalog cannot both refer to another
+     * &lt;em&gt;and&lt;/em&gt; contain elements or other attributes.
+     *
+     * @param dtd the information about the PUBLIC resource mapping to
+     *            be added to the catalog
+     * @exception BuildException if this is a reference and no nested
+     *       elements are allowed.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addDTD</name><parameter_list>(<param><decl><type><name>ResourceLocation</name></type> <name>dtd</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>getElements</name><argument_list>()</argument_list></call>.<call><name>addElement</name><argument_list>(<argument><expr><name>dtd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates the nested &lt;code&gt;&amp;lt;entity&amp;gt;&lt;/code&gt; element.    Not
+     * allowed if this catalog is itself a reference to another
+     * catalog -- that is, a catalog cannot both refer to another
+     * &lt;em&gt;and&lt;/em&gt; contain elements or other attributes.
+     *
+     * @param entity the information about the URI resource mapping to be
+     *       added to the catalog.
+     * @exception BuildException if this is a reference and no nested
+     *       elements are allowed.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addEntity</name><parameter_list>(<param><decl><type><name>ResourceLocation</name></type> <name>entity</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>addDTD</name><argument_list>(<argument><expr><name>entity</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Loads a nested &lt;code&gt;&amp;lt;xmlcatalog&amp;gt;&lt;/code&gt; into our
+     * definition.  Not allowed if this catalog is itself a reference
+     * to another catalog -- that is, a catalog cannot both refer to
+     * another &lt;em&gt;and&lt;/em&gt; contain elements or other attributes.
+     *
+     * @param catalog Nested XMLCatalog
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredXMLCatalog</name><parameter_list>(<param><decl><type><name>XMLCatalog</name></type> <name>catalog</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <comment type="line">// Add all nested elements to our catalog</comment>
+        <expr_stmt><expr><call><name>getElements</name><argument_list>()</argument_list></call>.<call><name>addAll</name><argument_list>(<argument><expr><call><name><name>catalog</name>.<name>getElements</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// Append the classpath of the nested catalog</comment>
+        <decl_stmt><decl><type><name>Path</name></type> <name>nestedClasspath</name> =<init> <expr><call><name><name>catalog</name>.<name>getClasspath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>createClasspath</name><argument_list>()</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>nestedClasspath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// Append the catalog path of the nested catalog</comment>
+        <decl_stmt><decl><type><name>Path</name></type> <name>nestedCatalogPath</name> =<init> <expr><call><name><name>catalog</name>.<name>getCatalogPath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>createCatalogPath</name><argument_list>()</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>nestedCatalogPath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Makes this instance in effect a reference to another XMLCatalog
+     * instance.
+     *
+     * &lt;p&gt;You must not set another attribute or nest elements inside
+     * this element if you make it a reference.  That is, a catalog
+     * cannot both refer to another &lt;em&gt;and&lt;/em&gt; contain elements or
+     * attributes.&lt;/p&gt;
+     *
+     * @param r the reference to which this catalog instance is associated
+     * @exception BuildException if this instance already has been configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRefid</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr>!<call><name><name>elements</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>super</name>.<name>setRefid</name></name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Implements the EntityResolver.resolveEntity() interface method.
+     * @param publicId the public id to resolve.
+     * @param systemId the system id to resolve.
+     * @throws SAXException if there is a parsing problem.
+     * @throws IOException if there is an IO problem.
+     * @return the resolved entity.
+     * @see org.xml.sax.EntityResolver#resolveEntity
+     */</comment>
+    <function><type><specifier>public</specifier> <name>InputSource</name></type> <name>resolveEntity</name><parameter_list>(<param><decl><type><name>String</name></type> <name>publicId</name></decl></param>, <param><decl><type><name>String</name></type> <name>systemId</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>SAXException</name></expr></argument>, <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>()</argument_list></call>.<call><name>resolveEntity</name><argument_list>(<argument><expr><name>publicId</name></expr></argument>, <argument><expr><name>systemId</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"resolveEntity: '" + <name>publicId</name> + "': '" + <name>systemId</name> + "'"</expr></argument>,
+            <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>InputSource</name></type> <name>inputSource</name> =<init>
+            <expr><call><name>getCatalogResolver</name><argument_list>()</argument_list></call>.<call><name>resolveEntity</name><argument_list>(<argument><expr><name>publicId</name></expr></argument>, <argument><expr><name>systemId</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>inputSource</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"No matching catalog entry found, parser will use: '"
+                + <name>systemId</name> + "'"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <return>return <expr><name>inputSource</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Implements the URIResolver.resolve() interface method.
+     * @param href an href attribute.
+     * @param base the base URI.
+     * @return a Source object, or null if href cannot be resolved.
+     * @throws TransformerException if an error occurs.
+     * @see javax.xml.transform.URIResolver#resolve
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Source</name></type> <name>resolve</name><parameter_list>(<param><decl><type><name>String</name></type> <name>href</name></decl></param>, <param><decl><type><name>String</name></type> <name>base</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>TransformerException</name></expr></argument></throws> <block>{
+
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>()</argument_list></call>.<call><name>resolve</name><argument_list>(<argument><expr><name>href</name></expr></argument>, <argument><expr><name>base</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>SAXSource</name></type> <name>source</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>uri</name> =<init> <expr><call><name>removeFragment</name><argument_list>(<argument><expr><name>href</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"resolve: '" + <name>uri</name> + "' with base: '" + <name>base</name> + "'"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>source</name> = (<name>SAXSource</name>) <call><name>getCatalogResolver</name><argument_list>()</argument_list></call>.<call><name>resolve</name><argument_list>(<argument><expr><name>uri</name></expr></argument>, <argument><expr><name>base</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>source</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"No matching catalog entry found, parser will use: '"
+                + <name>href</name> + "'"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//</comment>
+            <comment type="line">// Cannot return a null source, because we have to call</comment>
+            <comment type="line">// setEntityResolver (see setEntityResolver javadoc comment)</comment>
+            <comment type="line">//</comment>
+            <expr_stmt><expr><name>source</name> = new <call><name>SAXSource</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>URL</name></type> <name>baseURL</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <if>if <condition>(<expr><name>base</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>baseURL</name> = <call><name><name>FILE_UTILS</name>.<name>getFileURL</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getBaseDir</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>baseURL</name> = new <call><name>URL</name><argument_list>(<argument><expr><name>base</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <decl_stmt><decl><type><name>URL</name></type> <name>url</name> =<init> <expr>(<call><name><name>uri</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0 ? <name>baseURL</name> : new <call><name>URL</name><argument_list>(<argument><expr><name>baseURL</name></expr></argument>, <argument><expr><name>uri</name></expr></argument>)</argument_list></call>)</expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>source</name>.<name>setInputSource</name></name><argument_list>(<argument><expr>new <call><name>InputSource</name><argument_list>(<argument><expr><call><name><name>url</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>ex</name></decl></param>) <block>{
+                <comment type="line">// At this point we are probably in failure mode, but</comment>
+                <comment type="line">// try to use the bare URI as a last gasp</comment>
+                <expr_stmt><expr><call><name><name>source</name>.<name>setInputSource</name></name><argument_list>(<argument><expr>new <call><name>InputSource</name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>setEntityResolver</name><argument_list>(<argument><expr><name>source</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>source</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>protected</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>dieOnCircularReference</name><parameter_list>(<param><decl><type><name><name>Stack</name><argument_list>&lt;<argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>stk</name></decl></param>, <param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name>isChecked</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>super</name>.<name>dieOnCircularReference</name></name><argument_list>(<argument><expr><name>stk</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>pushAndInvokeCircularReferenceCheck</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>, <argument><expr><name>stk</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>catalogPath</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>pushAndInvokeCircularReferenceCheck</name><argument_list>(<argument><expr><name>catalogPath</name></expr></argument>, <argument><expr><name>stk</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>private</specifier> <name>XMLCatalog</name></type> <name>getRef</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr>!<call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name>getCheckedRef</name><argument_list>(<argument><expr><name><name>XMLCatalog</name>.<name><name/></name></name>class</expr></argument>, <argument><expr>"xmlcatalog"</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The instance of the CatalogResolver strategy to use.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>CatalogResolver</name></type> <name>catalogResolver</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Factory method for creating the appropriate CatalogResolver
+     * strategy implementation.
+     * &lt;p&gt; Until we query the classpath, we don't know whether the Apache
+     * resolver (Norm Walsh's library from xml-commons) is available or not.
+     * This method determines whether the library is available and creates the
+     * appropriate implementation of CatalogResolver based on the answer.&lt;/p&gt;
+     * &lt;p&gt;This is an application of the Gang of Four Strategy Pattern
+     * combined with Template Method.&lt;/p&gt;
+     */</comment>
+    <function><type><specifier>private</specifier> <name>CatalogResolver</name></type> <name>getCatalogResolver</name><parameter_list>()</parameter_list> <block>{
+
+        <if>if <condition>(<expr><name>catalogResolver</name> == <name>null</name></expr>)</condition><then> <block>{
+
+            <decl_stmt><decl><type><name>AntClassLoader</name></type> <name>loader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <comment type="line">// Memory-Leak in line below</comment>
+            <expr_stmt><expr><name>loader</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name><name>Path</name>.<name>systemClasspath</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <try>try <block>{
+                <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>clazz</name> =<init> <expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>APACHE_RESOLVER</name></expr></argument>, <argument><expr>true</expr></argument>, <argument><expr><name>loader</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// The Apache resolver is present - Need to check if it can</comment>
+                <comment type="line">// be seen by the catalog resolver class. Start by getting</comment>
+                <comment type="line">// the actual loader</comment>
+                <decl_stmt><decl><type><name>ClassLoader</name></type> <name>apacheResolverLoader</name> =<init> <expr><call><name><name>clazz</name>.<name>getClassLoader</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// load the base class through this loader.</comment>
+                <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>baseResolverClass</name>
+                    =<init> <expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>CATALOG_RESOLVER</name></expr></argument>, <argument><expr>true</expr></argument>, <argument><expr><name>apacheResolverLoader</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// and find its actual loader</comment>
+                <decl_stmt><decl><type><name>ClassLoader</name></type> <name>baseResolverLoader</name>
+                    =<init> <expr><call><name><name>baseResolverClass</name>.<name>getClassLoader</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// We have the loader which is being used to load the</comment>
+                <comment type="line">// CatalogResolver. Can it see the ApacheResolver? The</comment>
+                <comment type="line">// base resolver will only be able to create the ApacheResolver</comment>
+                <comment type="line">// if it can see it - doesn't use the context loader.</comment>
+                <expr_stmt><expr><name>clazz</name> = <call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>APACHE_RESOLVER</name></expr></argument>, <argument><expr>true</expr></argument>, <argument><expr><name>baseResolverLoader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <decl_stmt><decl><type><name>Object</name></type> <name>obj</name>  =<init> <expr><call><name><name>clazz</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <comment type="line">//</comment>
+                <comment type="line">// Success!  The xml-commons resolver library is</comment>
+                <comment type="line">// available, so use it.</comment>
+                <comment type="line">//</comment>
+                <expr_stmt><expr><name>catalogResolver</name> = new <call><name>ExternalResolver</name><argument_list>(<argument><expr><name>clazz</name></expr></argument>, <argument><expr><name>obj</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>Throwable</name></type> <name>ex</name></decl></param>) <block>{
+                <comment type="line">//</comment>
+                <comment type="line">// The xml-commons resolver library is not</comment>
+                <comment type="line">// available, so we can't use it.</comment>
+                <comment type="line">//</comment>
+                <expr_stmt><expr><name>catalogResolver</name> = new <call><name>InternalResolver</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><call><name>getCatalogPath</name><argument_list>()</argument_list></call> != <name>null</name>
+                    &amp;&amp; <call><name>getCatalogPath</name><argument_list>()</argument_list></call>.<call><name>list</name><argument_list>()</argument_list></call>.<name>length</name> != 0</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Warning: XML resolver not found; external catalogs"
+                            + " will be ignored"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Failed to load Apache resolver: " + <name>ex</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></then></if>
+        <return>return <expr><name>catalogResolver</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * &lt;p&gt;This is called from the URIResolver to set an EntityResolver
+     * on the SAX parser to be used for new XML documents that are
+     * encountered as a result of the document() function, xsl:import,
+     * or xsl:include.  This is done because the XSLT processor calls
+     * out to the SAXParserFactory itself to create a new SAXParser to
+     * parse the new document.  The new parser does not automatically
+     * inherit the EntityResolver of the original (although arguably
+     * it should).  See below:&lt;/p&gt;
+     *
+     * &lt;tt&gt;"If an application wants to set the ErrorHandler or
+     * EntityResolver for an XMLReader used during a transformation,
+     * it should use a URIResolver to return the SAXSource which
+     * provides (with getXMLReader) a reference to the XMLReader"&lt;/tt&gt;
+     *
+     * &lt;p&gt;...quoted from page 118 of the Java API for XML
+     * Processing 1.1 specification&lt;/p&gt;
+     *
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setEntityResolver</name><parameter_list>(<param><decl><type><name>SAXSource</name></type> <name>source</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>TransformerException</name></expr></argument></throws> <block>{
+
+        <decl_stmt><decl><type><name>XMLReader</name></type> <name>reader</name> =<init> <expr><call><name><name>source</name>.<name>getXMLReader</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>reader</name> == <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>SAXParserFactory</name></type> <name>spFactory</name> =<init> <expr><call><name><name>SAXParserFactory</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>spFactory</name>.<name>setNamespaceAware</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>reader</name> = <call><name><name>spFactory</name>.<name>newSAXParser</name></name><argument_list>()</argument_list></call>.<call><name>getXMLReader</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>ParserConfigurationException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>TransformerException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>SAXException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>TransformerException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>reader</name>.<name>setEntityResolver</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>source</name>.<name>setXMLReader</name></name><argument_list>(<argument><expr><name>reader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find a ResourceLocation instance for the given publicId.
+     *
+     * @param publicId the publicId of the Resource for which local information
+     *        is required.
+     * @return a ResourceLocation instance with information on the local location
+     *         of the Resource or null if no such information is available.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>ResourceLocation</name></type> <name>findMatchingEntry</name><parameter_list>(<param><decl><type><name>String</name></type> <name>publicId</name></decl></param>)</parameter_list> <block>{
+        <for>for (<init><decl><type><name>ResourceLocation</name></type> <name>element</name> :<range> <expr><call><name>getElements</name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+            <if>if <condition>(<expr><call><name><name>element</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>element</name></expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Utility method to remove trailing fragment from a URI.
+     * For example,
+     * &lt;code&gt;http://java.sun.com/index.html#chapter1&lt;/code&gt;
+     * would return &lt;code&gt;http://java.sun.com/index.html&lt;/code&gt;.
+     *
+     * @param uri The URI to process.  It may or may not contain a
+     *            fragment.
+     * @return The URI sans fragment.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>removeFragment</name><parameter_list>(<param><decl><type><name>String</name></type> <name>uri</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>result</name> =<init> <expr><name>uri</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>hashPos</name> =<init> <expr><call><name><name>uri</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"#"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>hashPos</name> &gt;= 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>result</name> = <call><name><name>uri</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>hashPos</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Utility method to lookup a ResourceLocation in the filesystem.
+     *
+     * @return An InputSource for reading the file, or &lt;code&gt;null&lt;/code&gt;
+     *     if the file does not exist or is not readable.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>InputSource</name></type> <name>filesystemLookup</name><parameter_list>(<param><decl><type><name>ResourceLocation</name></type> <name>matchingEntry</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>String</name></type> <name>uri</name> =<init> <expr><call><name><name>matchingEntry</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// the following line seems to be necessary on Windows under JDK 1.2</comment>
+        <expr_stmt><expr><name>uri</name> = <call><name><name>uri</name>.<name>replace</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>URL</name></type> <name>baseURL</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">//</comment>
+        <comment type="line">// The ResourceLocation may specify a relative path for its</comment>
+        <comment type="line">// location attribute.  This is resolved using the appropriate</comment>
+        <comment type="line">// base.</comment>
+        <comment type="line">//</comment>
+        <if>if <condition>(<expr><call><name><name>matchingEntry</name>.<name>getBase</name></name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>baseURL</name> = <call><name><name>matchingEntry</name>.<name>getBase</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>baseURL</name> = <call><name><name>FILE_UTILS</name>.<name>getFileURL</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getBaseDir</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Project basedir cannot be converted to a URL"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></else></if>
+
+        <decl_stmt><decl><type><name>InputSource</name></type> <name>source</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>URL</name></type> <name>url</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>url</name> = new <call><name>URL</name><argument_list>(<argument><expr><name>baseURL</name></expr></argument>, <argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>ex</name></decl></param>) <block>{
+            <comment type="line">// this processing is useful under Windows when the location of the DTD</comment>
+            <comment type="line">// has been given as an absolute path</comment>
+            <comment type="line">// see Bugzilla Report 23913</comment>
+            <decl_stmt><decl><type><name>File</name></type> <name>testFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>testFile</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; <call><name><name>testFile</name>.<name>canRead</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"uri : '"
+                    + <name>uri</name> + "' matches a readable file"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <try>try <block>{
+                    <expr_stmt><expr><name>url</name> = <call><name><name>FILE_UTILS</name>.<name>getFileURL</name></name><argument_list>(<argument><expr><name>testFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>ex1</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                        <argument><expr>"could not find an URL for :" + <call><name><name>testFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"uri : '"
+                    + <name>uri</name> + "' does not match a readable file"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            }</block></else></if>
+        }</block></catch></try>
+
+        <if>if <condition>(<expr><name>url</name> != <name>null</name> &amp;&amp; <call><name><name>url</name>.<name>getProtocol</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>"file"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>fileName</name> =<init> <expr><call><name><name>FILE_UTILS</name>.<name>fromURI</name></name><argument_list>(<argument><expr><call><name><name>url</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>fileName</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"fileName " + <name>fileName</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>resFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>fileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>resFile</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; <call><name><name>resFile</name>.<name>canRead</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <try>try <block>{
+                        <expr_stmt><expr><name>source</name> = new <call><name>InputSource</name><argument_list>(<argument><expr>new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>resFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <decl_stmt><decl><type><name>String</name></type> <name>sysid</name> =<init> <expr><call><name><name>JAXPUtils</name>.<name>getSystemId</name></name><argument_list>(<argument><expr><name>resFile</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>source</name>.<name>setSystemId</name></name><argument_list>(<argument><expr><name>sysid</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"catalog entry matched a readable file: '"
+                            + <name>sysid</name> + "'"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex</name></decl></param>) <block>{
+                        <comment type="line">// ignore</comment>
+                    }</block></catch></try>
+                }</block></then></if>
+            }</block></then></if>
+        }</block></then></if>
+        <return>return <expr><name>source</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Utility method to lookup a ResourceLocation in the classpath.
+     *
+     * @return An InputSource for reading the resource, or &lt;code&gt;null&lt;/code&gt;
+     *    if the resource does not exist in the classpath or is not readable.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>InputSource</name></type> <name>classpathLookup</name><parameter_list>(<param><decl><type><name>ResourceLocation</name></type> <name>matchingEntry</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>InputSource</name></type> <name>source</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>AntClassLoader</name></type> <name>loader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Path</name></type> <name>cp</name> =<init> <expr><name>classpath</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>cp</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>cp</name> = <call><name><name>classpath</name>.<name>concatSystemClasspath</name></name><argument_list>(<argument><expr>"ignore"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>cp</name> = (new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>).<call><name>concatSystemClasspath</name><argument_list>(<argument><expr>"last"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <expr_stmt><expr><name>loader</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name>cp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//</comment>
+        <comment type="line">// for classpath lookup we ignore the base directory</comment>
+        <comment type="line">//</comment>
+        <decl_stmt><decl><type><name>InputStream</name></type> <name>is</name>
+            =<init> <expr><call><name><name>loader</name>.<name>getResourceAsStream</name></name><argument_list>(<argument><expr><call><name><name>matchingEntry</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>is</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>source</name> = new <call><name>InputSource</name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>URL</name></type> <name>entryURL</name> =<init> <expr><call><name><name>loader</name>.<name>getResource</name></name><argument_list>(<argument><expr><call><name><name>matchingEntry</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>sysid</name> =<init> <expr><call><name><name>entryURL</name>.<name>toExternalForm</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>source</name>.<name>setSystemId</name></name><argument_list>(<argument><expr><name>sysid</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"catalog entry matched a resource in the classpath: '"
+                + <name>sysid</name> + "'"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <return>return <expr><name>source</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Utility method to lookup a ResourceLocation in URL-space.
+     *
+     * @return An InputSource for reading the resource, or &lt;code&gt;null&lt;/code&gt;
+     *    if the resource does not identify a valid URL or is not readable.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>InputSource</name></type> <name>urlLookup</name><parameter_list>(<param><decl><type><name>ResourceLocation</name></type> <name>matchingEntry</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>String</name></type> <name>uri</name> =<init> <expr><call><name><name>matchingEntry</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>URL</name></type> <name>baseURL</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">//</comment>
+        <comment type="line">// The ResourceLocation may specify a relative url for its</comment>
+        <comment type="line">// location attribute.  This is resolved using the appropriate</comment>
+        <comment type="line">// base.</comment>
+        <comment type="line">//</comment>
+        <if>if <condition>(<expr><call><name><name>matchingEntry</name>.<name>getBase</name></name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>baseURL</name> = <call><name><name>matchingEntry</name>.<name>getBase</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>baseURL</name> = <call><name><name>FILE_UTILS</name>.<name>getFileURL</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getBaseDir</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Project basedir cannot be converted to a URL"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></else></if>
+
+        <decl_stmt><decl><type><name>InputSource</name></type> <name>source</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>URL</name></type> <name>url</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <try>try <block>{
+            <expr_stmt><expr><name>url</name> = new <call><name>URL</name><argument_list>(<argument><expr><name>baseURL</name></expr></argument>, <argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>ex</name></decl></param>) <block>{
+            <comment type="line">// ignore</comment>
+        }</block></catch></try>
+
+        <if>if <condition>(<expr><name>url</name> != <name>null</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <decl_stmt><decl><type><name>InputStream</name></type> <name>is</name> =<init> <expr><call><name><name>url</name>.<name>openStream</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>is</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>source</name> = new <call><name>InputSource</name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>sysid</name> =<init> <expr><call><name><name>url</name>.<name>toExternalForm</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>source</name>.<name>setSystemId</name></name><argument_list>(<argument><expr><name>sysid</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"catalog entry matched as a URL: '"
+                        + <name>sysid</name> + "'"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex</name></decl></param>) <block>{
+                <comment type="line">// ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+
+        <return>return <expr><name>source</name></expr>;</return>
+
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Interface implemented by both the InternalResolver strategy and
+     * the ExternalResolver strategy.
+     */</comment>
+    <class type="interface"><specifier>private</specifier> interface <name>CatalogResolver</name> <super><extends>extends <name>URIResolver</name>, <name>EntityResolver</name></extends></super> <block>{
+
+        <function_decl><type><name>InputSource</name></type> <name>resolveEntity</name><parameter_list>(<param><decl><type><name>String</name></type> <name>publicId</name></decl></param>, <param><decl><type><name>String</name></type> <name>systemId</name></decl></param>)</parameter_list>;</function_decl>
+
+        <function_decl><type><name>Source</name></type> <name>resolve</name><parameter_list>(<param><decl><type><name>String</name></type> <name>href</name></decl></param>, <param><decl><type><name>String</name></type> <name>base</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>TransformerException</name></expr></argument></throws>;</function_decl>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * The InternalResolver strategy is used if the Apache resolver
+     * library (Norm Walsh's library from xml-commons) is not
+     * available.  In this case, external catalog files will be
+     * ignored.
+     *
+     */</comment>
+    <class><specifier>private</specifier> class <name>InternalResolver</name> <super><implements>implements <name>CatalogResolver</name></implements></super> <block>{
+
+        <constructor><specifier>public</specifier> <name>InternalResolver</name><parameter_list>()</parameter_list> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Apache resolver library not found, internal resolver will be used"</expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>InputSource</name></type> <name>resolveEntity</name><parameter_list>(<param><decl><type><name>String</name></type> <name>publicId</name></decl></param>,
+                                         <param><decl><type><name>String</name></type> <name>systemId</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>InputSource</name></type> <name>result</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>ResourceLocation</name></type> <name>matchingEntry</name> =<init> <expr><call><name>findMatchingEntry</name><argument_list>(<argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>matchingEntry</name> != <name>null</name></expr>)</condition><then> <block>{
+
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Matching catalog entry found for publicId: '"
+                    + <call><name><name>matchingEntry</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call> + "' location: '"
+                    + <call><name><name>matchingEntry</name>.<name>getLocation</name></name><argument_list>()</argument_list></call> + "'"</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>result</name> = <call><name>filesystemLookup</name><argument_list>(<argument><expr><name>matchingEntry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><name>result</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>result</name> = <call><name>classpathLookup</name><argument_list>(<argument><expr><name>matchingEntry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <if>if <condition>(<expr><name>result</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>result</name> = <call><name>urlLookup</name><argument_list>(<argument><expr><name>matchingEntry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then></if>
+            <return>return <expr><name>result</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>Source</name></type> <name>resolve</name><parameter_list>(<param><decl><type><name>String</name></type> <name>href</name></decl></param>, <param><decl><type><name>String</name></type> <name>base</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>TransformerException</name></expr></argument></throws> <block>{
+
+            <decl_stmt><decl><type><name>SAXSource</name></type> <name>result</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>InputSource</name></type> <name>source</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>ResourceLocation</name></type> <name>matchingEntry</name> =<init> <expr><call><name>findMatchingEntry</name><argument_list>(<argument><expr><name>href</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>matchingEntry</name> != <name>null</name></expr>)</condition><then> <block>{
+
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Matching catalog entry found for uri: '"
+                    + <call><name><name>matchingEntry</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call> + "' location: '"
+                    + <call><name><name>matchingEntry</name>.<name>getLocation</name></name><argument_list>()</argument_list></call> + "'"</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">//</comment>
+                <comment type="line">// Use the passed in base in preference to the base</comment>
+                <comment type="line">// from matchingEntry, which is either null or the</comment>
+                <comment type="line">// directory in which the external catalog file from</comment>
+                <comment type="line">// which it was obtained is located.  We make a copy</comment>
+                <comment type="line">// so matchingEntry's original base is untouched.</comment>
+                <comment type="line">//</comment>
+                <comment type="line">// This is the standard behavior as per my reading of</comment>
+                <comment type="line">// the JAXP and XML Catalog specs.  CKS 11/7/2002</comment>
+                <comment type="line">//</comment>
+                <decl_stmt><decl><type><name>ResourceLocation</name></type> <name>entryCopy</name> =<init> <expr><name>matchingEntry</name></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>base</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <try>try <block>{
+                        <decl_stmt><decl><type><name>URL</name></type> <name>baseURL</name> =<init> <expr>new <call><name>URL</name><argument_list>(<argument><expr><name>base</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><name>entryCopy</name> = new <call><name>ResourceLocation</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>entryCopy</name>.<name>setBase</name></name><argument_list>(<argument><expr><name>baseURL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>ex</name></decl></param>) <block>{
+                        <comment type="line">// ignore</comment>
+                    }</block></catch></try>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>entryCopy</name>.<name>setPublicId</name></name><argument_list>(<argument><expr><call><name><name>matchingEntry</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>entryCopy</name>.<name>setLocation</name></name><argument_list>(<argument><expr><call><name><name>matchingEntry</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>source</name> = <call><name>filesystemLookup</name><argument_list>(<argument><expr><name>entryCopy</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><name>source</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>source</name> = <call><name>classpathLookup</name><argument_list>(<argument><expr><name>entryCopy</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <if>if <condition>(<expr><name>source</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>source</name> = <call><name>urlLookup</name><argument_list>(<argument><expr><name>entryCopy</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <if>if <condition>(<expr><name>source</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>result</name> = new <call><name>SAXSource</name><argument_list>(<argument><expr><name>source</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then></if>
+            <return>return <expr><name>result</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * The ExternalResolver strategy is used if the Apache resolver
+     * library (Norm Walsh's library from xml-commons) is available in
+     * the classpath.  The ExternalResolver is a essentially a superset
+     * of the InternalResolver.
+     *
+     */</comment>
+    <class><specifier>private</specifier> class <name>ExternalResolver</name> <super><implements>implements <name>CatalogResolver</name></implements></super> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Method</name></type> <name>setXMLCatalog</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Method</name></type> <name>parseCatalog</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Method</name></type> <name>resolveEntity</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Method</name></type> <name>resolve</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** The instance of the ApacheCatalogResolver bridge class */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>resolverImpl</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>externalCatalogsProcessed</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>ExternalResolver</name><parameter_list>(<param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>resolverImplClass</name></decl></param>,
+                              <param><decl><type><name>Object</name></type> <name>resolverImpl</name></decl></param>)</parameter_list> <block>{
+
+            <expr_stmt><expr><name><name>this</name>.<name>resolverImpl</name></name> = <name>resolverImpl</name></expr>;</expr_stmt>
+
+            <comment type="line">//</comment>
+            <comment type="line">// Get Method instances for each of the methods we need to</comment>
+            <comment type="line">// call on the resolverImpl using reflection.  We can't</comment>
+            <comment type="line">// call them directly, because they require on the</comment>
+            <comment type="line">// xml-commons resolver library which may not be available</comment>
+            <comment type="line">// in the classpath.</comment>
+            <comment type="line">//</comment>
+            <try>try <block>{
+                <expr_stmt><expr><name>setXMLCatalog</name> =
+                    <call><name><name>resolverImplClass</name>.<name>getMethod</name></name><argument_list>(<argument><expr>"setXMLCatalog"</expr></argument>,
+                                                <argument><expr>new <name><name>Class</name><index>[]</index></name> <block>{<expr><name><name>XMLCatalog</name>.<name><name/></name></name>class</expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>parseCatalog</name> =
+                    <call><name><name>resolverImplClass</name>.<name>getMethod</name></name><argument_list>(<argument><expr>"parseCatalog"</expr></argument>,
+                                                <argument><expr>new <name><name>Class</name><index>[]</index></name> <block>{<expr><name><name>String</name>.<name><name/></name></name>class</expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>resolveEntity</name> =
+                    <call><name><name>resolverImplClass</name>.<name>getMethod</name></name><argument_list>(<argument><expr>"resolveEntity"</expr></argument>,
+                                                <argument><expr>new <name><name>Class</name><index>[]</index></name> <block>{<expr><name><name>String</name>.<name><name/></name></name>class</expr>, <expr><name><name>String</name>.<name><name/></name></name>class</expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>resolve</name> =
+                    <call><name><name>resolverImplClass</name>.<name>getMethod</name></name><argument_list>(<argument><expr>"resolve"</expr></argument>,
+                                                <argument><expr>new <name><name>Class</name><index>[]</index></name> <block>{<expr><name><name>String</name>.<name><name/></name></name>class</expr>, <expr><name><name>String</name>.<name><name/></name></name>class</expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>NoSuchMethodException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Apache resolver library found, xml-commons resolver will be used"</expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>InputSource</name></type> <name>resolveEntity</name><parameter_list>(<param><decl><type><name>String</name></type> <name>publicId</name></decl></param>,
+                                         <param><decl><type><name>String</name></type> <name>systemId</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>InputSource</name></type> <name>result</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name>processExternalCatalogs</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>ResourceLocation</name></type> <name>matchingEntry</name> =<init> <expr><call><name>findMatchingEntry</name><argument_list>(<argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>matchingEntry</name> != <name>null</name></expr>)</condition><then> <block>{
+
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Matching catalog entry found for publicId: '"
+                    + <call><name><name>matchingEntry</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call> + "' location: '"
+                    + <call><name><name>matchingEntry</name>.<name>getLocation</name></name><argument_list>()</argument_list></call> + "'"</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>result</name> = <call><name>filesystemLookup</name><argument_list>(<argument><expr><name>matchingEntry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><name>result</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>result</name> = <call><name>classpathLookup</name><argument_list>(<argument><expr><name>matchingEntry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <if>if <condition>(<expr><name>result</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <try>try <block>{
+                        <expr_stmt><expr><name>result</name> =
+                            (<name>InputSource</name>) <call><name><name>resolveEntity</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>resolverImpl</name></expr></argument>,
+                                                              <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>publicId</name></expr>, <expr><name>systemId</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>ex</name></decl></param>) <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch></try>
+                }</block></then></if>
+            }</block></then> <else>else <block>{
+                <comment type="line">//</comment>
+                <comment type="line">// We didn't match a ResourceLocation, but since we</comment>
+                <comment type="line">// only support PUBLIC and URI entry types internally,</comment>
+                <comment type="line">// it is still possible that there is another entry in</comment>
+                <comment type="line">// an external catalog that will match.  We call</comment>
+                <comment type="line">// Apache resolver's resolveEntity method to cover</comment>
+                <comment type="line">// this possibility.</comment>
+                <comment type="line">//</comment>
+                <try>try <block>{
+                    <expr_stmt><expr><name>result</name> =
+                        (<name>InputSource</name>) <call><name><name>resolveEntity</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>resolverImpl</name></expr></argument>,
+                                                          <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>publicId</name></expr>, <expr><name>systemId</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>ex</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></else></if>
+
+            <return>return <expr><name>result</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>Source</name></type> <name>resolve</name><parameter_list>(<param><decl><type><name>String</name></type> <name>href</name></decl></param>, <param><decl><type><name>String</name></type> <name>base</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>TransformerException</name></expr></argument></throws> <block>{
+
+            <decl_stmt><decl><type><name>SAXSource</name></type> <name>result</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>InputSource</name></type> <name>source</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name>processExternalCatalogs</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>ResourceLocation</name></type> <name>matchingEntry</name> =<init> <expr><call><name>findMatchingEntry</name><argument_list>(<argument><expr><name>href</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>matchingEntry</name> != <name>null</name></expr>)</condition><then> <block>{
+
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Matching catalog entry found for uri: '"
+                    + <call><name><name>matchingEntry</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call> + "' location: '"
+                    + <call><name><name>matchingEntry</name>.<name>getLocation</name></name><argument_list>()</argument_list></call> + "'"</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">//</comment>
+                <comment type="line">// Use the passed in base in preference to the base</comment>
+                <comment type="line">// from matchingEntry, which is either null or the</comment>
+                <comment type="line">// directory in which the external catalog file from</comment>
+                <comment type="line">// which it was obtained is located.  We make a copy</comment>
+                <comment type="line">// so matchingEntry's original base is untouched.  Of</comment>
+                <comment type="line">// course, if there is no base, no need to make a</comment>
+                <comment type="line">// copy...</comment>
+                <comment type="line">//</comment>
+                <comment type="line">// This is the standard behavior as per my reading of</comment>
+                <comment type="line">// the JAXP and XML Catalog specs.  CKS 11/7/2002</comment>
+                <comment type="line">//</comment>
+                <decl_stmt><decl><type><name>ResourceLocation</name></type> <name>entryCopy</name> =<init> <expr><name>matchingEntry</name></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>base</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <try>try <block>{
+                        <decl_stmt><decl><type><name>URL</name></type> <name>baseURL</name> =<init> <expr>new <call><name>URL</name><argument_list>(<argument><expr><name>base</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><name>entryCopy</name> = new <call><name>ResourceLocation</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>entryCopy</name>.<name>setBase</name></name><argument_list>(<argument><expr><name>baseURL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>ex</name></decl></param>) <block>{
+                        <comment type="line">// ignore</comment>
+                    }</block></catch></try>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>entryCopy</name>.<name>setPublicId</name></name><argument_list>(<argument><expr><call><name><name>matchingEntry</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>entryCopy</name>.<name>setLocation</name></name><argument_list>(<argument><expr><call><name><name>matchingEntry</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>source</name> = <call><name>filesystemLookup</name><argument_list>(<argument><expr><name>entryCopy</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><name>source</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>source</name> = <call><name>classpathLookup</name><argument_list>(<argument><expr><name>entryCopy</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <if>if <condition>(<expr><name>source</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>result</name> = new <call><name>SAXSource</name><argument_list>(<argument><expr><name>source</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <try>try <block>{
+                        <expr_stmt><expr><name>result</name> =
+                            (<name>SAXSource</name>) <call><name><name>resolve</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>resolverImpl</name></expr></argument>,
+                                                      <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>href</name></expr>, <expr><name>base</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>ex</name></decl></param>) <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch></try>
+                }</block></else></if>
+            }</block></then> <else>else <block>{
+                <comment type="line">//</comment>
+                <comment type="line">// We didn't match a ResourceLocation, but since we</comment>
+                <comment type="line">// only support PUBLIC and URI entry types internally,</comment>
+                <comment type="line">// it is still possible that there is another entry in</comment>
+                <comment type="line">// an external catalog that will match.  We call</comment>
+                <comment type="line">// Apache resolver's resolveEntity method to cover</comment>
+                <comment type="line">// this possibility.</comment>
+                <comment type="line">//</comment>
+                <if>if <condition>(<expr><name>base</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <try>try <block>{
+                        <expr_stmt><expr><name>base</name> = <call><name><name>FILE_UTILS</name>.<name>getFileURL</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getBaseDir</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>x</name></decl></param>) <block>{
+                        <throw>throw <expr>new <call><name>TransformerException</name><argument_list>(<argument><expr><name>x</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch></try>
+                }</block></then></if>
+                <try>try <block>{
+                    <expr_stmt><expr><name>result</name> =
+                        (<name>SAXSource</name>) <call><name><name>resolve</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>resolverImpl</name></expr></argument>,
+                                                  <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>href</name></expr>, <expr><name>base</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>ex</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></else></if>
+            <return>return <expr><name>result</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Process each external catalog file specified in a
+         * &lt;code&gt;&amp;lt;catalogpath&amp;gt;&lt;/code&gt;.  It will be
+         * parsed by the resolver library, and the individual elements
+         * will be added back to us (that is, the controlling
+         * XMLCatalog instance) via a callback mechanism.
+         */</comment>
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>processExternalCatalogs</name><parameter_list>()</parameter_list> <block>{
+
+            <if>if <condition>(<expr>!<name>externalCatalogsProcessed</name></expr>)</condition><then> <block>{
+
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>setXMLCatalog</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>resolverImpl</name></expr></argument>,
+                                         <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name><name>XMLCatalog</name>.<name>this</name></name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>ex</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+
+                <comment type="line">// Parse each catalog listed in nested &lt;catalogpath&gt; elements</comment>
+                <decl_stmt><decl><type><name>Path</name></type> <name>catPath</name> =<init> <expr><call><name>getCatalogPath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>catPath</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Using catalogpath '" + <call><name>getCatalogPath</name><argument_list>()</argument_list></call> + "'"</expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>catPathList</name> =<init> <expr><call><name>getCatalogPath</name><argument_list>()</argument_list></call>.<call><name>list</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>catPathList</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                        <decl_stmt><decl><type><name>File</name></type> <name>catFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>catPathList</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Parsing " + <name>catFile</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <try>try <block>{
+                            <expr_stmt><expr><call><name><name>parseCatalog</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>resolverImpl</name></expr></argument>,
+                                    <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><call><name><name>catFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>ex</name></decl></param>) <block>{
+                            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+                        }</block></catch></try>
+                    }</block></for>
+                }</block></then></if>
+            }</block></then></if>
+            <expr_stmt><expr><name>externalCatalogsProcessed</name> = true</expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+}</block></class> <comment type="line">//-- XMLCatalog</comment>
+</unit>

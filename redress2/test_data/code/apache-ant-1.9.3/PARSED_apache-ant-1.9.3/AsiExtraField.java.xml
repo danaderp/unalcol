@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\zip\AsiExtraField.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>util</name>.<name>zip</name>.<name>CRC32</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>zip</name>.<name>ZipException</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Adds Unix file permission and UID/GID fields as well as symbolic
+ * link handling.
+ *
+ * &lt;p&gt;This class uses the ASi extra field in the format:
+ * &lt;pre&gt;
+ *         Value         Size            Description
+ *         -----         ----            -----------
+ * (Unix3) 0x756e        Short           tag for this extra block type
+ *         TSize         Short           total data size for this block
+ *         CRC           Long            CRC-32 of the remaining data
+ *         Mode          Short           file permissions
+ *         SizDev        Long            symlink'd size OR major/minor dev num
+ *         UID           Short           user ID
+ *         GID           Short           group ID
+ *         (var.)        variable        symbolic link filename
+ * &lt;/pre&gt;
+ * taken from appnote.iz (Info-ZIP note, 981119) found at &lt;a
+ * href="ftp://ftp.uu.net/pub/archiving/zip/doc/"&gt;ftp://ftp.uu.net/pub/archiving/zip/doc/&lt;/a&gt;&lt;/p&gt;
+
+ *
+ * &lt;p&gt;Short is two bytes and Long is four bytes in big endian byte and
+ * word order, device numbers are currently not supported.&lt;/p&gt;
+ *
+ * &lt;p&gt;Since the documentation this class is based upon doesn't mention
+ * the character encoding of the file name at all, it is assumed that
+ * it uses the current platform's default encoding.&lt;/p&gt;
+ */</comment>
+<class><specifier>public</specifier> class <name>AsiExtraField</name> <super><implements>implements <name>ZipExtraField</name>, <name>UnixStat</name>, <name>Cloneable</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>ZipShort</name></type> <name>HEADER_ID</name> =<init> <expr>new <call><name>ZipShort</name><argument_list>(<argument><expr>0x756E</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type>      <name>WORD</name> =<init> <expr>4</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Standard Unix stat(2) file mode.
+     *
+     * @since 1.1
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>mode</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * User ID.
+     *
+     * @since 1.1
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>uid</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Group ID.
+     *
+     * @since 1.1
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>gid</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * File this entry points to, if it is a symbolic link.
+     *
+     * &lt;p&gt;empty string - if entry is not a symbolic link.&lt;/p&gt;
+     *
+     * @since 1.1
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>link</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Is this an entry for a directory?
+     *
+     * @since 1.1
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>dirFlag</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Instance used to calculate checksums.
+     *
+     * @since 1.1
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>CRC32</name></type> <name>crc</name> =<init> <expr>new <call><name>CRC32</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Constructor for AsiExtraField. */</comment>
+    <constructor><specifier>public</specifier> <name>AsiExtraField</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * The Header-ID.
+     * @return the value for the header id for this extrafield
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ZipShort</name></type> <name>getHeaderId</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>HEADER_ID</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Length of the extra field in the local file data - without
+     * Header-ID or length specifier.
+     * @return a &lt;code&gt;ZipShort&lt;/code&gt; for the length of the data of this extra field
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ZipShort</name></type> <name>getLocalFileDataLength</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>new <call><name>ZipShort</name><argument_list>(<argument><expr><name>WORD</name>         <comment type="line">// CRC</comment>
+                          + 2         <comment type="line">// Mode</comment>
+                          + <name>WORD</name>         <comment type="line">// SizDev</comment>
+                          + 2         <comment type="line">// UID</comment>
+                          + 2         <comment type="line">// GID</comment>
+                          + <call><name>getLinkedFile</name><argument_list>()</argument_list></call>.<call><name>getBytes</name><argument_list>()</argument_list></call>.<name>length</name></expr></argument>)</argument_list></call></expr>;</return>
+                          <comment type="line">// Uses default charset - see class Javadoc</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Delegate to local file data.
+     * @return the centralDirectory length
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ZipShort</name></type> <name>getCentralDirectoryLength</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getLocalFileDataLength</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The actual data to put into local file data - without Header-ID
+     * or length specifier.
+     * @return get the data
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>byte</name><index>[]</index></type> <name>getLocalFileDataData</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">// CRC will be added later</comment>
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>data</name> =<init> <expr>new <name><name>byte</name><index>[<expr><call><name>getLocalFileDataLength</name><argument_list>()</argument_list></call>.<call><name>getValue</name><argument_list>()</argument_list></call> - <name>WORD</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><call><name><name>ZipShort</name>.<name>getBytes</name></name><argument_list>(<argument><expr><call><name>getMode</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>data</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr>2</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>linkArray</name> =<init> <expr><call><name>getLinkedFile</name><argument_list>()</argument_list></call>.<call><name>getBytes</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt> <comment type="line">// Uses default charset - see class Javadoc</comment>
+        <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+        <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><call><name><name>ZipLong</name>.<name>getBytes</name></name><argument_list>(<argument><expr><name><name>linkArray</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr></argument>,
+                         <argument><expr>0</expr></argument>, <argument><expr><name>data</name></expr></argument>, <argument><expr>2</expr></argument>, <argument><expr><name>WORD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><call><name><name>ZipShort</name>.<name>getBytes</name></name><argument_list>(<argument><expr><call><name>getUserId</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>,
+                         <argument><expr>0</expr></argument>, <argument><expr><name>data</name></expr></argument>, <argument><expr>6</expr></argument>, <argument><expr>2</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><call><name><name>ZipShort</name>.<name>getBytes</name></name><argument_list>(<argument><expr><call><name>getGroupId</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>,
+                         <argument><expr>0</expr></argument>, <argument><expr><name>data</name></expr></argument>, <argument><expr>8</expr></argument>, <argument><expr>2</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>linkArray</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>data</name></expr></argument>, <argument><expr>10</expr></argument>, <argument><expr><name><name>linkArray</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// CheckStyle:MagicNumber ON</comment>
+
+        <expr_stmt><expr><call><name><name>crc</name>.<name>reset</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>crc</name>.<name>update</name></name><argument_list>(<argument><expr><name>data</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>long</name></type> <name>checksum</name> =<init> <expr><call><name><name>crc</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>result</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name><name>data</name>.<name>length</name></name> + <name>WORD</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><call><name><name>ZipLong</name>.<name>getBytes</name></name><argument_list>(<argument><expr><name>checksum</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>result</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>WORD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>data</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>result</name></expr></argument>, <argument><expr><name>WORD</name></expr></argument>, <argument><expr><name><name>data</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Delegate to local file data.
+     * @return the local file data
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>byte</name><index>[]</index></type> <name>getCentralDirectoryData</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getLocalFileDataData</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the user id.
+     * @param uid the user id
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUserId</name><parameter_list>(<param><decl><type><name>int</name></type> <name>uid</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>uid</name></name> = <name>uid</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the user id.
+     * @return the user id
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getUserId</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>uid</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the group id.
+     * @param gid the group id
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setGroupId</name><parameter_list>(<param><decl><type><name>int</name></type> <name>gid</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>gid</name></name> = <name>gid</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the group id.
+     * @return the group id
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getGroupId</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>gid</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicate that this entry is a symbolic link to the given filename.
+     *
+     * @param name Name of the file this entry links to, empty String
+     *             if it is not a symbolic link.
+     *
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLinkedFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>link</name> = <name>name</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>mode</name> = <call><name>getMode</name><argument_list>(<argument><expr><name>mode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Name of linked file
+     *
+     * @return name of the file this entry links to if it is a
+     *         symbolic link, the empty string otherwise.
+     *
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getLinkedFile</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>link</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Is this entry a symbolic link?
+     * @return true if this is a symbolic link
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isLink</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getLinkedFile</name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> != 0</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * File mode of this file.
+     * @param mode the file mode
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMode</name><parameter_list>(<param><decl><type><name>int</name></type> <name>mode</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>mode</name></name> = <call><name>getMode</name><argument_list>(<argument><expr><name>mode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * File mode of this file.
+     * @return the file mode
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getMode</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>mode</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicate whether this entry is a directory.
+     * @param dirFlag if true, this entry is a directory
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDirectory</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>dirFlag</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>dirFlag</name></name> = <name>dirFlag</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>mode</name> = <call><name>getMode</name><argument_list>(<argument><expr><name>mode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Is this entry a directory?
+     * @return true if this entry is a directory
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isDirectory</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>dirFlag</name> &amp;&amp; !<call><name>isLink</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Populate data from this array as if it was in local file data.
+     * @param data an array of bytes
+     * @param offset the start offset
+     * @param length the number of bytes in the array from offset
+     * @since 1.1
+     * @throws ZipException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>parseFromLocalFileData</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>data</name></decl></param>, <param><decl><type><name>int</name></type> <name>offset</name></decl></param>, <param><decl><type><name>int</name></type> <name>length</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>ZipException</name></expr></argument></throws> <block>{
+
+        <decl_stmt><decl><type><name>long</name></type> <name>givenChecksum</name> =<init> <expr><call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>data</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>tmp</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>length</name> - <name>WORD</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>data</name></expr></argument>, <argument><expr><name>offset</name> + <name>WORD</name></expr></argument>, <argument><expr><name>tmp</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>length</name> - <name>WORD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>crc</name>.<name>reset</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>crc</name>.<name>update</name></name><argument_list>(<argument><expr><name>tmp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>long</name></type> <name>realChecksum</name> =<init> <expr><call><name><name>crc</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>givenChecksum</name> != <name>realChecksum</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>ZipException</name><argument_list>(<argument><expr>"bad CRC checksum "
+                                   + <call><name><name>Long</name>.<name>toHexString</name></name><argument_list>(<argument><expr><name>givenChecksum</name></expr></argument>)</argument_list></call>
+                                   + " instead of "
+                                   + <call><name><name>Long</name>.<name>toHexString</name></name><argument_list>(<argument><expr><name>realChecksum</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>newMode</name> =<init> <expr><call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>tmp</name></expr></argument>, <argument><expr>0</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>linkArray</name> =<init> <expr>new <name><name>byte</name><index>[<expr>(<name>int</name>) <call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>tmp</name></expr></argument>, <argument><expr>2</expr></argument>)</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>uid</name> = <call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>tmp</name></expr></argument>, <argument><expr>6</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>gid</name> = <call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>tmp</name></expr></argument>, <argument><expr>8</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name><name>linkArray</name>.<name>length</name></name> == 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>link</name> = ""</expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>tmp</name></expr></argument>, <argument><expr>10</expr></argument>, <argument><expr><name>linkArray</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>linkArray</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>link</name> = new <call><name>String</name><argument_list>(<argument><expr><name>linkArray</name></expr></argument>)</argument_list></call></expr>;</expr_stmt> <comment type="line">// Uses default charset - see class Javadoc</comment>
+        }</block></else></if>
+        <comment type="line">// CheckStyle:MagicNumber ON</comment>
+        <expr_stmt><expr><call><name>setDirectory</name><argument_list>(<argument><expr>(<name>newMode</name> &amp; <name>DIR_FLAG</name>) != 0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setMode</name><argument_list>(<argument><expr><name>newMode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the file mode for given permissions with the correct file type.
+     * @param mode the mode
+     * @return the type with the mode
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>int</name></type> <name>getMode</name><parameter_list>(<param><decl><type><name>int</name></type> <name>mode</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>type</name> =<init> <expr><name>FILE_FLAG</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name>isLink</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>type</name> = <name>LINK_FLAG</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name>isDirectory</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>type</name> = <name>DIR_FLAG</name></expr>;</expr_stmt>
+        }</block></then></if></else></if>
+        <return>return <expr><name>type</name> | (<name>mode</name> &amp; <name>PERM_MASK</name>)</expr>;</return>
+    }</block></function>
+
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>AsiExtraField</name></type> <name>cloned</name> =<init> <expr>(<name>AsiExtraField</name>) <call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name><name>cloned</name>.<name>crc</name></name> = new <call><name>CRC32</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>cloned</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>CloneNotSupportedException</name></type> <name>cnfe</name></decl></param>) <block>{
+            <comment type="line">// impossible</comment>
+            <throw>throw <expr>new <call><name>RuntimeException</name><argument_list>(<argument><expr><name>cnfe</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+}</block></class>
+</unit>

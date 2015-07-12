@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\junit\XMLResultAggregator.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>junit</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStreamWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>DocumentBuilder</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>DocumentBuilderFactory</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>DOMElementWriter</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Document</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Element</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>SAXException</name></name>;</import>
+
+
+<comment type="javadoc">/**
+ * Aggregates all &amp;lt;junit&amp;gt; XML formatter testsuite data under
+ * a specific directory and transforms the results via XSLT.
+ * It is not particularly clean but
+ * should be helpful while I am thinking about another technique.
+ *
+ * &lt;p&gt; The main problem is due to the fact that a JVM can be forked for a testcase
+ * thus making it impossible to aggregate all testcases since the listener is
+ * (obviously) in the forked JVM. A solution could be to write a
+ * TestListener that will receive events from the TestRunner via sockets. This
+ * is IMHO the simplest way to do it to avoid this file hacking thing.
+ *
+ * @ant.task name="junitreport" category="testing"
+ */</comment>
+<class><specifier>public</specifier> class <name>XMLResultAggregator</name> <super><extends>extends <name>Task</name></extends> <implements>implements <name>XMLConstants</name></implements></super> <block>{
+
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+    <comment type="javadoc">/** the list of all filesets, that should contains the xml to aggregate */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Vector</name></type> <name>filesets</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** the name of the result file */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>toFile</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** the directory to write the file to */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>File</name></type> <name>toDir</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Vector</name></type> <name>transformers</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The default directory: &lt;tt&gt;&amp;#046;&lt;/tt&gt;. It is resolved from the project directory */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_DIR</name> =<init> <expr>"."</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** the default file name: &lt;tt&gt;TESTS-TestSuites.xml&lt;/tt&gt; */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_FILENAME</name> =<init> <expr>"TESTS-TestSuites.xml"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** the current generated id */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>int</name></type> <name>generatedId</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * text checked for in tests, {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>WARNING_IS_POSSIBLY_CORRUPTED</name>
+        =<init> <expr>" is not a valid XML document. It is possibly corrupted."</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * text checked for in tests, {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>WARNING_INVALID_ROOT_ELEMENT</name>
+        =<init> <expr>" is not a valid testsuite XML document"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * text checked for in tests, {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>WARNING_EMPTY_FILE</name>
+        =<init> <expr>" is empty.\nThis can be caused by the test JVM exiting unexpectedly"</expr></init></decl>;</decl_stmt>
+    <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+
+    <comment type="javadoc">/**
+     * Generate a report based on the document created by the merge.
+     * @return the report
+     */</comment>
+    <function><type><specifier>public</specifier> <name>AggregateTransformer</name></type> <name>createReport</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>AggregateTransformer</name></type> <name>transformer</name> =<init> <expr>new <call><name>AggregateTransformer</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>transformers</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>transformer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>transformer</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of the aggregegated results file. It must be relative
+     * from the &lt;tt&gt;todir&lt;/tt&gt; attribute. If not set it will use {@link #DEFAULT_FILENAME}
+     * @param  value   the name of the file.
+     * @see #setTodir(File)
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTofile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>toFile</name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the destination directory where the results should be written. If not
+     * set if will use {@link #DEFAULT_DIR}. When given a relative directory
+     * it will resolve it from the project directory.
+     * @param value    the directory where to write the results, absolute or
+     * relative.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTodir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>toDir</name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a new fileset containing the XML results to aggregate
+     * @param    fs      the new fileset of xml results.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileSet</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>fs</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filesets</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>fs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Aggregate all testsuites into a single document and write it to the
+     * specified directory and file.
+     * @throws  BuildException  thrown if there is a serious error while writing
+     *          the document.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Element</name></type> <name>rootElement</name> =<init> <expr><call><name>createDocument</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>destFile</name> =<init> <expr><call><name>getDestinationFile</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// write the document</comment>
+        <try>try <block>{
+            <expr_stmt><expr><call><name>writeDOMTree</name><argument_list>(<argument><expr><call><name><name>rootElement</name>.<name>getOwnerDocument</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Unable to write test aggregate to '" + <name>destFile</name> + "'"</expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+        <comment type="line">// apply transformation</comment>
+        <decl_stmt><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>transformers</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>AggregateTransformer</name></type> <name>transformer</name> =<init>
+                <expr>(<name>AggregateTransformer</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>transformer</name>.<name>setXmlDocument</name></name><argument_list>(<argument><expr><call><name><name>rootElement</name>.<name>getOwnerDocument</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>transformer</name>.<name>transform</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the full destination file where to write the result. It is made of
+     * the &lt;tt&gt;todir&lt;/tt&gt; and &lt;tt&gt;tofile&lt;/tt&gt; attributes.
+     * @return the destination file where should be written the result file.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getDestinationFile</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>toFile</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>toFile</name> = <name>DEFAULT_FILENAME</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>toDir</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>toDir</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><name>DEFAULT_DIR</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><name>toDir</name></expr></argument>, <argument><expr><name>toFile</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get all &lt;code&gt;.xml&lt;/code&gt; files in the fileset.
+     *
+     * @return all files in the fileset that end with a '.xml'.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>File</name><index>[]</index></type> <name>getFiles</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Vector</name></type> <name>v</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>filesets</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>FileSet</name></type> <name>fs</name> =<init> <expr>(<name>FileSet</name>) <call><name><name>filesets</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name><name>fs</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>ds</name>.<name>scan</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>f</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>f</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>pathname</name> =<init> <expr><name><name>f</name><index>[<expr><name>j</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>pathname</name>.<name>endsWith</name></name><argument_list>(<argument><expr>".xml"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>file</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name><name>ds</name>.<name>getBasedir</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>pathname</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><name>file</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><call><name><name>file</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>v</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+        }</block></for>
+
+        <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>files</name> =<init> <expr>new <name><name>File</name><index>[<expr><call><name><name>v</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>v</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>files</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>files</name></expr>;</return>
+    }</block></function>
+
+    <comment type="line">//----- from now, the methods are all related to DOM tree manipulation</comment>
+
+    <comment type="javadoc">/**
+     * Write the DOM tree to a file.
+     * @param doc the XML document to dump to disk.
+     * @param file the filename to write the document to. Should obviously be a .xml file.
+     * @throws IOException thrown if there is an error while writing the content.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>writeDOMTree</name><parameter_list>(<param><decl><type><name>Document</name></type> <name>doc</name></decl></param>, <param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>OutputStream</name></type> <name>os</name> =<init> <expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>PrintWriter</name></type> <name>wri</name> =<init> <expr>new <call><name>PrintWriter</name><argument_list>(<argument><expr>new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr>new <call><name>BufferedOutputStream</name><argument_list>(<argument><expr><name>os</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>"UTF8"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>wri</name>.<name>write</name></name><argument_list>(<argument><expr>"&lt;?xml version=\"1.0\" encoding=\"UTF-8\" ?&gt;\n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr>(new <call><name>DOMElementWriter</name><argument_list>()</argument_list></call>).<call><name>write</name><argument_list>(<argument><expr><call><name><name>doc</name>.<name>getDocumentElement</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>wri</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr>"  "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>wri</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// writers do not throw exceptions, so check for them.</comment>
+            <if>if <condition>(<expr><call><name><name>wri</name>.<name>checkError</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Error while writing DOM content"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>os</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * &lt;p&gt; Create a DOM tree.
+     * Has 'testsuites' as firstchild and aggregates all
+     * testsuite results that exists in the base directory.
+     * @return  the root element of DOM tree that aggregates all testsuites.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Element</name></type> <name>createDocument</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">// create the dom tree</comment>
+        <decl_stmt><decl><type><name>DocumentBuilder</name></type> <name>builder</name> =<init> <expr><call><name>getDocumentBuilder</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Document</name></type> <name>doc</name> =<init> <expr><call><name><name>builder</name>.<name>newDocument</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Element</name></type> <name>rootElement</name> =<init> <expr><call><name><name>doc</name>.<name>createElement</name></name><argument_list>(<argument><expr><name>TESTSUITES</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>doc</name>.<name>appendChild</name></name><argument_list>(<argument><expr><name>rootElement</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>generatedId</name> = 0</expr>;</expr_stmt>
+
+        <comment type="line">// get all files and add them to the document</comment>
+        <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name>getFiles</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>files</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>file</name> =<init> <expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Parsing file: '" + <name>file</name> + "'"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><call><name><name>file</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>Document</name></type> <name>testsuiteDoc</name>
+                            =<init> <expr><call><name><name>builder</name>.<name>parse</name></name><argument_list>(
+                                <argument><expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call>.<call><name>toURI</name><argument_list>(<argument><expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>Element</name></type> <name>elem</name> =<init> <expr><call><name><name>testsuiteDoc</name>.<name>getDocumentElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <comment type="line">// make sure that this is REALLY a testsuite.</comment>
+                    <if>if <condition>(<expr><call><name><name>TESTSUITE</name>.<name>equals</name></name><argument_list>(<argument><expr><call><name><name>elem</name>.<name>getNodeName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>addTestSuite</name><argument_list>(<argument><expr><name>rootElement</name></expr></argument>, <argument><expr><name>elem</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>generatedId</name>++</expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <comment type="line">//wrong root element name</comment>
+                        <comment type="line">// issue a warning.</comment>
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"the file " + <name>file</name>
+                                + <name>WARNING_INVALID_ROOT_ELEMENT</name></expr></argument>,
+                                <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"the file " + <name>file</name>
+                            + <name>WARNING_EMPTY_FILE</name></expr></argument>,
+                            <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block> <catch>catch (<param><decl><type><name>SAXException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">// a testcase might have failed and write a zero-length document,</comment>
+                <comment type="line">// It has already failed, but hey.... mm. just put a warning</comment>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"The file " + <name>file</name> + <name>WARNING_IS_POSSIBLY_CORRUPTED</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>StringUtils</name>.<name>getStackTrace</name></name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Error while accessing file " + <name>file</name> + ": "
+                    + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Error while accessing file " + <name>file</name> + ": "
+                    + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>e</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></for>
+        <return>return <expr><name>rootElement</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * &lt;p&gt; Add a new testsuite node to the document.
+     * The main difference is that it
+     * split the previous fully qualified name into a package and a name.
+     * &lt;p&gt; For example: &lt;tt&gt;org.apache.Whatever&lt;/tt&gt; will be split into
+     * &lt;tt&gt;org.apache&lt;/tt&gt; and &lt;tt&gt;Whatever&lt;/tt&gt;.
+     * @param root the root element to which the &lt;tt&gt;testsuite&lt;/tt&gt; node should
+     *        be appended.
+     * @param testsuite the element to append to the given root. It will slightly
+     *        modify the original node to change the name attribute and add
+     *        a package one.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addTestSuite</name><parameter_list>(<param><decl><type><name>Element</name></type> <name>root</name></decl></param>, <param><decl><type><name>Element</name></type> <name>testsuite</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>fullclassname</name> =<init> <expr><call><name><name>testsuite</name>.<name>getAttribute</name></name><argument_list>(<argument><expr><name>ATTR_NAME</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>pos</name> =<init> <expr><call><name><name>fullclassname</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>'.'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// a missing . might imply no package at all. Don't get fooled.</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>pkgName</name> =<init> <expr>(<name>pos</name> == -1) ? "" : <call><name><name>fullclassname</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>pos</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>classname</name> =<init> <expr>(<name>pos</name> == -1) ? <name>fullclassname</name> : <call><name><name>fullclassname</name>.<name>substring</name></name><argument_list>(<argument><expr><name>pos</name> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Element</name></type> <name>copy</name> =<init> <expr>(<name>Element</name>) <call><name><name>DOMUtil</name>.<name>importNode</name></name><argument_list>(<argument><expr><name>root</name></expr></argument>, <argument><expr><name>testsuite</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// modify the name attribute and set the package</comment>
+        <expr_stmt><expr><call><name><name>copy</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>ATTR_NAME</name></expr></argument>, <argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>copy</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>ATTR_PACKAGE</name></expr></argument>, <argument><expr><name>pkgName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>copy</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>ATTR_ID</name></expr></argument>, <argument><expr><call><name><name>Integer</name>.<name>toString</name></name><argument_list>(<argument><expr><name>generatedId</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a new document builder. Will issue an &lt;tt&gt;ExceptionInitializerError&lt;/tt&gt;
+     * if something is going wrong. It is fatal anyway.
+     * @todo factorize this somewhere else. It is duplicated code.
+     * @return a new document builder to create a DOM
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>DocumentBuilder</name></type> <name>getDocumentBuilder</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <return>return <expr><call><name><name>DocumentBuilderFactory</name>.<name>newInstance</name></name><argument_list>()</argument_list></call>.<call><name>newDocumentBuilder</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>exc</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>ExceptionInInitializerError</name><argument_list>(<argument><expr><name>exc</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+}</block></class>
+</unit>

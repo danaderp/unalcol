@@ -1,0 +1,780 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\XmlProperty.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>DocumentBuilderFactory</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>DocumentBuilder</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>ParserConfigurationException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>ResourceCollection</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>XMLCatalog</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileProvider</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Document</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Element</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>NamedNodeMap</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Node</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>NodeList</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>SAXException</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>EntityResolver</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Loads property values from a valid XML file, generating the
+ * property names from the file's element and attribute names.
+ *
+ * &lt;p&gt;Example:&lt;/p&gt;
+ * &lt;pre&gt;
+ *   &amp;lt;root-tag myattr="true"&amp;gt;
+ *     &amp;lt;inner-tag someattr="val"&amp;gt;Text&amp;lt;/inner-tag&amp;gt;
+ *     &amp;lt;a2&amp;gt;&amp;lt;a3&amp;gt;&amp;lt;a4&amp;gt;false&amp;lt;/a4&amp;gt;&amp;lt;/a3&amp;gt;&amp;lt;/a2&amp;gt;
+ *     &amp;lt;x&amp;gt;x1&amp;lt;/x&amp;gt;
+ *     &amp;lt;x&amp;gt;x2&amp;lt;/x&amp;gt;
+ *   &amp;lt;/root-tag&amp;gt;
+ *&lt;/pre&gt;
+ *
+ * &lt;p&gt;this generates the following properties:&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ *  root-tag(myattr)=true
+ *  root-tag.inner-tag=Text
+ *  root-tag.inner-tag(someattr)=val
+ *  root-tag.a2.a3.a4=false
+ *  root-tag.x=x1,x2
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt;The &lt;i&gt;collapseAttributes&lt;/i&gt; property of this task can be set
+ * to true (the default is false) which will instead result in the
+ * following properties (note the difference in names of properties
+ * corresponding to XML attributes):&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ *  root-tag.myattr=true
+ *  root-tag.inner-tag=Text
+ *  root-tag.inner-tag.someattr=val
+ *  root-tag.a2.a3.a4=false
+ *  root-tag.x=x1,x2
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt;Optionally, to more closely mirror the abilities of the Property
+ * task, a selected set of attributes can be treated specially.  To
+ * enable this behavior, the "semanticAttributes" property of this task
+ * must be set to true (it defaults to false).  If this attribute is
+ * specified, the following attributes take on special meaning
+ * (setting this to true implicitly sets collapseAttributes to true as
+ * well):&lt;/p&gt;
+ *
+ * &lt;ul&gt;
+ *  &lt;li&gt;&lt;b&gt;value&lt;/b&gt;: Identifies a text value for a property.&lt;/li&gt;
+ *  &lt;li&gt;&lt;b&gt;location&lt;/b&gt;: Identifies a file location for a property.&lt;/li&gt;
+ *  &lt;li&gt;&lt;b&gt;id&lt;/b&gt;: Sets an id for a property&lt;/li&gt;
+ *  &lt;li&gt;&lt;b&gt;refid&lt;/b&gt;: Sets a property to the value of another property
+ *       based upon the provided id&lt;/li&gt;
+ *  &lt;li&gt;&lt;b&gt;pathid&lt;/b&gt;: Defines a path rather than a property with
+ *       the given id.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;For example, with keepRoot = false, the following properties file:&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * &amp;lt;root-tag&amp;gt;
+ *   &amp;lt;build&amp;gt;
+ *   &amp;lt;build folder="build"&amp;gt;
+ *     &amp;lt;classes id="build.classes" location="${build.folder}/classes"/&amp;gt;
+ *     &amp;lt;reference refid="build.classes"/&amp;gt;
+ *   &amp;lt;/build&amp;gt;
+ *   &amp;lt;compile&amp;gt;
+ *     &amp;lt;classpath pathid="compile.classpath"&amp;gt;
+ *       &amp;lt;pathelement location="${build.classes}"/&amp;gt;
+ *     &amp;lt;/classpath&amp;gt;
+ *   &amp;lt;/compile&amp;gt;
+ *   &amp;lt;run-time&amp;gt;
+ *     &amp;lt;jars&amp;gt;*.jar&amp;lt;/jars&amp;gt;
+ *     &amp;lt;classpath pathid="run-time.classpath"&amp;gt;
+ *       &amp;lt;path refid="compile.classpath"/&amp;gt;
+ *       &amp;lt;pathelement path="${run-time.jars}"/&amp;gt;
+ *     &amp;lt;/classpath&amp;gt;
+ *   &amp;lt;/run-time&amp;gt;
+ * &amp;lt;/root-tag&amp;gt;
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt;is equivalent to the following entries in a build file:&lt;/p&gt;
+ *
+ * &lt;pre&gt;
+ * &amp;lt;property name="build" location="build"/&amp;gt;
+ * &amp;lt;property name="build.classes" location="${build.location}/classes"/&amp;gt;
+ * &amp;lt;property name="build.reference" refid="build.classes"/&amp;gt;
+ *
+ * &amp;lt;property name="run-time.jars" value="*.jar/&amp;gt;
+ *
+ * &amp;lt;classpath id="compile.classpath"&amp;gt;
+ *   &amp;lt;pathelement location="${build.classes}"/&amp;gt;
+ * &amp;lt;/classpath&amp;gt;
+ *
+ * &amp;lt;classpath id="run-time.classpath"&amp;gt;
+ *   &amp;lt;path refid="compile.classpath"/&amp;gt;
+ *   &amp;lt;pathelement path="${run-time.jars}"/&amp;gt;
+ * &amp;lt;/classpath&amp;gt;
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt; This task &lt;i&gt;requires&lt;/i&gt; the following attributes:&lt;/p&gt;
+ *
+ * &lt;ul&gt;
+ * &lt;li&gt;&lt;b&gt;file&lt;/b&gt;: The name of the file to load.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;This task supports the following attributes:&lt;/p&gt;
+ *
+ * &lt;ul&gt;
+ * &lt;li&gt;&lt;b&gt;prefix&lt;/b&gt;: Optionally specify a prefix applied to
+ *     all properties loaded.  Defaults to an empty string.&lt;/li&gt;
+ * &lt;li&gt;&lt;b&gt;keepRoot&lt;/b&gt;: Indicate whether the root xml element
+ *     is kept as part of property name.  Defaults to true.&lt;/li&gt;
+ * &lt;li&gt;&lt;b&gt;validate&lt;/b&gt;: Indicate whether the xml file is validated.
+ *     Defaults to false.&lt;/li&gt;
+ * &lt;li&gt;&lt;b&gt;collapseAttributes&lt;/b&gt;: Indicate whether attributes are
+ *     stored in property names with parens or with period
+ *     delimiters.  Defaults to false, meaning properties
+ *     are stored with parens (i.e., foo(attr)).&lt;/li&gt;
+ * &lt;li&gt;&lt;b&gt;semanticAttributes&lt;/b&gt;: Indicate whether attributes
+ *     named "location", "value", "refid" and "path"
+ *     are interpreted as ant properties.  Defaults
+ *     to false.&lt;/li&gt;
+ * &lt;li&gt;&lt;b&gt;rootDirectory&lt;/b&gt;: Indicate the directory to use
+ *     as the root directory for resolving location
+ *     properties.  Defaults to the directory
+ *     of the project using the task.&lt;/li&gt;
+ * &lt;li&gt;&lt;b&gt;includeSemanticAttribute&lt;/b&gt;: Indicate whether to include
+ *     the semantic attribute ("location" or "value") as
+ *     part of the property name.  Defaults to false.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * @ant.task name="xmlproperty" category="xml"
+ */</comment>
+<class><specifier>public</specifier> class <name>XmlProperty</name> <super><extends>extends <name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></extends></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Resource</name></type> <name>src</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>prefix</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>keepRoot</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>validate</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>collapseAttributes</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>semanticAttributes</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>includeSemanticAttribute</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>rootDirectory</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Hashtable</name></type> <name>addedAttributes</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>XMLCatalog</name></type> <name>xmlCatalog</name> =<init> <expr>new <call><name>XMLCatalog</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>delimiter</name> =<init> <expr>","</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ID</name> =<init> <expr>"id"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>REF_ID</name> =<init> <expr>"refid"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>LOCATION</name> =<init> <expr>"location"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>VALUE</name> =<init> <expr>"value"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>PATH</name> =<init> <expr>"path"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>PATHID</name> =<init> <expr>"pathid"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name><index>[]</index></type> <name>ATTRIBUTES</name> =<init> <expr>new <name><name>String</name><index>[]</index></name> <block>{
+            <expr><name>ID</name></expr>, <expr><name>REF_ID</name></expr>, <expr><name>LOCATION</name></expr>, <expr><name>VALUE</name></expr>, <expr><name>PATH</name></expr>, <expr><name>PATHID</name></expr>
+    }</block></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Constructor.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>XmlProperty</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Initializes the task.
+     */</comment>
+
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>init</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>super</name>.<name>init</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>xmlCatalog</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the xmlCatalog as the entityresolver.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>EntityResolver</name></type> <name>getEntityResolver</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>xmlCatalog</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Run the task.
+     * @throws BuildException The exception raised during task execution.
+     * @todo validate the source file is valid before opening, print a better error message
+     * @todo add a verbose level log message listing the name of the file being loaded
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Resource</name></type> <name>r</name> =<init> <expr><call><name>getResource</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>r</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"XmlProperty task requires a source resource"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <try>try <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Loading " + <name>src</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><call><name><name>r</name>.<name>isExists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+
+              <decl_stmt><decl><type><name>DocumentBuilderFactory</name></type> <name>factory</name> =<init> <expr><call><name><name>DocumentBuilderFactory</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+              <expr_stmt><expr><call><name><name>factory</name>.<name>setValidating</name></name><argument_list>(<argument><expr><name>validate</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+              <expr_stmt><expr><call><name><name>factory</name>.<name>setNamespaceAware</name></name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+              <decl_stmt><decl><type><name>DocumentBuilder</name></type> <name>builder</name> =<init> <expr><call><name><name>factory</name>.<name>newDocumentBuilder</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+              <expr_stmt><expr><call><name><name>builder</name>.<name>setEntityResolver</name></name><argument_list>(<argument><expr><call><name>getEntityResolver</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+              <decl_stmt><decl><type><name>Document</name></type> <name>document</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+              <decl_stmt><decl><type><name>FileProvider</name></type> <name>fp</name> =<init> <expr><call><name><name>src</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+              <if>if <condition>(<expr><name>fp</name> != <name>null</name></expr>)</condition><then> <block>{
+                  <expr_stmt><expr><name>document</name> = <call><name><name>builder</name>.<name>parse</name></name><argument_list>(<argument><expr><call><name><name>fp</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+              }</block></then> <else>else <block>{
+                  <expr_stmt><expr><name>document</name> = <call><name><name>builder</name>.<name>parse</name></name><argument_list>(<argument><expr><call><name><name>src</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+              }</block></else></if>
+              <decl_stmt><decl><type><name>Element</name></type> <name>topElement</name> =<init> <expr><call><name><name>document</name>.<name>getDocumentElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+              <comment type="line">// Keep a hashtable of attributes added by this task.</comment>
+              <comment type="line">// This task is allow to override its own properties</comment>
+              <comment type="line">// but not other properties.  So we need to keep track</comment>
+              <comment type="line">// of which properties we've added.</comment>
+              <expr_stmt><expr><name>addedAttributes</name> = new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+              <if>if <condition>(<expr><name>keepRoot</name></expr>)</condition><then> <block>{
+                  <expr_stmt><expr><call><name>addNodeRecursively</name><argument_list>(<argument><expr><name>topElement</name></expr></argument>, <argument><expr><name>prefix</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+              }</block></then> <else>else <block>{
+                  <decl_stmt><decl><type><name>NodeList</name></type> <name>topChildren</name> =<init> <expr><call><name><name>topElement</name>.<name>getChildNodes</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                  <decl_stmt><decl><type><name>int</name></type> <name>numChildren</name> =<init> <expr><call><name><name>topChildren</name>.<name>getLength</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                  <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>numChildren</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <expr_stmt><expr><call><name>addNodeRecursively</name><argument_list>(<argument><expr><call><name><name>topChildren</name>.<name>item</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>prefix</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                  }</block></for>
+              }</block></else></if>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Unable to find property resource: " + <name>r</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+        }</block> <catch>catch (<param><decl><type><name>SAXException</name></type> <name>sxe</name></decl></param>) <block>{
+            <comment type="line">// Error generated during parsing</comment>
+            <decl_stmt><decl><type><name>Exception</name></type> <name>x</name> =<init> <expr><name>sxe</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>sxe</name>.<name>getException</name></name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>x</name> = <call><name><name>sxe</name>.<name>getException</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Failed to load " + <name>src</name></expr></argument>, <argument><expr><name>x</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>ParserConfigurationException</name></type> <name>pce</name></decl></param>) <block>{
+            <comment type="line">// Parser with specified options can't be built</comment>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>pce</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <comment type="line">// I/O error</comment>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Failed to load " + <name>src</name></expr></argument>, <argument><expr><name>ioe</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/** Iterate through all nodes in the tree. */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>addNodeRecursively</name><parameter_list>(<param><decl><type><name>Node</name></type> <name>node</name></decl></param>, <param><decl><type><name>String</name></type> <name>prefix</name></decl></param>, <param><decl><type><name>Object</name></type> <name>container</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Set the prefix for this node to include its tag name.</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>nodePrefix</name> =<init> <expr><name>prefix</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>node</name>.<name>getNodeType</name></name><argument_list>()</argument_list></call> != <name><name>Node</name>.<name>TEXT_NODE</name></name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>prefix</name>.<name>trim</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>nodePrefix</name> += "."</expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><name>nodePrefix</name> += <call><name><name>node</name>.<name>getNodeName</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">// Pass the container to the processing of this node,</comment>
+        <decl_stmt><decl><type><name>Object</name></type> <name>nodeObject</name> =<init> <expr><call><name>processNode</name><argument_list>(<argument><expr><name>node</name></expr></argument>, <argument><expr><name>nodePrefix</name></expr></argument>, <argument><expr><name>container</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// now, iterate through children.</comment>
+        <if>if <condition>(<expr><call><name><name>node</name>.<name>hasChildNodes</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>NodeList</name></type> <name>nodeChildren</name> =<init> <expr><call><name><name>node</name>.<name>getChildNodes</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>numChildren</name> =<init> <expr><call><name><name>nodeChildren</name>.<name>getLength</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>numChildren</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <comment type="line">// For each child, pass the object added by</comment>
+                <comment type="line">// processNode to its children -- in other word, each</comment>
+                <comment type="line">// object can pass information along to its children.</comment>
+                <expr_stmt><expr><call><name>addNodeRecursively</name><argument_list>(<argument><expr><call><name><name>nodeChildren</name>.<name>item</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>nodePrefix</name></expr></argument>, <argument><expr><name>nodeObject</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><name>void</name></type> <name>addNodeRecursively</name><parameter_list>(<param><decl><type><name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Node</name></name></type> <name>node</name></decl></param>, <param><decl><type><name>String</name></type> <name>prefix</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>addNodeRecursively</name><argument_list>(<argument><expr><name>node</name></expr></argument>, <argument><expr><name>prefix</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process the given node, adding any required attributes from
+     * this child node alone -- but &lt;em&gt;not&lt;/em&gt; processing any
+     * children.
+     *
+     * @param node the XML Node to parse
+     * @param prefix A string to prepend to any properties that get
+     * added by this node.
+     * @param container Optionally, an object that a parent node
+     * generated that this node might belong to.  For example, this
+     * node could be within a node that generated a Path.
+     * @return the Object created by this node.  Generally, this is
+     * either a String if this node resulted in setting an attribute,
+     * or a Path.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>processNode</name> <parameter_list>(<param><decl><type><name>Node</name></type> <name>node</name></decl></param>, <param><decl><type><name>String</name></type> <name>prefix</name></decl></param>, <param><decl><type><name>Object</name></type> <name>container</name></decl></param>)</parameter_list> <block>{
+
+        <comment type="line">// Parse the attribute(s) and text of this node, adding</comment>
+        <comment type="line">// properties for each.</comment>
+        <comment type="line">// if the "path" attribute is specified, then return the created path</comment>
+        <comment type="line">// which will be passed to the children of this node.</comment>
+        <decl_stmt><decl><type><name>Object</name></type> <name>addedPath</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// The value of an id attribute of this node.</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>id</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name><name>node</name>.<name>hasAttributes</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+
+            <decl_stmt><decl><type><name>NamedNodeMap</name></type> <name>nodeAttributes</name> =<init> <expr><call><name><name>node</name>.<name>getAttributes</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// Is there an id attribute?</comment>
+            <decl_stmt><decl><type><name>Node</name></type> <name>idNode</name> =<init> <expr><call><name><name>nodeAttributes</name>.<name>getNamedItem</name></name><argument_list>(<argument><expr><name>ID</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>id</name> = <name>semanticAttributes</name> &amp;&amp; <name>idNode</name> != <name>null</name> ? <call><name><name>idNode</name>.<name>getNodeValue</name></name><argument_list>()</argument_list></call> : <name>null</name></expr>;</expr_stmt>
+
+            <comment type="line">// Now, iterate through the attributes adding them.</comment>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <call><name><name>nodeAttributes</name>.<name>getLength</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+
+                <decl_stmt><decl><type><name>Node</name></type> <name>attributeNode</name> =<init> <expr><call><name><name>nodeAttributes</name>.<name>item</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr>!<name>semanticAttributes</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>attributeName</name> =<init> <expr><call><name>getAttributeName</name><argument_list>(<argument><expr><name>attributeNode</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>attributeValue</name> =<init> <expr><call><name>getAttributeValue</name><argument_list>(<argument><expr><name>attributeNode</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name>addProperty</name><argument_list>(<argument><expr><name>prefix</name> + <name>attributeName</name></expr></argument>, <argument><expr><name>attributeValue</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>nodeName</name> =<init> <expr><call><name><name>attributeNode</name>.<name>getNodeName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>attributeValue</name> =<init> <expr><call><name>getAttributeValue</name><argument_list>(<argument><expr><name>attributeNode</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <decl_stmt><decl><type><name>Path</name></type> <name>containingPath</name> =<init>
+                        <expr>((<name>container</name> != <name>null</name>) &amp;&amp; (<name>container</name> <name>instanceof</name> <name>Path</name>))
+                        ? (<name>Path</name>) <name>container</name>
+                        : <name>null</name></expr></init></decl>;</decl_stmt>
+                    <comment type="block">/*
+                     * The main conditional logic -- if the attribute
+                     * is somehow "special" (i.e., it has known
+                     * semantic meaning) then deal with it
+                     * appropriately.
+                     */</comment>
+                    <if>if <condition>(<expr><call><name><name>nodeName</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ID</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// ID has already been found above.</comment>
+                        <continue>continue;</continue>
+                    }</block></then></if>
+                    <if>if <condition>(<expr><name>containingPath</name> != <name>null</name> &amp;&amp; <call><name><name>nodeName</name>.<name>equals</name></name><argument_list>(<argument><expr><name>PATH</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// A "path" attribute for a node within a Path object.</comment>
+                        <expr_stmt><expr><call><name><name>containingPath</name>.<name>setPath</name></name><argument_list>(<argument><expr><name>attributeValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <if>if <condition>(<expr><name>container</name> <name>instanceof</name> <name>Path</name> &amp;&amp; <call><name><name>nodeName</name>.<name>equals</name></name><argument_list>(<argument><expr><name>REF_ID</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// A "refid" attribute for a node within a Path object.</comment>
+                        <expr_stmt><expr><call><name><name>containingPath</name>.<name>setPath</name></name><argument_list>(<argument><expr><name>attributeValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <if>if <condition>(<expr><name>container</name> <name>instanceof</name> <name>Path</name> &amp;&amp; <call><name><name>nodeName</name>.<name>equals</name></name><argument_list>(<argument><expr><name>LOCATION</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// A "location" attribute for a node within a</comment>
+                        <comment type="line">// Path object.</comment>
+                        <expr_stmt><expr><call><name><name>containingPath</name>.<name>setLocation</name></name><argument_list>(<argument><expr><call><name>resolveFile</name><argument_list>(<argument><expr><name>attributeValue</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <if>if <condition>(<expr><call><name><name>nodeName</name>.<name>equals</name></name><argument_list>(<argument><expr><name>PATHID</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// A node identifying a new path</comment>
+                        <if>if <condition>(<expr><name>container</name> != <name>null</name></expr>)</condition><then> <block>{
+                            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"XmlProperty does not support nested paths"</expr></argument>)</argument_list></call></expr>;</throw>
+                        }</block></then></if>
+                        <expr_stmt><expr><name>addedPath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>addReference</name><argument_list>(<argument><expr><name>attributeValue</name></expr></argument>, <argument><expr><name>addedPath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <comment type="line">// An arbitrary attribute.</comment>
+                        <decl_stmt><decl><type><name>String</name></type> <name>attributeName</name> =<init> <expr><call><name>getAttributeName</name><argument_list>(<argument><expr><name>attributeNode</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name>addProperty</name><argument_list>(<argument><expr><name>prefix</name> + <name>attributeName</name></expr></argument>, <argument><expr><name>attributeValue</name></expr></argument>, <argument><expr><name>id</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if></else></if></else></if></else></if>
+                }</block></else></if>
+            }</block></for>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>nodeText</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>emptyNode</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>semanticEmptyOverride</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>node</name>.<name>getNodeType</name></name><argument_list>()</argument_list></call> == <name><name>Node</name>.<name>ELEMENT_NODE</name></name>
+                &amp;&amp; <name>semanticAttributes</name>
+                &amp;&amp; <call><name><name>node</name>.<name>hasAttributes</name></name><argument_list>()</argument_list></call>
+                &amp;&amp; (<call><name><name>node</name>.<name>getAttributes</name></name><argument_list>()</argument_list></call>.<call><name>getNamedItem</name><argument_list>(<argument><expr><name>VALUE</name></expr></argument>)</argument_list></call> != <name>null</name>
+                        || <call><name><name>node</name>.<name>getAttributes</name></name><argument_list>()</argument_list></call>.<call><name>getNamedItem</name><argument_list>(<argument><expr><name>LOCATION</name></expr></argument>)</argument_list></call> != <name>null</name>
+                        || <call><name><name>node</name>.<name>getAttributes</name></name><argument_list>()</argument_list></call>.<call><name>getNamedItem</name><argument_list>(<argument><expr><name>REF_ID</name></expr></argument>)</argument_list></call> != <name>null</name>
+                        || <call><name><name>node</name>.<name>getAttributes</name></name><argument_list>()</argument_list></call>.<call><name>getNamedItem</name><argument_list>(<argument><expr><name>PATH</name></expr></argument>)</argument_list></call> != <name>null</name> || <call><name><name>node</name>.<name>getAttributes</name></name><argument_list>()</argument_list></call>
+                        .<call><name>getNamedItem</name><argument_list>(<argument><expr><name>PATHID</name></expr></argument>)</argument_list></call> != <name>null</name>)</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>semanticEmptyOverride</name> = true</expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>node</name>.<name>getNodeType</name></name><argument_list>()</argument_list></call> == <name><name>Node</name>.<name>TEXT_NODE</name></name></expr>)</condition><then> <block>{
+            <comment type="line">// For the text node, add a property.</comment>
+            <expr_stmt><expr><name>nodeText</name> = <call><name>getAttributeValue</name><argument_list>(<argument><expr><name>node</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>node</name>.<name>getNodeType</name></name><argument_list>()</argument_list></call> == <name><name>Node</name>.<name>ELEMENT_NODE</name></name>
+                &amp;&amp; <call><name><name>node</name>.<name>getChildNodes</name></name><argument_list>()</argument_list></call>.<call><name>getLength</name><argument_list>()</argument_list></call> == 1
+                &amp;&amp; <call><name><name>node</name>.<name>getFirstChild</name></name><argument_list>()</argument_list></call>.<call><name>getNodeType</name><argument_list>()</argument_list></call> == <name><name>Node</name>.<name>CDATA_SECTION_NODE</name></name></expr>)</condition><then> <block>{
+
+            <expr_stmt><expr><name>nodeText</name> = <call><name><name>node</name>.<name>getFirstChild</name></name><argument_list>()</argument_list></call>.<call><name>getNodeValue</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr>"".<call><name>equals</name><argument_list>(<argument><expr><name>nodeText</name></expr></argument>)</argument_list></call> &amp;&amp; !<name>semanticEmptyOverride</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>emptyNode</name> = true</expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>node</name>.<name>getNodeType</name></name><argument_list>()</argument_list></call> == <name><name>Node</name>.<name>ELEMENT_NODE</name></name>
+               &amp;&amp; <call><name><name>node</name>.<name>getChildNodes</name></name><argument_list>()</argument_list></call>.<call><name>getLength</name><argument_list>()</argument_list></call> == 0
+               &amp;&amp; !<name>semanticEmptyOverride</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>nodeText</name> = ""</expr>;</expr_stmt>
+            <expr_stmt><expr><name>emptyNode</name> = true</expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>node</name>.<name>getNodeType</name></name><argument_list>()</argument_list></call> == <name><name>Node</name>.<name>ELEMENT_NODE</name></name>
+               &amp;&amp; <call><name><name>node</name>.<name>getChildNodes</name></name><argument_list>()</argument_list></call>.<call><name>getLength</name><argument_list>()</argument_list></call> == 1
+               &amp;&amp; <call><name><name>node</name>.<name>getFirstChild</name></name><argument_list>()</argument_list></call>.<call><name>getNodeType</name><argument_list>()</argument_list></call> == <name><name>Node</name>.<name>TEXT_NODE</name></name>
+               &amp;&amp; "".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>node</name>.<name>getFirstChild</name></name><argument_list>()</argument_list></call>.<call><name>getNodeValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+               &amp;&amp; !<name>semanticEmptyOverride</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>nodeText</name> = ""</expr>;</expr_stmt>
+            <expr_stmt><expr><name>emptyNode</name> = true</expr>;</expr_stmt>
+        }</block></then></if></else></if></else></if></else></if>
+        <if>if <condition>(<expr><name>nodeText</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// If the containing object was a String, then use it as the ID.</comment>
+            <if>if <condition>(<expr><name>semanticAttributes</name> &amp;&amp; <name>id</name> == <name>null</name> &amp;&amp; <name>container</name> <name>instanceof</name> <name>String</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>id</name> = (<name>String</name>) <name>container</name></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>nodeText</name>.<name>trim</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> != 0 || <name>emptyNode</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>addProperty</name><argument_list>(<argument><expr><name>prefix</name></expr></argument>, <argument><expr><name>nodeText</name></expr></argument>, <argument><expr><name>id</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+        <comment type="line">// Return the Path we added or the ID of this node for</comment>
+        <comment type="line">// children to reference if needed.  Path objects are</comment>
+        <comment type="line">// definitely used by child path elements, and ID may be used</comment>
+        <comment type="line">// for a child text node.</comment>
+        <return>return <expr>(<name>addedPath</name> != <name>null</name> ? <name>addedPath</name> : <name>id</name>)</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Actually add the given property/value to the project
+     * after writing a log message.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>addProperty</name> <parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>, <param><decl><type><name>String</name></type> <name>id</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr><name>name</name> + ":" + <name>value</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>id</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>msg</name> += ("(id=" + <name>id</name> + ")")</expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name><name>addedAttributes</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// If this attribute was added by this task, then</comment>
+            <comment type="line">// we append this value to the existing value.</comment>
+            <comment type="line">// We use the setProperty method which will</comment>
+            <comment type="line">// forcibly override the property if it already exists.</comment>
+            <comment type="line">// We need to put these properties into the project</comment>
+            <comment type="line">// when we read them, though (instead of keeping them</comment>
+            <comment type="line">// outside of the project and batch adding them at the end)</comment>
+            <comment type="line">// to allow other properties to reference them.</comment>
+            <expr_stmt><expr><name>value</name> = (<name>String</name>) <call><name><name>addedAttributes</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> + <call><name>getDelimiter</name><argument_list>()</argument_list></call> + <name>value</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>setProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>addedAttributes</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>setNewProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>addedAttributes</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Override ignored for property " + <name>name</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if></else></if>
+        <if>if <condition>(<expr><name>id</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>addReference</name><argument_list>(<argument><expr><name>id</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a reasonable attribute name for the given node.
+     * If we are using semantic attributes or collapsing
+     * attributes, the returned name is ".nodename".
+     * Otherwise, we return "(nodename)".  This is long-standing
+     * (and default) &amp;lt;xmlproperty&amp;gt; behavior.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>getAttributeName</name> <parameter_list>(<param><decl><type><name>Node</name></type> <name>attributeNode</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>attributeName</name> =<init> <expr><call><name><name>attributeNode</name>.<name>getNodeName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>semanticAttributes</name></expr>)</condition><then> <block>{
+            <comment type="line">// Never include the "refid" attribute as part of the</comment>
+            <comment type="line">// attribute name.</comment>
+            <if>if <condition>(<expr><call><name><name>attributeName</name>.<name>equals</name></name><argument_list>(<argument><expr><name>REF_ID</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>""</expr>;</return>
+            }</block></then></if>
+            <comment type="line">// Otherwise, return it appended unless property to hide it is set.</comment>
+            <if>if <condition>(<expr>!<call><name>isSemanticAttribute</name><argument_list>(<argument><expr><name>attributeName</name></expr></argument>)</argument_list></call> || <name>includeSemanticAttribute</name></expr>)</condition><then> <block>{
+                <return>return <expr>"." + <name>attributeName</name></expr>;</return>
+            }</block></then></if>
+            <return>return <expr>""</expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>collapseAttributes</name> ? "." + <name>attributeName</name> : "(" + <name>attributeName</name> + ")"</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return whether the provided attribute name is recognized or not.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>isSemanticAttribute</name> <parameter_list>(<param><decl><type><name>String</name></type> <name>attributeName</name></decl></param>)</parameter_list> <block>{
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>ATTRIBUTES</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><call><name><name>attributeName</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>ATTRIBUTES</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the value for the given attribute.
+     * If we are not using semantic attributes, its just the
+     * literal string value of the attribute.
+     *
+     * &lt;p&gt;If we &lt;em&gt;are&lt;/em&gt; using semantic attributes, then first
+     * dependent properties are resolved (i.e., ${foo} is resolved
+     * based on the foo property value), and then an appropriate data
+     * type is used.  In particular, location-based properties are
+     * resolved to absolute file names.  Also for refid values, look
+     * up the referenced object from the project.&lt;/p&gt;
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>getAttributeValue</name> <parameter_list>(<param><decl><type><name>Node</name></type> <name>attributeNode</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>nodeValue</name> =<init> <expr><call><name><name>attributeNode</name>.<name>getNodeValue</name></name><argument_list>()</argument_list></call>.<call><name>trim</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>semanticAttributes</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>attributeName</name> =<init> <expr><call><name><name>attributeNode</name>.<name>getNodeName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>nodeValue</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>replaceProperties</name><argument_list>(<argument><expr><name>nodeValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>attributeName</name>.<name>equals</name></name><argument_list>(<argument><expr><name>LOCATION</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr><call><name>resolveFile</name><argument_list>(<argument><expr><name>nodeValue</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <return>return <expr><call><name><name>f</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>attributeName</name>.<name>equals</name></name><argument_list>(<argument><expr><name>REF_ID</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>Object</name></type> <name>ref</name> =<init> <expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getReference</name><argument_list>(<argument><expr><name>nodeValue</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>ref</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <return>return <expr><call><name><name>ref</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+                }</block></then></if>
+            }</block></then></if>
+        }</block></then></if>
+        <return>return <expr><name>nodeValue</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The XML file to parse; required.
+     * @param src the file to parse
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>src</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setSrcResource</name><argument_list>(<argument><expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>src</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The resource to pack; required.
+     * @param src resource to expand
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSrcResource</name><parameter_list>(<param><decl><type><name>Resource</name></type> <name>src</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>src</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"the source can't be a directory"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>src</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call> != <name>null</name> || <call><name>supportsNonFileResources</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>src</name></name> = <name>src</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only FileSystem resources are supported."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the source resource.
+     * @param a the resource to pack as a single element Resource collection.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfigured</name><parameter_list>(<param><decl><type><name>ResourceCollection</name></type> <name>a</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>a</name>.<name>size</name></name><argument_list>()</argument_list></call> != 1</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                    <argument><expr>"only single argument resource collections are supported as archives"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>setSrcResource</name><argument_list>(<argument><expr><call><name><name>a</name>.<name>iterator</name></name><argument_list>()</argument_list></call>.<call><name>next</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * the prefix to prepend to each property
+     * @param prefix the prefix to prepend to each property
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPrefix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>prefix</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>prefix</name></name> = <call><name><name>prefix</name>.<name>trim</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * flag to include the xml root tag as a
+     * first value in the property name; optional,
+     * default is true
+     * @param keepRoot if true (default), include the xml root tag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setKeeproot</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>keepRoot</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>keepRoot</name></name> = <name>keepRoot</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * flag to validate the XML file; optional, default false
+     * @param validate if true validate the XML file, default false
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setValidate</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>validate</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>validate</name></name> = <name>validate</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * flag to treat attributes as nested elements;
+     * optional, default false
+     * @param collapseAttributes if true treat attributes as nested elements
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCollapseAttributes</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>collapseAttributes</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>collapseAttributes</name></name> = <name>collapseAttributes</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Attribute to enable special handling of attributes - see ant manual.
+     * @param semanticAttributes if true enable the special handling.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSemanticAttributes</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>semanticAttributes</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>semanticAttributes</name></name> = <name>semanticAttributes</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The directory to use for resolving file references.
+     * Ignored if semanticAttributes is not set to true.
+     * @param rootDirectory the directory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRootDirectory</name><parameter_list>(<param><decl><type><name>File</name></type> <name>rootDirectory</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>rootDirectory</name></name> = <name>rootDirectory</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Include the semantic attribute name as part of the property name.
+     * Ignored if semanticAttributes is not set to true.
+     * @param includeSemanticAttribute if true include the semantic attribute
+     *                                 name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIncludeSemanticAttribute</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>includeSemanticAttribute</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>includeSemanticAttribute</name></name> = <name>includeSemanticAttribute</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add an XMLCatalog as a nested element; optional.
+     * @param catalog the XMLCatalog to use
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredXMLCatalog</name><parameter_list>(<param><decl><type><name>XMLCatalog</name></type> <name>catalog</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>xmlCatalog</name>.<name>addConfiguredXMLCatalog</name></name><argument_list>(<argument><expr><name>catalog</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="block">/* Expose members for extensibility */</comment>
+
+    <comment type="javadoc">/**
+     * @return the file attribute.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>File</name></type> <name>getFile</name> <parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>FileProvider</name></type> <name>fp</name> =<init> <expr><call><name><name>src</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>fp</name> != <name>null</name> ? <call><name><name>fp</name>.<name>getFile</name></name><argument_list>()</argument_list></call> : <name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the resource.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Resource</name></type> <name>getResource</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">// delegate this way around to support subclasses that</comment>
+        <comment type="line">// overwrite getFile</comment>
+        <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr><call><name>getFile</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>FileProvider</name></type> <name>fp</name> =<init> <expr><call><name><name>src</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>f</name> == <name>null</name> ? <name>src</name> : <name>fp</name> != <name>null</name>
+                &amp;&amp; <call><name><name>fp</name>.<name>getFile</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call> ? <name>src</name> : new <call><name>FileResource</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the prefix attribute.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getPrefix</name> <parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>prefix</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the keeproot attribute.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>getKeeproot</name> <parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>keepRoot</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the validate attribute.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>getValidate</name> <parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>validate</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the collapse attributes attribute.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>getCollapseAttributes</name> <parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>collapseAttributes</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the semantic attributes attribute.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>getSemanticAttributes</name> <parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>semanticAttributes</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the root directory attribute.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>File</name></type> <name>getRootDirectory</name> <parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>rootDirectory</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the include semantic attribute.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>getIncludeSementicAttribute</name> <parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>includeSemanticAttribute</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Let project resolve the file - or do it ourselves if
+     * rootDirectory has been set.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>File</name></type> <name>resolveFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>fileName</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>FILE_UTILS</name>.<name>resolveFile</name></name><argument_list>(<argument><expr><name>rootDirectory</name> == <name>null</name> ? <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getBaseDir</name><argument_list>()</argument_list></call>
+                : <name>rootDirectory</name></expr></argument>, <argument><expr><name>fileName</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether this task can deal with non-file resources.
+     *
+     * &lt;p&gt;This implementation returns true only if this task is
+     * &amp;lt;xmlproperty&amp;gt;.  Any subclass of this class that also wants to
+     * support non-file resources needs to override this method.  We
+     * need to do so for backwards compatibility reasons since we
+     * can't expect subclasses to support resources.&lt;/p&gt;
+     * @return true for this task.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>supportsNonFileResources</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getClass</name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>XmlProperty</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the current delimiter.
+     * @return delimiter
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getDelimiter</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>delimiter</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets a new delimiter.
+     * @param delimiter new value
+     * @since Ant 1.7.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDelimiter</name><parameter_list>(<param><decl><type><name>String</name></type> <name>delimiter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>delimiter</name></name> = <name>delimiter</name></expr>;</expr_stmt>
+    }</block></function>
+}</block></class>
+</unit>

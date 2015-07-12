@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ejb\DescriptorHandler.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ejb</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileNotFoundException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>URL</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>AttributeList</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>InputSource</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>SAXException</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Inner class used by EjbJar to facilitate the parsing of deployment
+ * descriptors and the capture of appropriate information. Extends
+ * HandlerBase so it only implements the methods needed. During parsing
+ * creates a hashtable consisting of entries mapping the name it should be
+ * inserted into an EJB jar as to a File representing the file on disk. This
+ * list can then be accessed through the getFiles() method.
+ */</comment>
+<class><specifier>public</specifier> class <name>DescriptorHandler</name> <super><extends>extends <name>org</name>.<name>xml</name>.<name>sax</name>.<name>HandlerBase</name></extends></super> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEFAULT_HASH_TABLE_SIZE</name> =<init> <expr>10</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>STATE_LOOKING_EJBJAR</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>STATE_IN_EJBJAR</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>STATE_IN_BEANS</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>STATE_IN_SESSION</name> =<init> <expr>4</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>STATE_IN_ENTITY</name> =<init> <expr>5</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>STATE_IN_MESSAGE</name> =<init> <expr>6</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Task</name></type> <name>owningTask</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>publicId</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Bunch of constants used for storing entries in a hashtable, and for
+     * constructing the filenames of various parts of the ejb jar.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EJB_REF</name>               =<init> <expr>"ejb-ref"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EJB_LOCAL_REF</name>         =<init> <expr>"ejb-local-ref"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>HOME_INTERFACE</name>        =<init> <expr>"home"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>REMOTE_INTERFACE</name>      =<init> <expr>"remote"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>LOCAL_HOME_INTERFACE</name>  =<init> <expr>"local-home"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>LOCAL_INTERFACE</name>       =<init> <expr>"local"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>BEAN_CLASS</name>            =<init> <expr>"ejb-class"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>PK_CLASS</name>              =<init> <expr>"prim-key-class"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EJB_NAME</name>              =<init> <expr>"ejb-name"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EJB_JAR</name>               =<init> <expr>"ejb-jar"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ENTERPRISE_BEANS</name>      =<init> <expr>"enterprise-beans"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ENTITY_BEAN</name>           =<init> <expr>"entity"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>SESSION_BEAN</name>          =<init> <expr>"session"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>MESSAGE_BEAN</name>          =<init> <expr>"message-driven"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The state of the parsing
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>parseState</name> =<init> <expr><name>STATE_LOOKING_EJBJAR</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+    <comment type="javadoc">/**
+     * Instance variable used to store the name of the current element being
+     * processed by the SAX parser.  Accessed by the SAX parser call-back methods
+     * startElement() and endElement().
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>currentElement</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The text of the current element
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>currentText</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Instance variable that stores the names of the files as they will be
+     * put into the jar file, mapped to File objects  Accessed by the SAX
+     * parser call-back method characters().
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Hashtable</name></type> <name>ejbFiles</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Instance variable that stores the value found in the &amp;lt;ejb-name&amp;gt; element
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>ejbName</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Hashtable</name></type> <name>fileDTDs</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Hashtable</name></type> <name>resourceDTDs</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>inEJBRef</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Hashtable</name></type> <name>urlDTDs</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+
+    <comment type="javadoc">/**
+     * The directory containing the bean classes and interfaces. This is
+     * used for performing dependency file lookups.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>srcDir</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Constructor for DescriptorHandler.
+     * @param task the task that owns this descriptor
+     * @param srcDir the source directory
+     */</comment>
+    <constructor><specifier>public</specifier> <name>DescriptorHandler</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>task</name></decl></param>, <param><decl><type><name>File</name></type> <name>srcDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>owningTask</name></name> = <name>task</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>srcDir</name></name> = <name>srcDir</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Register a dtd with a location.
+     * The location is one of a filename, a resource name in the classpath, or
+     * a URL.
+     * @param publicId the public identity of the dtd
+     * @param location the location of the dtd
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>registerDTD</name><parameter_list>(<param><decl><type><name>String</name></type> <name>publicId</name></decl></param>, <param><decl><type><name>String</name></type> <name>location</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>location</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>File</name></type> <name>fileDTD</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>location</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<call><name><name>fileDTD</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// resolve relative to project basedir</comment>
+            <expr_stmt><expr><name>fileDTD</name> = <call><name><name>owningTask</name>.<name>getProject</name></name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name><name>fileDTD</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>publicId</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>fileDTDs</name>.<name>put</name></name><argument_list>(<argument><expr><name>publicId</name></expr></argument>, <argument><expr><name>fileDTD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>owningTask</name>.<name>log</name></name><argument_list>(<argument><expr>"Mapped publicId " + <name>publicId</name> + " to file "
+                    + <name>fileDTD</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return;</return>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name>getClass</name><argument_list>()</argument_list></call>.<call><name>getResource</name><argument_list>(<argument><expr><name>location</name></expr></argument>)</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>publicId</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>resourceDTDs</name>.<name>put</name></name><argument_list>(<argument><expr><name>publicId</name></expr></argument>, <argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>owningTask</name>.<name>log</name></name><argument_list>(<argument><expr>"Mapped publicId " + <name>publicId</name> + " to resource "
+                    + <name>location</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+
+        <try>try <block>{
+            <if>if <condition>(<expr><name>publicId</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>URL</name></type> <name>urldtd</name> =<init> <expr>new <call><name>URL</name><argument_list>(<argument><expr><name>location</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>urlDTDs</name>.<name>put</name></name><argument_list>(<argument><expr><name>publicId</name></expr></argument>, <argument><expr><name>urldtd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name><name>java</name>.<name>net</name>.<name>MalformedURLException</name></name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//ignored</comment>
+        }</block></catch></try>
+
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Resolve the entity.
+     * @see org.xml.sax.EntityResolver#resolveEntity(String, String).
+     * @param publicId The public identifier, or &lt;code&gt;null&lt;/code&gt;
+     *                 if none is available.
+     * @param systemId The system identifier provided in the XML
+     *                 document. Will not be &lt;code&gt;null&lt;/code&gt;.
+     * @return an inputsource for this identifier
+     * @throws SAXException if there is a problem.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>InputSource</name></type> <name>resolveEntity</name><parameter_list>(<param><decl><type><name>String</name></type> <name>publicId</name></decl></param>, <param><decl><type><name>String</name></type> <name>systemId</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>publicId</name></name> = <name>publicId</name></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>File</name></type> <name>dtdFile</name> =<init> <expr>(<name>File</name>) <call><name><name>fileDTDs</name>.<name>get</name></name><argument_list>(<argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>dtdFile</name> != <name>null</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>owningTask</name>.<name>log</name></name><argument_list>(<argument><expr>"Resolved " + <name>publicId</name> + " to local file "
+                    + <name>dtdFile</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>new <call><name>InputSource</name><argument_list>(<argument><expr>new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>dtdFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+            }</block> <catch>catch (<param><decl><type><name>FileNotFoundException</name></type> <name>ex</name></decl></param>) <block>{
+                <comment type="line">// ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>dtdResourceName</name> =<init> <expr>(<name>String</name>) <call><name><name>resourceDTDs</name>.<name>get</name></name><argument_list>(<argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>dtdResourceName</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>InputStream</name></type> <name>is</name> =<init> <expr><call><name><name>this</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getResourceAsStream</name><argument_list>(<argument><expr><name>dtdResourceName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>is</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>owningTask</name>.<name>log</name></name><argument_list>(<argument><expr>"Resolved " + <name>publicId</name> + " to local resource "
+                    + <name>dtdResourceName</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>new <call><name>InputSource</name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></then></if>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>URL</name></type> <name>dtdUrl</name> =<init> <expr>(<name>URL</name>) <call><name><name>urlDTDs</name>.<name>get</name></name><argument_list>(<argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>dtdUrl</name> != <name>null</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <decl_stmt><decl><type><name>InputStream</name></type> <name>is</name> =<init> <expr><call><name><name>dtdUrl</name>.<name>openStream</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>owningTask</name>.<name>log</name></name><argument_list>(<argument><expr>"Resolved " + <name>publicId</name> + " to url "
+                    + <name>dtdUrl</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>new <call><name>InputSource</name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                <comment type="line">//ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name><name>owningTask</name>.<name>log</name></name><argument_list>(<argument><expr>"Could not resolve ( publicId: " + <name>publicId</name>
+            + ", systemId: " + <name>systemId</name> + ") to a local entity"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Getter method that returns the set of files to include in the EJB jar.
+     * @return the map of files
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Hashtable</name></type> <name>getFiles</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>(<name>ejbFiles</name> == <name>null</name>) ? new <call><name>Hashtable</name><argument_list>()</argument_list></call> : <name>ejbFiles</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the publicId of the DTD
+     * @return the public id
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getPublicId</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>publicId</name></expr>;</return>
+    }</block></function>
+
+     <comment type="javadoc">/**
+     * Getter method that returns the value of the &amp;lt;ejb-name&amp;gt; element.
+     * @return the ejb name
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getEjbName</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>ejbName</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * SAX parser call-back method that is used to initialize the values of some
+     * instance variables to ensure safe operation.
+     * @throws SAXException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>startDocument</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>ejbFiles</name></name> = new <call><name>Hashtable</name><argument_list>(<argument><expr><name>DEFAULT_HASH_TABLE_SIZE</name></expr></argument>, <argument><expr>1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>currentElement</name></name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>inEJBRef</name> = false</expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * SAX parser call-back method that is invoked when a new element is entered
+     * into.  Used to store the context (attribute name) in the currentAttribute
+     * instance variable.
+     * @param name The name of the element being entered.
+     * @param attrs Attributes associated to the element.
+     * @throws SAXException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>startElement</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>AttributeList</name></type> <name>attrs</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>currentElement</name></name> = <name>name</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>currentText</name> = ""</expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>EJB_REF</name></expr></argument>)</argument_list></call> || <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>EJB_LOCAL_REF</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>inEJBRef</name> = true</expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>parseState</name> == <name>STATE_LOOKING_EJBJAR</name> &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>EJB_JAR</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parseState</name> = <name>STATE_IN_EJBJAR</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>parseState</name> == <name>STATE_IN_EJBJAR</name> &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ENTERPRISE_BEANS</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parseState</name> = <name>STATE_IN_BEANS</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>parseState</name> == <name>STATE_IN_BEANS</name> &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>SESSION_BEAN</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parseState</name> = <name>STATE_IN_SESSION</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>parseState</name> == <name>STATE_IN_BEANS</name> &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ENTITY_BEAN</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parseState</name> = <name>STATE_IN_ENTITY</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>parseState</name> == <name>STATE_IN_BEANS</name> &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>MESSAGE_BEAN</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parseState</name> = <name>STATE_IN_MESSAGE</name></expr>;</expr_stmt>
+        }</block></then></if></else></if></else></if></else></if></else></if></else></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * SAX parser call-back method that is invoked when an element is exited.
+     * Used to blank out (set to the empty string, not nullify) the name of
+     * the currentAttribute.  A better method would be to use a stack as an
+     * instance variable, however since we are only interested in leaf-node
+     * data this is a simpler and workable solution.
+     * @param name The name of the attribute being exited. Ignored
+     *        in this implementation.
+     * @throws SAXException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>endElement</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>processElement</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>currentText</name> = ""</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>currentElement</name></name> = ""</expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>EJB_REF</name></expr></argument>)</argument_list></call> || <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>EJB_LOCAL_REF</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>inEJBRef</name> = false</expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>parseState</name> == <name>STATE_IN_ENTITY</name> &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ENTITY_BEAN</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parseState</name> = <name>STATE_IN_BEANS</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>parseState</name> == <name>STATE_IN_SESSION</name> &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>SESSION_BEAN</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parseState</name> = <name>STATE_IN_BEANS</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>parseState</name> == <name>STATE_IN_MESSAGE</name> &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>MESSAGE_BEAN</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parseState</name> = <name>STATE_IN_BEANS</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>parseState</name> == <name>STATE_IN_BEANS</name> &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ENTERPRISE_BEANS</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parseState</name> = <name>STATE_IN_EJBJAR</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>parseState</name> == <name>STATE_IN_EJBJAR</name> &amp;&amp; <call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>EJB_JAR</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parseState</name> = <name>STATE_LOOKING_EJBJAR</name></expr>;</expr_stmt>
+        }</block></then></if></else></if></else></if></else></if></else></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * SAX parser call-back method invoked whenever characters are located within
+     * an element.  currentAttribute (modified by startElement and endElement)
+     * tells us whether we are in an interesting element (one of the up to four
+     * classes of an EJB).  If so then converts the classname from the format
+     * org.apache.tools.ant.Parser to the convention for storing such a class,
+     * org/apache/tools/ant/Parser.class.  This is then resolved into a file
+     * object under the srcdir which is stored in a Hashtable.
+     * @param ch A character array containing all the characters in
+     *        the element, and maybe others that should be ignored.
+     * @param start An integer marking the position in the char
+     *        array to start reading from.
+     * @param length An integer representing an offset into the
+     *        char array where the current data terminates.
+     * @throws SAXException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>characters</name><parameter_list>(<param><decl><type><name><name>char</name><index>[]</index></name></type> <name>ch</name></decl></param>, <param><decl><type><name>int</name></type> <name>start</name></decl></param>, <param><decl><type><name>int</name></type> <name>length</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+
+        <expr_stmt><expr><name>currentText</name> += new <call><name>String</name><argument_list>(<argument><expr><name>ch</name></expr></argument>, <argument><expr><name>start</name></expr></argument>, <argument><expr><name>length</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Called when an endelement is seen.
+     * This may be overridden in derived classes.
+     * This updates the ejbfiles if the element is an interface or a bean class.
+     * This updates the ejbname if the element is an ejb name.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>processElement</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>inEJBRef</name>
+            || (<name>parseState</name> != <name>STATE_IN_ENTITY</name>
+                &amp;&amp; <name>parseState</name> != <name>STATE_IN_SESSION</name>
+                &amp;&amp; <name>parseState</name> != <name>STATE_IN_MESSAGE</name>)</expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name><name>currentElement</name>.<name>equals</name></name><argument_list>(<argument><expr><name>HOME_INTERFACE</name></expr></argument>)</argument_list></call>
+            || <call><name><name>currentElement</name>.<name>equals</name></name><argument_list>(<argument><expr><name>REMOTE_INTERFACE</name></expr></argument>)</argument_list></call>
+            || <call><name><name>currentElement</name>.<name>equals</name></name><argument_list>(<argument><expr><name>LOCAL_INTERFACE</name></expr></argument>)</argument_list></call>
+            || <call><name><name>currentElement</name>.<name>equals</name></name><argument_list>(<argument><expr><name>LOCAL_HOME_INTERFACE</name></expr></argument>)</argument_list></call>
+            || <call><name><name>currentElement</name>.<name>equals</name></name><argument_list>(<argument><expr><name>BEAN_CLASS</name></expr></argument>)</argument_list></call>
+            || <call><name><name>currentElement</name>.<name>equals</name></name><argument_list>(<argument><expr><name>PK_CLASS</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+
+            <comment type="line">// Get the filename into a String object</comment>
+            <decl_stmt><decl><type><name>File</name></type> <name>classFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>className</name> =<init> <expr><call><name><name>currentText</name>.<name>trim</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// If it's a primitive wrapper then we shouldn't try and put</comment>
+            <comment type="line">// it into the jar, so ignore it.</comment>
+            <if>if <condition>(<expr>!<call><name><name>className</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"java."</expr></argument>)</argument_list></call>
+                &amp;&amp; !<call><name><name>className</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"javax."</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// Translate periods into path separators, add .class to the</comment>
+                <comment type="line">// name, create the File object and add it to the Hashtable.</comment>
+                <expr_stmt><expr><name>className</name> = <call><name><name>className</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>className</name> += ".class"</expr>;</expr_stmt>
+                <expr_stmt><expr><name>classFile</name> = new <call><name>File</name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>, <argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>, <argument><expr><name>classFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+
+        <comment type="line">// Get the value of the &lt;ejb-name&gt; tag.  Only the first occurrence.</comment>
+        <if>if <condition>(<expr><call><name><name>currentElement</name>.<name>equals</name></name><argument_list>(<argument><expr><name>EJB_NAME</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>ejbName</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>ejbName</name> = <call><name><name>currentText</name>.<name>trim</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+    }</block></function>
+}</block></class>
+</unit>

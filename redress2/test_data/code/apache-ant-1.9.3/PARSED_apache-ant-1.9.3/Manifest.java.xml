@@ -1,0 +1,1176 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Manifest.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStreamReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Reader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>StringWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>UnsupportedEncodingException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedHashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Locale</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>CollectionUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Holds the data of a jar manifest.
+ *
+ * Manifests are processed according to the
+ * {@link &lt;a href="http://java.sun.com/j2se/1.5.0/docs/guide/jar/jar.html"&gt;Jar
+ * file specification.&lt;/a&gt;}.
+ * Specifically, a manifest element consists of
+ * a set of attributes and sections. These sections in turn may contain
+ * attributes. Note in particular that this may result in manifest lines
+ * greater than 72 bytes being wrapped and continued on the next
+ * line. If an application can not handle the continuation mechanism, it
+ * is a defect in the application, not this task.
+ *
+ *
+ * @since Ant 1.4
+ */</comment>
+<class><specifier>public</specifier> class <name>Manifest</name> <block>{
+    <comment type="javadoc">/** The standard manifest version header */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ATTRIBUTE_MANIFEST_VERSION</name>
+        =<init> <expr>"Manifest-Version"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The standard Signature Version header */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ATTRIBUTE_SIGNATURE_VERSION</name>
+        =<init> <expr>"Signature-Version"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The Name Attribute is the first in a named section */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ATTRIBUTE_NAME</name> =<init> <expr>"Name"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The From Header is disallowed in a Manifest */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ATTRIBUTE_FROM</name> =<init> <expr>"From"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The Class-Path Header is special - it can be duplicated */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ATTRIBUTE_CLASSPATH</name> =<init> <expr>"Class-Path"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Default Manifest version if one is not specified */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier>  <name>String</name></type> <name>DEFAULT_MANIFEST_VERSION</name> =<init> <expr>"1.0"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The max length of a line in a Manifest */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAX_LINE_LENGTH</name> =<init> <expr>72</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Max length of a line section which is continued. Need to allow
+     * for the CRLF.
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAX_SECTION_LENGTH</name> =<init> <expr><name>MAX_LINE_LENGTH</name> - 2</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The End-Of-Line marker in manifests */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EOL</name> =<init> <expr>"\r\n"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Error for attributes */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_FROM_FORBIDDEN</name> =<init> <expr>"Manifest attributes should not start "
+                        + "with \"" + <name>ATTRIBUTE_FROM</name> + "\" in \""</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Encoding to be used for JAR files. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JAR_ENCODING</name> =<init> <expr>"UTF-8"</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ATTRIBUTE_MANIFEST_VERSION_LC</name> =<init>
+        <expr><call><name><name>ATTRIBUTE_MANIFEST_VERSION</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ATTRIBUTE_NAME_LC</name> =<init>
+        <expr><call><name><name>ATTRIBUTE_NAME</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ATTRIBUTE_FROM_LC</name> =<init>
+        <expr><call><name><name>ATTRIBUTE_FROM</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ATTRIBUTE_CLASSPATH_LC</name> =<init>
+        <expr><call><name><name>ATTRIBUTE_CLASSPATH</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * An attribute for the manifest.
+     * Those attributes that are not nested into a section will be added to the "Main" section.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>Attribute</name> <block>{
+
+        <comment type="javadoc">/**
+         * Maximum length of the name to have the value starting on the same
+         * line as the name. This to stay under 72 bytes total line length
+         * (including CRLF).
+         */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAX_NAME_VALUE_LENGTH</name> =<init> <expr>68</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Maximum length of the name according to the jar specification.
+         * In this case the first line will have 74 bytes total line length
+         * (including CRLF). This conflicts with the 72 bytes total line length
+         * max, but is the only possible conclusion from the manifest specification, if
+         * names with 70 bytes length are allowed, have to be on the first line, and
+         * have to be followed by ": ".
+         */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAX_NAME_LENGTH</name> =<init> <expr>70</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** The attribute's name */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>name</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** The attribute's value */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>values</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * For multivalued attributes, this is the index of the attribute
+         * currently being defined.
+         */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>currentIndex</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Construct an empty attribute */</comment>
+        <constructor><specifier>public</specifier> <name>Attribute</name><parameter_list>()</parameter_list> <block>{
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Construct an attribute by parsing a line from the Manifest
+         *
+         * @param line the line containing the attribute name and value
+         *
+         * @throws ManifestException if the line is not valid
+         */</comment>
+        <constructor><specifier>public</specifier> <name>Attribute</name><parameter_list>(<param><decl><type><name>String</name></type> <name>line</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name>parse</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Construct a manifest by specifying its name and value
+         *
+         * @param name the attribute's name
+         * @param value the Attribute's value
+         */</comment>
+        <constructor><specifier>public</specifier> <name>Attribute</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>name</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setValue</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * @see java.lang.Object#hashCode
+         * @return a hashcode based on the key and values.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>hashCode</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>hashCode</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>name</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>hashCode</name> += <call><name>getKey</name><argument_list>()</argument_list></call>.<call><name>hashCode</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <expr_stmt><expr><name>hashCode</name> += <call><name><name>values</name>.<name>hashCode</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>hashCode</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @param rhs the object to check for equality.
+         * @see java.lang.Object#equals
+         * @return true if the key and values are the same.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>rhs</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>rhs</name> == <name>null</name> || <call><name><name>rhs</name>.<name>getClass</name></name><argument_list>()</argument_list></call> != <call><name>getClass</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>rhs</name> == <name>this</name></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>Attribute</name></type> <name>rhsAttribute</name> =<init> <expr>(<name>Attribute</name>) <name>rhs</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>lhsKey</name> =<init> <expr><call><name>getKey</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>rhsKey</name> =<init> <expr><call><name><name>rhsAttribute</name>.<name>getKey</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>(<name>lhsKey</name> == <name>null</name> &amp;&amp; <name>rhsKey</name> != <name>null</name>)
+                 || (<name>lhsKey</name> != <name>null</name> &amp;&amp; !<call><name><name>lhsKey</name>.<name>equals</name></name><argument_list>(<argument><expr><name>rhsKey</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+
+            <return>return <expr><call><name><name>values</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>rhsAttribute</name>.<name>values</name></name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Parse a line into name and value pairs
+         *
+         * @param line the line to be parsed
+         *
+         * @throws ManifestException if the line does not contain a colon
+         * separating the name and value
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>parse</name><parameter_list>(<param><decl><type><name>String</name></type> <name>line</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr>": "</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>index</name> == -1</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>ManifestException</name><argument_list>(<argument><expr>"Manifest line \"" + <name>line</name>
+                    + "\" is not valid as it does not "
+                    + "contain a name and a value separated by ': ' "</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><name>name</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>index</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setValue</name><argument_list>(<argument><expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>index</name> + 2</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the Attribute's name; required
+         *
+         * @param name the attribute's name
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>name</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the Attribute's name
+         *
+         * @return the attribute's name.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>name</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the attribute's Key - its name in lower case.
+         *
+         * @return the attribute's key.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getKey</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>name</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></then></if>
+            <return>return <expr><call><name><name>name</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the Attribute's value; required
+         *
+         * @param value the attribute's value
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setValue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>currentIndex</name> &gt;= <call><name><name>values</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>values</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>currentIndex</name> = <call><name><name>values</name>.<name>size</name></name><argument_list>()</argument_list></call> - 1</expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>values</name>.<name>setElementAt</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>, <argument><expr><name>currentIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the Attribute's value.
+         *
+         * @return the attribute's value.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getValue</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><call><name><name>values</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>String</name></type> <name>fullValue</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name>getValues</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>fullValue</name> += <name>value</name> + " "</expr>;</expr_stmt>
+            }</block></for>
+            <return>return <expr><call><name><name>fullValue</name>.<name>trim</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Add a new value to this attribute - making it multivalued.
+         *
+         * @param value the attribute's additional value
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>addValue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>currentIndex</name>++</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setValue</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get all the attribute's values.
+         *
+         * @return an enumeration of the attributes values
+         */</comment>
+        <function><type><specifier>public</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>values</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Add a continuation line from the Manifest file.
+         *
+         * When lines are too long in a manifest, they are continued on the
+         * next line by starting with a space. This method adds the continuation
+         * data to the attribute value by skipping the first character.
+         *
+         * @param line the continuation line.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>addContinuation</name><parameter_list>(<param><decl><type><name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>currentValue</name> =<init> <expr>(<name>String</name>) <call><name><name>values</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>currentIndex</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>setValue</name><argument_list>(<argument><expr><name>currentValue</name> + <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Write the attribute out to a print writer without
+         * flattening multi-values attributes (i.e. Class-Path).
+         *
+         * @param writer the Writer to which the attribute is written
+         *
+         * @throws IOException if the attribute value cannot be written
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>PrintWriter</name></type> <name>writer</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr><name>writer</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Write the attribute out to a print writer.
+         *
+         * @param writer the Writer to which the attribute is written
+         * @param flatten whether to collapse multi-valued attributes
+         *        (i.e. potentially Class-Path) Class-Path into a
+         *        single attribute.
+         *
+         * @throws IOException if the attribute value cannot be written
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>PrintWriter</name></type> <name>writer</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>flatten</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr>!<name>flatten</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name>getValues</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <expr_stmt><expr><call><name>writeValue</name><argument_list>(<argument><expr><name>writer</name></expr></argument>, <argument><expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>writeValue</name><argument_list>(<argument><expr><name>writer</name></expr></argument>, <argument><expr><call><name>getValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Write a single attribute value out
+         *
+         * @param writer the Writer to which the attribute is written
+         * @param value the attribute value
+         *
+         * @throws IOException if the attribute value cannot be written
+         */</comment>
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>writeValue</name><parameter_list>(<param><decl><type><name>PrintWriter</name></type> <name>writer</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+             <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>nameLength</name> =<init> <expr><call><name><name>name</name>.<name>getBytes</name></name><argument_list>(<argument><expr><name>JAR_ENCODING</name></expr></argument>)</argument_list></call>.<name>length</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>nameLength</name> &gt; <name>MAX_NAME_VALUE_LENGTH</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>nameLength</name> &gt; <name>MAX_NAME_LENGTH</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Unable to write manifest line "
+                            + <name>name</name> + ": " + <name>value</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>writer</name>.<name>print</name></name><argument_list>(<argument><expr><name>name</name> + ": " + <name>EOL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>line</name> = " " + <name>value</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>line</name> = <name>name</name> + ": " + <name>value</name></expr>;</expr_stmt>
+            }</block></else></if>
+            <while>while <condition>(<expr><call><name><name>line</name>.<name>getBytes</name></name><argument_list>(<argument><expr><name>JAR_ENCODING</name></expr></argument>)</argument_list></call>.<name>length</name> &gt; <name>MAX_SECTION_LENGTH</name></expr>)</condition> <block>{
+                <comment type="line">// try to find a MAX_LINE_LENGTH byte section</comment>
+                <decl_stmt><decl><type><name>int</name></type> <name>breakIndex</name> =<init> <expr><name>MAX_SECTION_LENGTH</name></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>breakIndex</name> &gt;= <call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>breakIndex</name> = <call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call> - 1</expr>;</expr_stmt>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>String</name></type> <name>section</name> =<init> <expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>breakIndex</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <while>while <condition>(<expr><call><name><name>section</name>.<name>getBytes</name></name><argument_list>(<argument><expr><name>JAR_ENCODING</name></expr></argument>)</argument_list></call>.<name>length</name> &gt; <name>MAX_SECTION_LENGTH</name>
+                     &amp;&amp; <name>breakIndex</name> &gt; 0</expr>)</condition> <block>{
+                    <expr_stmt><expr><name>breakIndex</name>--</expr>;</expr_stmt>
+                    <expr_stmt><expr><name>section</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>breakIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></while>
+                <if>if <condition>(<expr><name>breakIndex</name> == 0</expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Unable to write manifest line "
+                        + <name>name</name> + ": " + <name>value</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>writer</name>.<name>print</name></name><argument_list>(<argument><expr><name>section</name> + <name>EOL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>line</name> = " " + <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>breakIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><call><name><name>writer</name>.<name>print</name></name><argument_list>(<argument><expr><name>line</name> + <name>EOL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * A manifest section - you can nest attribute elements into sections.
+     * A section consists of a set of attribute values,
+     * separated from other sections by a blank line.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>Section</name> <block>{
+        <comment type="javadoc">/** Warnings for this section */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>warnings</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * The section's name if any. The main section in a
+         * manifest is unnamed.
+         */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>name</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** The section's attributes.*/</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Attribute</name></argument>&gt;</argument_list></name></type> <name>attributes</name> =<init> <expr>new <call><name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Attribute</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * The name of the section; optional -default is the main section.
+         * @param name the section's name
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>name</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the Section's name.
+         *
+         * @return the section's name.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>name</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Read a section through a reader.
+         *
+         * @param reader the reader from which the section is read
+         *
+         * @return the name of the next section if it has been read as
+         *         part of this section - This only happens if the
+         *         Manifest is malformed.
+         *
+         * @throws ManifestException if the section is not valid according
+         *         to the JAR spec
+         * @throws IOException if the section cannot be read from the reader.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>read</name><parameter_list>(<param><decl><type><name>BufferedReader</name></type> <name>reader</name></decl></param>)</parameter_list>
+             <throws>throws <argument><expr><name>ManifestException</name></expr></argument>, <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>Attribute</name></type> <name>attribute</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr>true</expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><call><name><name>reader</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>line</name> == <name>null</name> || <call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                    <return>return <expr><name>null</name></expr>;</return>
+                }</block></then></if>
+                <if>if <condition>(<expr><call><name><name>line</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> == ' '</expr>)</condition><then> <block>{
+                    <comment type="line">// continuation line</comment>
+                    <if>if <condition>(<expr><name>attribute</name> == <name>null</name></expr>)</condition><then> <block>{
+                        <if>if <condition>(<expr><name>name</name> != <name>null</name></expr>)</condition><then> <block>{
+                            <comment type="line">// a continuation on the first line is a</comment>
+                            <comment type="line">// continuation of the name - concatenate this</comment>
+                            <comment type="line">// line and the name</comment>
+                            <expr_stmt><expr><name>name</name> += <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then> <else>else <block>{
+                            <throw>throw <expr>new <call><name>ManifestException</name><argument_list>(<argument><expr>"Can't start an "
+                                + "attribute with a continuation line " + <name>line</name></expr></argument>)</argument_list></call></expr>;</throw>
+                        }</block></else></if>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><call><name><name>attribute</name>.<name>addContinuation</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>attribute</name> = new <call><name>Attribute</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>nameReadAhead</name> =<init> <expr><call><name>addAttributeAndCheck</name><argument_list>(<argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <comment type="line">// refresh attribute in case of multivalued attributes.</comment>
+                    <expr_stmt><expr><name>attribute</name> = <call><name>getAttribute</name><argument_list>(<argument><expr><call><name><name>attribute</name>.<name>getKey</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <if>if <condition>(<expr><name>nameReadAhead</name> != <name>null</name></expr>)</condition><then> <block>{
+                        <return>return <expr><name>nameReadAhead</name></expr>;</return>
+                    }</block></then></if>
+                }</block></else></if>
+            }</block></while>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Merge in another section without merging Class-Path attributes.
+         *
+         * @param section the section to be merged with this one.
+         *
+         * @throws ManifestException if the sections cannot be merged.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>merge</name><parameter_list>(<param><decl><type><name>Section</name></type> <name>section</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name>merge</name><argument_list>(<argument><expr><name>section</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Merge in another section
+         *
+         * @param section the section to be merged with this one.
+         * @param mergeClassPaths whether Class-Path attributes should
+         *        be merged.
+         *
+         * @throws ManifestException if the sections cannot be merged.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>merge</name><parameter_list>(<param><decl><type><name>Section</name></type> <name>section</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>mergeClassPaths</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><name>name</name> == <name>null</name> &amp;&amp; <call><name><name>section</name>.<name>getName</name></name><argument_list>()</argument_list></call> != <name>null</name>
+                || (<name>name</name> != <name>null</name> &amp;&amp; <call><name><name>section</name>.<name>getName</name></name><argument_list>()</argument_list></call> != <name>null</name>
+                    &amp;&amp; !(<call><name><name>name</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call>
+                         .<call><name>equals</name><argument_list>(<argument><expr><call><name><name>section</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>toLowerCase</name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>))</expr>
+                )</condition><then> <block>{
+                <throw>throw <expr>new <call><name>ManifestException</name><argument_list>(<argument><expr>"Unable to merge sections "
+                    + "with different names"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>section</name>.<name>getAttributeKeys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Attribute</name></type> <name>classpathAttribute</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>attributeName</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Attribute</name></type> <name>attribute</name> =<init> <expr><call><name><name>section</name>.<name>getAttribute</name></name><argument_list>(<argument><expr><name>attributeName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>attributeName</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>ATTRIBUTE_CLASSPATH</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr><name>classpathAttribute</name> == <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>classpathAttribute</name> = new <call><name>Attribute</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>classpathAttribute</name>.<name>setName</name></name><argument_list>(<argument><expr><name>ATTRIBUTE_CLASSPATH</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>cpe</name> =<init> <expr><call><name><name>attribute</name>.<name>getValues</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <while>while <condition>(<expr><call><name><name>cpe</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name><name>cpe</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>classpathAttribute</name>.<name>addValue</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></while>
+                }</block></then> <else>else <block>{
+                    <comment type="line">// the merge file always wins</comment>
+                    <expr_stmt><expr><call><name>storeAttribute</name><argument_list>(<argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></while>
+
+            <if>if <condition>(<expr><name>classpathAttribute</name> != <name>null</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>mergeClassPaths</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>Attribute</name></type> <name>currentCp</name> =<init> <expr><call><name>getAttribute</name><argument_list>(<argument><expr><name>ATTRIBUTE_CLASSPATH</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>currentCp</name> != <name>null</name></expr>)</condition><then> <block>{
+                        <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>attribEnum</name> =<init> <expr><call><name><name>currentCp</name>.<name>getValues</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init>
+                             <condition><expr><call><name><name>attribEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr/>) <block>{
+                            <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name><name>attribEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                            <expr_stmt><expr><call><name><name>classpathAttribute</name>.<name>addValue</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></for>
+                    }</block></then></if>
+                }</block></then></if>
+                <expr_stmt><expr><call><name>storeAttribute</name><argument_list>(<argument><expr><name>classpathAttribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <comment type="line">// add in the warnings</comment>
+            <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>warnEnum</name> =<init> <expr><call><name><name>section</name>.<name>warnings</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>warnEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <expr_stmt><expr><call><name><name>warnings</name>.<name>addElement</name></name><argument_list>(<argument><expr><call><name><name>warnEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Write the section out to a print writer without flattening
+         * multi-values attributes (i.e. Class-Path).
+         *
+         * @param writer the Writer to which the section is written
+         *
+         * @throws IOException if the section cannot be written
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>PrintWriter</name></type> <name>writer</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr><name>writer</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Write the section out to a print writer.
+         *
+         * @param writer the Writer to which the section is written
+         * @param flatten whether to collapse multi-valued attributes
+         *        (i.e. potentially Class-Path) Class-Path into a
+         *        single attribute.
+         *
+         * @throws IOException if the section cannot be written
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>PrintWriter</name></type> <name>writer</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>flatten</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><name>name</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>Attribute</name></type> <name>nameAttr</name> =<init> <expr>new <call><name>Attribute</name><argument_list>(<argument><expr><name>ATTRIBUTE_NAME</name></expr></argument>, <argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>nameAttr</name>.<name>write</name></name><argument_list>(<argument><expr><name>writer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name>getAttributeKeys</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Attribute</name></type> <name>attribute</name> =<init> <expr><call><name>getAttribute</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>attribute</name>.<name>write</name></name><argument_list>(<argument><expr><name>writer</name></expr></argument>, <argument><expr><name>flatten</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><call><name><name>writer</name>.<name>print</name></name><argument_list>(<argument><expr><name>EOL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get a attribute of the section
+         *
+         * @param attributeName the name of the attribute
+         * @return a Manifest.Attribute instance if the attribute is
+         *         single-valued, otherwise a Vector of Manifest.Attribute
+         *         instances.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>Attribute</name></type> <name>getAttribute</name><parameter_list>(<param><decl><type><name>String</name></type> <name>attributeName</name></decl></param>)</parameter_list> <block>{
+            <return>return <expr>(<name>Attribute</name>) <call><name><name>attributes</name>.<name>get</name></name><argument_list>(<argument><expr><call><name><name>attributeName</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the attribute keys.
+         *
+         * @return an Enumeration of Strings, each string being the lower case
+         *         key of an attribute of the section.
+         */</comment>
+        <function><type><specifier>public</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>getAttributeKeys</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>CollectionUtils</name>.<name>asEnumeration</name></name><argument_list>(<argument><expr><call><name><name>attributes</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the value of the attribute with the name given.
+         *
+         * @param attributeName the name of the attribute to be returned.
+         *
+         * @return the attribute's value or null if the attribute does not exist
+         *         in the section
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getAttributeValue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>attributeName</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>Attribute</name></type> <name>attribute</name> =<init> <expr><call><name>getAttribute</name><argument_list>(<argument><expr><call><name><name>attributeName</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>attribute</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></then></if>
+            <return>return <expr><call><name><name>attribute</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Remove the given attribute from the section
+         *
+         * @param attributeName the name of the attribute to be removed.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>removeAttribute</name><parameter_list>(<param><decl><type><name>String</name></type> <name>attributeName</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr><call><name><name>attributeName</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>attributes</name>.<name>remove</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Add an attribute to the section.
+         *
+         * @param attribute the attribute to be added to the section
+         *
+         * @exception ManifestException if the attribute is not valid.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredAttribute</name><parameter_list>(<param><decl><type><name>Attribute</name></type> <name>attribute</name></decl></param>)</parameter_list>
+             <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>check</name> =<init> <expr><call><name>addAttributeAndCheck</name><argument_list>(<argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>check</name> != <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Specify the section name using "
+                    + "the \"name\" attribute of the &lt;section&gt; element rather "
+                    + "than using a \"Name\" manifest attribute"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Add an attribute to the section
+         *
+         * @param attribute the attribute to be added.
+         *
+         * @return the value of the attribute if it is a name
+         *         attribute - null other wise
+         *
+         * @exception ManifestException if the attribute already
+         *            exists in this section.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>addAttributeAndCheck</name><parameter_list>(<param><decl><type><name>Attribute</name></type> <name>attribute</name></decl></param>)</parameter_list>
+             <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><call><name><name>attribute</name>.<name>getName</name></name><argument_list>()</argument_list></call> == <name>null</name> || <call><name><name>attribute</name>.<name>getValue</name></name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Attributes must have name and value"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>attributeKey</name> =<init> <expr><call><name><name>attribute</name>.<name>getKey</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>attributeKey</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ATTRIBUTE_NAME_LC</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>warnings</name>.<name>addElement</name></name><argument_list>(<argument><expr>"\"" + <name>ATTRIBUTE_NAME</name> + "\" attributes "
+                    + "should not occur in the main section and must be the "
+                    + "first element in all other sections: \""
+                    + <call><name><name>attribute</name>.<name>getName</name></name><argument_list>()</argument_list></call> + ": " + <call><name><name>attribute</name>.<name>getValue</name></name><argument_list>()</argument_list></call> + "\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><call><name><name>attribute</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr>;</return>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><call><name><name>attributeKey</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>ATTRIBUTE_FROM_LC</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>warnings</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>ERROR_FROM_FORBIDDEN</name>
+                    + <call><name><name>attribute</name>.<name>getName</name></name><argument_list>()</argument_list></call> + ": " + <call><name><name>attribute</name>.<name>getValue</name></name><argument_list>()</argument_list></call> + "\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">// classpath attributes go into a vector</comment>
+                <if>if <condition>(<expr><call><name><name>attributeKey</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ATTRIBUTE_CLASSPATH_LC</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>Attribute</name></type> <name>classpathAttribute</name> =<init>
+                        <expr>(<name>Attribute</name>) <call><name><name>attributes</name>.<name>get</name></name><argument_list>(<argument><expr><name>attributeKey</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <if>if <condition>(<expr><name>classpathAttribute</name> == <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>storeAttribute</name><argument_list>(<argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><call><name><name>warnings</name>.<name>addElement</name></name><argument_list>(<argument><expr>"Multiple Class-Path attributes "
+                            + "are supported but violate the Jar "
+                            + "specification and may not be correctly "
+                            + "processed in all environments"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>attribute</name>.<name>getValues</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                            <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                            <expr_stmt><expr><call><name><name>classpathAttribute</name>.<name>addValue</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></while>
+                    }</block></else></if>
+                }</block></then> <else>else <if>if <condition>(<expr><call><name><name>attributes</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>attributeKey</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>ManifestException</name><argument_list>(<argument><expr>"The attribute \""
+                        + <call><name><name>attribute</name>.<name>getName</name></name><argument_list>()</argument_list></call> + "\" may not occur more "
+                        + "than once in the same section"</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>storeAttribute</name><argument_list>(<argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if></else></if>
+            }</block></else></if>
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Clone this section
+         *
+         * @return the cloned Section
+         * @since Ant 1.5.2
+         */</comment>
+        <function><type><specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>Section</name></type> <name>cloned</name> =<init> <expr>new <call><name>Section</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>cloned</name>.<name>setName</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name>getAttributeKeys</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Attribute</name></type> <name>attribute</name> =<init> <expr><call><name>getAttribute</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>cloned</name>.<name>storeAttribute</name></name><argument_list>(<argument><expr>new <call><name>Attribute</name><argument_list>(<argument><expr><call><name><name>attribute</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                                    <argument><expr><call><name><name>attribute</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+            <return>return <expr><name>cloned</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Store an attribute and update the index.
+         *
+         * @param attribute the attribute to be stored
+         */</comment>
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>storeAttribute</name><parameter_list>(<param><decl><type><name>Attribute</name></type> <name>attribute</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>attribute</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return;</return>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>attributeKey</name> =<init> <expr><call><name><name>attribute</name>.<name>getKey</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>attributes</name>.<name>put</name></name><argument_list>(<argument><expr><name>attributeKey</name></expr></argument>, <argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the warnings for this section.
+         *
+         * @return an Enumeration of warning strings.
+         */</comment>
+        <function><type><specifier>public</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>getWarnings</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>warnings</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @see java.lang.Object#hashCode
+         * @return a hash value based on the attributes.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>hashCode</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>attributes</name>.<name>hashCode</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @see java.lang.Object#equals
+         * @param rhs the object to check for equality.
+         * @return true if the attributes are the same.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>rhs</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>rhs</name> == <name>null</name> || <call><name><name>rhs</name>.<name>getClass</name></name><argument_list>()</argument_list></call> != <call><name>getClass</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>rhs</name> == <name>this</name></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>Section</name></type> <name>rhsSection</name> =<init> <expr>(<name>Section</name>) <name>rhs</name></expr></init></decl>;</decl_stmt>
+
+            <return>return <expr><call><name><name>attributes</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>rhsSection</name>.<name>attributes</name></name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+
+    <comment type="javadoc">/** The version of this manifest */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>manifestVersion</name> =<init> <expr><name>DEFAULT_MANIFEST_VERSION</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The main section of this manifest */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Section</name></type> <name>mainSection</name> =<init> <expr>new <call><name>Section</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The named sections of this manifest */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Section</name></argument>&gt;</argument_list></name></type> <name>sections</name> =<init> <expr>new <call><name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Section</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Construct a manifest from Ant's default manifest file.
+     *
+     * @return the default manifest.
+     * @exception BuildException if there is a problem loading the
+     *            default manifest
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>Manifest</name></type> <name>getDefaultManifest</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>InputStream</name></type> <name>in</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>InputStreamReader</name></type> <name>insr</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>defManifest</name> =<init> <expr>"/org/apache/tools/ant/defaultManifest.mf"</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>in</name> = <name><name>Manifest</name>.<name><name/></name></name>class.<call><name>getResourceAsStream</name><argument_list>(<argument><expr><name>defManifest</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>in</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Could not find default manifest: "
+                    + <name>defManifest</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <try>try <block>{
+                <expr_stmt><expr><name>insr</name> = new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>in</name></expr></argument>, <argument><expr>"UTF-8"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>Manifest</name></type> <name>defaultManifest</name> =<init> <expr>new <call><name>Manifest</name><argument_list>(<argument><expr><name>insr</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>version</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.runtime.version"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>version</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>version</name> = <call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.vm.version"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>Attribute</name></type> <name>createdBy</name> =<init> <expr>new <call><name>Attribute</name><argument_list>(<argument><expr>"Created-By"</expr></argument>,
+                    <argument><expr><name>version</name> + " ("
+                    + <call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.vm.vendor"</expr></argument>)</argument_list></call> + ")"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>defaultManifest</name>.<name>getMainSection</name></name><argument_list>()</argument_list></call>.<call><name>storeAttribute</name><argument_list>(<argument><expr><name>createdBy</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><name>defaultManifest</name></expr>;</return>
+            }</block> <catch>catch (<param><decl><type><name>UnsupportedEncodingException</name></type> <name>e</name></decl></param>) <block>{
+                <expr_stmt><expr><name>insr</name> = new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>new <call><name>Manifest</name><argument_list>(<argument><expr><name>insr</name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></catch></try>
+        }</block> <catch>catch (<param><decl><type><name>ManifestException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Default manifest is invalid !!"</expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Unable to read default manifest"</expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>insr</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/** Construct an empty manifest */</comment>
+    <constructor><specifier>public</specifier> <name>Manifest</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>manifestVersion</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Read a manifest file from the given reader
+     *
+     * @param r is the reader from which the Manifest is read
+     *
+     * @throws ManifestException if the manifest is not valid according
+     *         to the JAR spec
+     * @throws IOException if the manifest cannot be read from the reader.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Manifest</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>r</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>ManifestException</name></expr></argument>, <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>BufferedReader</name></type> <name>reader</name> =<init> <expr>new <call><name>BufferedReader</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// This should be the manifest version</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>nextSectionName</name> =<init> <expr><call><name><name>mainSection</name>.<name>read</name></name><argument_list>(<argument><expr><name>reader</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>readManifestVersion</name>
+            =<init> <expr><call><name><name>mainSection</name>.<name>getAttributeValue</name></name><argument_list>(<argument><expr><name>ATTRIBUTE_MANIFEST_VERSION</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>readManifestVersion</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>manifestVersion</name> = <name>readManifestVersion</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>mainSection</name>.<name>removeAttribute</name></name><argument_list>(<argument><expr><name>ATTRIBUTE_MANIFEST_VERSION</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr>(<name>line</name> = <call><name><name>reader</name>.<name>readLine</name></name><argument_list>()</argument_list></call>) != <name>null</name></expr>)</condition> <block>{
+            <if>if <condition>(<expr><call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>Section</name></type> <name>section</name> =<init> <expr>new <call><name>Section</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>nextSectionName</name> == <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>Attribute</name></type> <name>sectionName</name> =<init> <expr>new <call><name>Attribute</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr>!<call><name><name>sectionName</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>equalsIgnoreCase</name><argument_list>(<argument><expr><name>ATTRIBUTE_NAME</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>ManifestException</name><argument_list>(<argument><expr>"Manifest sections should "
+                        + "start with a \"" + <name>ATTRIBUTE_NAME</name>
+                        + "\" attribute and not \""
+                        + <call><name><name>sectionName</name>.<name>getName</name></name><argument_list>()</argument_list></call> + "\""</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><name>nextSectionName</name> = <call><name><name>sectionName</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">// we have already started reading this section</comment>
+                <comment type="line">// this line is the first attribute. set it and then</comment>
+                <comment type="line">// let the normal read handle the rest</comment>
+                <decl_stmt><decl><type><name>Attribute</name></type> <name>firstAttribute</name> =<init> <expr>new <call><name>Attribute</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>section</name>.<name>addAttributeAndCheck</name></name><argument_list>(<argument><expr><name>firstAttribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <expr_stmt><expr><call><name><name>section</name>.<name>setName</name></name><argument_list>(<argument><expr><name>nextSectionName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>nextSectionName</name> = <call><name><name>section</name>.<name>read</name></name><argument_list>(<argument><expr><name>reader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addConfiguredSection</name><argument_list>(<argument><expr><name>section</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Add a section to the manifest
+     *
+     * @param section the manifest section to be added
+     *
+     * @exception ManifestException if the secti0on is not valid.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredSection</name><parameter_list>(<param><decl><type><name>Section</name></type> <name>section</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>sectionName</name> =<init> <expr><call><name><name>section</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>sectionName</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Sections must have a name"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>sections</name>.<name>put</name></name><argument_list>(<argument><expr><name>sectionName</name></expr></argument>, <argument><expr><name>section</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add an attribute to the manifest - it is added to the main section.
+     *
+     * @param attribute the attribute to be added.
+     *
+     * @exception ManifestException if the attribute is not valid.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredAttribute</name><parameter_list>(<param><decl><type><name>Attribute</name></type> <name>attribute</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name><name>attribute</name>.<name>getKey</name></name><argument_list>()</argument_list></call> == <name>null</name> || <call><name><name>attribute</name>.<name>getValue</name></name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Attributes must have name and value"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>attribute</name>.<name>getKey</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name>ATTRIBUTE_MANIFEST_VERSION_LC</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>manifestVersion</name> = <call><name><name>attribute</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>mainSection</name>.<name>addConfiguredAttribute</name></name><argument_list>(<argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Merge the contents of the given manifest into this manifest
+     * without merging Class-Path attributes.
+     *
+     * @param other the Manifest to be merged with this one.
+     *
+     * @throws ManifestException if there is a problem merging the
+     *         manifest according to the Manifest spec.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>merge</name><parameter_list>(<param><decl><type><name>Manifest</name></type> <name>other</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>merge</name><argument_list>(<argument><expr><name>other</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Merge the contents of the given manifest into this manifest
+     * without merging Class-Path attributes.
+     *
+     * @param other the Manifest to be merged with this one.
+     * @param overwriteMain whether to overwrite the main section
+     *        of the current manifest
+     *
+     * @throws ManifestException if there is a problem merging the
+     *         manifest according to the Manifest spec.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>merge</name><parameter_list>(<param><decl><type><name>Manifest</name></type> <name>other</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>overwriteMain</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>merge</name><argument_list>(<argument><expr><name>other</name></expr></argument>, <argument><expr><name>overwriteMain</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Merge the contents of the given manifest into this manifest
+     *
+     * @param other the Manifest to be merged with this one.
+     * @param overwriteMain whether to overwrite the main section
+     *        of the current manifest
+     * @param mergeClassPaths whether Class-Path attributes should be
+     *        merged.
+     *
+     * @throws ManifestException if there is a problem merging the
+     *         manifest according to the Manifest spec.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>merge</name><parameter_list>(<param><decl><type><name>Manifest</name></type> <name>other</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>overwriteMain</name></decl></param>,
+                      <param><decl><type><name>boolean</name></type> <name>mergeClassPaths</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>other</name> != <name>null</name></expr>)</condition><then> <block>{
+             <if>if <condition>(<expr><name>overwriteMain</name></expr>)</condition><then> <block>{
+                 <expr_stmt><expr><name>mainSection</name> = (<name>Section</name>) <call><name><name>other</name>.<name>mainSection</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+             }</block></then> <else>else <block>{
+                 <expr_stmt><expr><call><name><name>mainSection</name>.<name>merge</name></name><argument_list>(<argument><expr><name><name>other</name>.<name>mainSection</name></name></expr></argument>, <argument><expr><name>mergeClassPaths</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+             }</block></else></if>
+
+             <if>if <condition>(<expr><name><name>other</name>.<name>manifestVersion</name></name> != <name>null</name></expr>)</condition><then> <block>{
+                 <expr_stmt><expr><name>manifestVersion</name> = <name><name>other</name>.<name>manifestVersion</name></name></expr>;</expr_stmt>
+             }</block></then></if>
+
+             <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>other</name>.<name>getSectionNames</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+             <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                 <decl_stmt><decl><type><name>String</name></type> <name>sectionName</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                 <decl_stmt><decl><type><name>Section</name></type> <name>ourSection</name> =<init> <expr><call><name><name>sections</name>.<name>get</name></name><argument_list>(<argument><expr><name>sectionName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                 <decl_stmt><decl><type><name>Section</name></type> <name>otherSection</name>
+                    =<init> <expr><call><name><name>other</name>.<name>sections</name>.<name>get</name></name><argument_list>(<argument><expr><name>sectionName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                 <if>if <condition>(<expr><name>ourSection</name> == <name>null</name></expr>)</condition><then> <block>{
+                     <if>if <condition>(<expr><name>otherSection</name> != <name>null</name></expr>)</condition><then> <block>{
+                         <expr_stmt><expr><call><name>addConfiguredSection</name><argument_list>(<argument><expr>(<name>Section</name>) <call><name><name>otherSection</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                     }</block></then></if>
+                 }</block></then> <else>else <block>{
+                     <expr_stmt><expr><call><name><name>ourSection</name>.<name>merge</name></name><argument_list>(<argument><expr><name>otherSection</name></expr></argument>, <argument><expr><name>mergeClassPaths</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                 }</block></else></if>
+             }</block></while>
+         }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Write the manifest out to a print writer without flattening
+     * multi-values attributes (i.e. Class-Path).
+     *
+     * @param writer the Writer to which the manifest is written
+     *
+     * @throws IOException if the manifest cannot be written
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>PrintWriter</name></type> <name>writer</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr><name>writer</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+    * Write the manifest out to a print writer.
+    *
+    * @param writer the Writer to which the manifest is written
+    * @param flatten whether to collapse multi-valued attributes
+    *        (i.e. potentially Class-Path) Class-Path into a single
+    *        attribute.
+    *
+    * @throws IOException if the manifest cannot be written
+    * @since Ant 1.8.0
+    */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>PrintWriter</name></type> <name>writer</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>flatten</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>writer</name>.<name>print</name></name><argument_list>(<argument><expr><name>ATTRIBUTE_MANIFEST_VERSION</name> + ": " + <name>manifestVersion</name> + <name>EOL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>signatureVersion</name>
+            =<init> <expr><call><name><name>mainSection</name>.<name>getAttributeValue</name></name><argument_list>(<argument><expr><name>ATTRIBUTE_SIGNATURE_VERSION</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>signatureVersion</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>writer</name>.<name>print</name></name><argument_list>(<argument><expr><name>ATTRIBUTE_SIGNATURE_VERSION</name> + ": "
+                + <name>signatureVersion</name> + <name>EOL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>mainSection</name>.<name>removeAttribute</name></name><argument_list>(<argument><expr><name>ATTRIBUTE_SIGNATURE_VERSION</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>mainSection</name>.<name>write</name></name><argument_list>(<argument><expr><name>writer</name></expr></argument>, <argument><expr><name>flatten</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// add it back</comment>
+        <if>if <condition>(<expr><name>signatureVersion</name> != <name>null</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <decl_stmt><decl><type><name>Attribute</name></type> <name>svAttr</name> =<init> <expr>new <call><name>Attribute</name><argument_list>(<argument><expr><name>ATTRIBUTE_SIGNATURE_VERSION</name></expr></argument>,
+                    <argument><expr><name>signatureVersion</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>mainSection</name>.<name>addConfiguredAttribute</name></name><argument_list>(<argument><expr><name>svAttr</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>ManifestException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">// shouldn't happen - ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+
+        <for>for (<init><decl><type><name>String</name></type> <name>sectionName</name> :<range> <expr><call><name><name>sections</name>.<name>keySet</name></name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+            <decl_stmt><decl><type><name>Section</name></type> <name>section</name> =<init> <expr><call><name>getSection</name><argument_list>(<argument><expr><name>sectionName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>section</name>.<name>write</name></name><argument_list>(<argument><expr><name>writer</name></expr></argument>, <argument><expr><name>flatten</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convert the manifest to its string representation
+     *
+     * @return a multiline string with the Manifest as it
+     *         appears in a Manifest file.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>StringWriter</name></type> <name>sw</name> =<init> <expr>new <call><name>StringWriter</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr>new <call><name>PrintWriter</name><argument_list>(<argument><expr><name>sw</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></catch></try>
+        <return>return <expr><call><name><name>sw</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the warnings for this manifest.
+     *
+     * @return an enumeration of warning strings
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>getWarnings</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>warnings</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>warnEnum</name> =<init> <expr><call><name><name>mainSection</name>.<name>getWarnings</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>warnEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <expr_stmt><expr><call><name><name>warnings</name>.<name>addElement</name></name><argument_list>(<argument><expr><call><name><name>warnEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+
+        <comment type="line">// create a vector and add in the warnings for all the sections</comment>
+        <for>for (<init><decl><type><name>Section</name></type> <name>section</name> :<range> <expr><call><name><name>sections</name>.<name>values</name></name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+            <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e2</name> =<init> <expr><call><name><name>section</name>.<name>getWarnings</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>e2</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <expr_stmt><expr><call><name><name>warnings</name>.<name>addElement</name></name><argument_list>(<argument><expr><call><name><name>e2</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></for>
+
+        <return>return <expr><call><name><name>warnings</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @see java.lang.Object#hashCode
+     * @return a hashcode based on the version, main and sections.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>hashCode</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>hashCode</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>manifestVersion</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>hashCode</name> += <call><name><name>manifestVersion</name>.<name>hashCode</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><name>hashCode</name> += <call><name><name>mainSection</name>.<name>hashCode</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>hashCode</name> += <call><name><name>sections</name>.<name>hashCode</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <return>return <expr><name>hashCode</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @see java.lang.Object#equals
+     * @param rhs the object to check for equality.
+     * @return true if the version, main and sections are the same.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>rhs</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>rhs</name> == <name>null</name> || <call><name><name>rhs</name>.<name>getClass</name></name><argument_list>()</argument_list></call> != <call><name>getClass</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>rhs</name> == <name>this</name></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>Manifest</name></type> <name>rhsManifest</name> =<init> <expr>(<name>Manifest</name>) <name>rhs</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>manifestVersion</name> == <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name><name>rhsManifest</name>.<name>manifestVersion</name></name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+        }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>manifestVersion</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>rhsManifest</name>.<name>manifestVersion</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if></else></if>
+
+        <if>if <condition>(<expr>!<call><name><name>mainSection</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>rhsManifest</name>.<name>mainSection</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+
+        <return>return <expr><call><name><name>sections</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>rhsManifest</name>.<name>sections</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the version of the manifest
+     *
+     * @return the manifest's version string
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getManifestVersion</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>manifestVersion</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the main section of the manifest
+     *
+     * @return the main section of the manifest
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Section</name></type> <name>getMainSection</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>mainSection</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get a particular section from the manifest
+     *
+     * @param name the name of the section desired.
+     * @return the specified section or null if that section
+     * does not exist in the manifest
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Section</name></type> <name>getSection</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>(<name>Section</name>) <call><name><name>sections</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the section names in this manifest.
+     *
+     * @return an Enumeration of section names
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>getSectionNames</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>CollectionUtils</name>.<name>asEnumeration</name></name><argument_list>(<argument><expr><call><name><name>sections</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

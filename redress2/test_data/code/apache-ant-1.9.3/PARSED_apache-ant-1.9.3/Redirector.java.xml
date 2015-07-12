@@ -1,0 +1,1004 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Redirector.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Reader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>StringReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStreamReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PipedOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>ByteArrayInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>ByteArrayOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Arrays</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>ProjectComponent</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>filters</name>.<name>util</name>.<name>ChainReaderHelper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FilterChain</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>LineOrientedOutputStreamRedirector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>TeeOutputStream</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>ReaderInputStream</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>LeadPipeInputStream</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>LazyFileOutputStream</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>OutputStreamFunneler</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>ConcatFileInputStream</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>KeepAliveOutputStream</name></name>;</import>
+
+<comment type="javadoc">/**
+ * The Redirector class manages the setup and connection of input and output
+ * redirection for an Ant project component.
+ *
+ * @since Ant 1.6
+ */</comment>
+<class><specifier>public</specifier> class <name>Redirector</name> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>STREAMPUMPER_WAIT_INTERVAL</name> =<init> <expr>1000</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_ENCODING</name> =<init> <expr><call><name><name>System</name>
+            .<name>getProperty</name></name><argument_list>(<argument><expr>"file.encoding"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <class><specifier>private</specifier> class <name>PropertyOutputStream</name> <super><extends>extends <name>ByteArrayOutputStream</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>property</name></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>closed</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+        <constructor><name>PropertyOutputStream</name><parameter_list>(<param><decl><type><name>String</name></type> <name>property</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>property</name></name> = <name>property</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>close</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+                <if>if <condition>(<expr>!<name>closed</name> &amp;&amp; !(<name>appendOut</name> &amp;&amp; <name>appendProperties</name>)</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>setPropertyFromBAOS</name><argument_list>(<argument><expr><name>this</name></expr></argument>, <argument><expr><name>property</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>closed</name> = true</expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></synchronized>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * The file(s) from which standard input is being taken. If &amp;gt; 1, files'
+     * content will be concatenated in the order received.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name><index>[]</index></type> <name>input</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The file(s) receiving standard output. Will also receive standard error
+     * unless standard error is redirected or logError is true.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name><index>[]</index></type> <name>out</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The file(s) to which standard error is being redirected
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name><index>[]</index></type> <name>error</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Indicates if standard error should be logged to Ant's log system rather
+     * than the output. This has no effect if standard error is redirected to a
+     * file or property.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>logError</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Buffer used to capture output for storage into a property
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>PropertyOutputStream</name></type> <name>baos</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Buffer used to capture error output for storage into a property
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>PropertyOutputStream</name></type> <name>errorBaos</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The name of the property into which output is to be stored */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>outputProperty</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The name of the property into which error output is to be stored */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>errorProperty</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** String from which input is taken */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>inputString</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Flag which indicates if error and output files are to be appended. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>appendOut</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>appendErr</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Flag which indicates that output should be always sent to the log */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>alwaysLogOut</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>alwaysLogErr</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Flag which indicates whether files should be created even when empty. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>createEmptyFilesOut</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>createEmptyFilesErr</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The task for which this redirector is working */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ProjectComponent</name></type> <name>managingTask</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The stream for output data */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>OutputStream</name></type> <name>outputStream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The stream for error output */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>OutputStream</name></type> <name>errorStream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The stream for input */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>InputStream</name></type> <name>inputStream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Stream which is used for line oriented output */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>PrintStream</name></type> <name>outPrintStream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Stream which is used for line oriented error output */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>PrintStream</name></type> <name>errorPrintStream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The output filter chains */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>FilterChain</name></argument>&gt;</argument_list></name></type> <name>outputFilterChains</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The error filter chains */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>FilterChain</name></argument>&gt;</argument_list></name></type> <name>errorFilterChains</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The input filter chains */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>FilterChain</name></argument>&gt;</argument_list></name></type> <name>inputFilterChains</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The output encoding */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>outputEncoding</name> =<init> <expr><name>DEFAULT_ENCODING</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The error encoding */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>errorEncoding</name> =<init> <expr><name>DEFAULT_ENCODING</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The input encoding */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>inputEncoding</name> =<init> <expr><name>DEFAULT_ENCODING</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Whether to complete properties settings **/</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>appendProperties</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The thread group used for starting &lt;code&gt;StreamPumper&lt;/code&gt; threads */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>ThreadGroup</name></type> <name>threadGroup</name> =<init> <expr>new <call><name>ThreadGroup</name><argument_list>(<argument><expr>"redirector"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** whether to log the inputstring */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>logInputString</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Mutex for in */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>inMutex</name> =<init> <expr>new <call><name>Object</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Mutex for out */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>outMutex</name> =<init> <expr>new <call><name>Object</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Mutex for err */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>errMutex</name> =<init> <expr>new <call><name>Object</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Create a redirector instance for the given task
+     *
+     * @param managingTask
+     *            the task for which the redirector is to work
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Redirector</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>managingTask</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr>(<name>ProjectComponent</name>) <name>managingTask</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Create a redirector instance for the given task
+     *
+     * @param managingTask
+     *            the project component for which the redirector is to work
+     * @since Ant 1.6.3
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Redirector</name><parameter_list>(<param><decl><type><name>ProjectComponent</name></type> <name>managingTask</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>managingTask</name></name> = <name>managingTask</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Set the input to use for the task
+     *
+     * @param input
+     *            the file from which input is read.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInput</name><parameter_list>(<param><decl><type><name>File</name></type> <name>input</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setInput</name><argument_list>(<argument><expr>(<name>input</name> == <name>null</name>) ? <name>null</name> : new <name><name>File</name><index>[]</index></name> <block>{ <expr><name>input</name></expr> }</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the input to use for the task
+     *
+     * @param input
+     *            the files from which input is read.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInput</name><parameter_list>(<param><decl><type><name><name>File</name><index>[]</index></name></type> <name>input</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>inMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>input</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>input</name></name> = <name>null</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>input</name></name> = (<name><name>File</name><index>[]</index></name>) <call><name><name>input</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the string to use as input
+     *
+     * @param inputString
+     *            the string which is used as the input source
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInputString</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inputString</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>inMutex</name></expr>) <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>inputString</name></name> = <name>inputString</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether to include the value of the input string in log messages.
+     * Defaults to true.
+     *
+     * @param logInputString
+     *            true or false.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLogInputString</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>logInputString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>logInputString</name></name> = <name>logInputString</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set a stream to use as input.
+     *
+     * @param inputStream
+     *            the stream from which input will be read
+     * @since Ant 1.6.3
+     */</comment>
+    <comment type="block">/* public */</comment><function><type><name>void</name></type> <name>setInputStream</name><parameter_list>(<param><decl><type><name>InputStream</name></type> <name>inputStream</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>inMutex</name></expr>) <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>inputStream</name></name> = <name>inputStream</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * File the output of the process is redirected to. If error is not
+     * redirected, it too will appear in the output
+     *
+     * @param out
+     *            the file to which output stream is written
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutput</name><parameter_list>(<param><decl><type><name>File</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setOutput</name><argument_list>(<argument><expr>(<name>out</name> == <name>null</name>) ? <name>null</name> : new <name><name>File</name><index>[]</index></name> <block>{ <expr><name>out</name></expr> }</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Files the output of the process is redirected to. If error is not
+     * redirected, it too will appear in the output
+     *
+     * @param out
+     *            the files to which output stream is written
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutput</name><parameter_list>(<param><decl><type><name><name>File</name><index>[]</index></name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>out</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>out</name></name> = <name>null</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>out</name></name> = (<name><name>File</name><index>[]</index></name>) <call><name><name>out</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the output encoding.
+     *
+     * @param outputEncoding
+     *            &lt;code&gt;String&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutputEncoding</name><parameter_list>(<param><decl><type><name>String</name></type> <name>outputEncoding</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>outputEncoding</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(
+                    <argument><expr>"outputEncoding must not be null"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>outputEncoding</name></name> = <name>outputEncoding</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the error encoding.
+     *
+     * @param errorEncoding
+     *            &lt;code&gt;String&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setErrorEncoding</name><parameter_list>(<param><decl><type><name>String</name></type> <name>errorEncoding</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>errorEncoding</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"errorEncoding must not be null"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>errorEncoding</name></name> = <name>errorEncoding</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the input encoding.
+     *
+     * @param inputEncoding
+     *            &lt;code&gt;String&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInputEncoding</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inputEncoding</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>inputEncoding</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"inputEncoding must not be null"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <synchronized>synchronized (<expr><name>inMutex</name></expr>) <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>inputEncoding</name></name> = <name>inputEncoding</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Controls whether error output of exec is logged. This is only useful when
+     * output is being redirected and error output is desired in the Ant log
+     *
+     * @param logError
+     *            if true the standard error is sent to the Ant log system and
+     *            not sent to output.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLogError</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>logError</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>logError</name></name> = <name>logError</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This &lt;code&gt;Redirector&lt;/code&gt;'s subordinate
+     * &lt;code&gt;PropertyOutputStream&lt;/code&gt;s will not set their respective
+     * properties &lt;code&gt;while (appendProperties &amp;&amp; append)&lt;/code&gt;.
+     *
+     * @param appendProperties
+     *            whether to append properties.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAppendProperties</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>appendProperties</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>appendProperties</name></name> = <name>appendProperties</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the file to which standard error is to be redirected.
+     *
+     * @param error
+     *            the file to which error is to be written
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setError</name><parameter_list>(<param><decl><type><name>File</name></type> <name>error</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setError</name><argument_list>(<argument><expr>(<name>error</name> == <name>null</name>) ? <name>null</name> : new <name><name>File</name><index>[]</index></name> <block>{ <expr><name>error</name></expr> }</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the files to which standard error is to be redirected.
+     *
+     * @param error
+     *            the file to which error is to be written
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setError</name><parameter_list>(<param><decl><type><name><name>File</name><index>[]</index></name></type> <name>error</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>error</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>error</name></name> = <name>null</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>error</name></name> = (<name><name>File</name><index>[]</index></name>) <call><name><name>error</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Property name whose value should be set to the output of the process.
+     *
+     * @param outputProperty
+     *            the name of the property to be set with the task's output.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutputProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>outputProperty</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>outputProperty</name> == <name>null</name>
+                || !(<call><name><name>outputProperty</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>this</name>.<name>outputProperty</name></name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+            <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>outputProperty</name></name> = <name>outputProperty</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>baos</name> = <name>null</name></expr>;</expr_stmt>
+            }</block></synchronized>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether output should be appended to or overwrite an existing file.
+     * Defaults to false.
+     *
+     * @param append
+     *            if true output and error streams are appended to their
+     *            respective files, if specified.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAppend</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>append</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <expr_stmt><expr><name>appendOut</name> = <name>append</name></expr>;</expr_stmt>
+        }</block></synchronized>
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <expr_stmt><expr><name>appendErr</name> = <name>append</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, (error and non-error) output will be "teed", redirected as
+     * specified while being sent to Ant's logging mechanism as if no
+     * redirection had taken place. Defaults to false.
+     *
+     * @param alwaysLog
+     *            &lt;code&gt;boolean&lt;/code&gt;
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAlwaysLog</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>alwaysLog</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <expr_stmt><expr><name>alwaysLogOut</name> = <name>alwaysLog</name></expr>;</expr_stmt>
+        }</block></synchronized>
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <expr_stmt><expr><name>alwaysLogErr</name> = <name>alwaysLog</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether output and error files should be created even when empty.
+     * Defaults to true.
+     *
+     * @param createEmptyFiles
+     *            &lt;code&gt;boolean&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCreateEmptyFiles</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>createEmptyFiles</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <expr_stmt><expr><name>createEmptyFilesOut</name> = <name>createEmptyFiles</name></expr>;</expr_stmt>
+        }</block></synchronized>
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <expr_stmt><expr><name>createEmptyFilesErr</name> = <name>createEmptyFiles</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Property name whose value should be set to the error of the process.
+     *
+     * @param errorProperty
+     *            the name of the property to be set with the error output.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setErrorProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>errorProperty</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>errorProperty</name> == <name>null</name>
+                    || !(<call><name><name>errorProperty</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>this</name>.<name>errorProperty</name></name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>errorProperty</name></name> = <name>errorProperty</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>errorBaos</name> = <name>null</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the input &lt;code&gt;FilterChain&lt;/code&gt;s.
+     *
+     * @param inputFilterChains
+     *            &lt;code&gt;Vector&lt;/code&gt; containing &lt;code&gt;FilterChain&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInputFilterChains</name><parameter_list>(<param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>FilterChain</name></argument>&gt;</argument_list></name></type> <name>inputFilterChains</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>inMutex</name></expr>) <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>inputFilterChains</name></name> = <name>inputFilterChains</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the output &lt;code&gt;FilterChain&lt;/code&gt;s.
+     *
+     * @param outputFilterChains
+     *            &lt;code&gt;Vector&lt;/code&gt; containing &lt;code&gt;FilterChain&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutputFilterChains</name><parameter_list>(<param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>FilterChain</name></argument>&gt;</argument_list></name></type> <name>outputFilterChains</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>outputFilterChains</name></name> = <name>outputFilterChains</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the error &lt;code&gt;FilterChain&lt;/code&gt;s.
+     *
+     * @param errorFilterChains
+     *            &lt;code&gt;Vector&lt;/code&gt; containing &lt;code&gt;FilterChain&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setErrorFilterChains</name><parameter_list>(<param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>FilterChain</name></argument>&gt;</argument_list></name></type> <name>errorFilterChains</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>errorFilterChains</name></name> = <name>errorFilterChains</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set a property from a ByteArrayOutputStream
+     *
+     * @param baos
+     *            contains the property value.
+     * @param propertyName
+     *            the property name.
+     *
+     * @exception IOException
+     *                if the value cannot be read form the stream.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setPropertyFromBAOS</name><parameter_list>(<param><decl><type><name>ByteArrayOutputStream</name></type> <name>baos</name></decl></param>,
+            <param><decl><type><name>String</name></type> <name>propertyName</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+
+        <decl_stmt><decl><type><name>BufferedReader</name></type> <name>in</name> =<init> <expr>new <call><name>BufferedReader</name><argument_list>(<argument><expr>new <call><name>StringReader</name><argument_list>(<argument><expr><call><name><name>Execute</name>
+                .<name>toString</name></name><argument_list>(<argument><expr><name>baos</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>val</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr>(<name>line</name> = <call><name><name>in</name>.<name>readLine</name></name><argument_list>()</argument_list></call>) != <name>null</name></expr>)</condition> <block>{
+            <if>if <condition>(<expr><call><name><name>val</name>.<name>length</name></name><argument_list>()</argument_list></call> != 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>val</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>val</name>.<name>append</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <expr_stmt><expr><call><name><name>managingTask</name>.<name>getProject</name></name><argument_list>()</argument_list></call>.<call><name>setNewProperty</name><argument_list>(<argument><expr><name>propertyName</name></expr></argument>, <argument><expr><call><name><name>val</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create the input, error and output streams based on the configuration
+     * options.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>createStreams</name><parameter_list>()</parameter_list> <block>{
+
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <expr_stmt><expr><call><name>outStreams</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>alwaysLogOut</name> || <name>outputStream</name> == <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>OutputStream</name></type> <name>outputLog</name> =<init> <expr>new <call><name>LogOutputStream</name><argument_list>(<argument><expr><name>managingTask</name></expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>outputStream</name> = (<name>outputStream</name> == <name>null</name>) ? <name>outputLog</name>
+                        : new <call><name>TeeOutputStream</name><argument_list>(<argument><expr><name>outputLog</name></expr></argument>, <argument><expr><name>outputStream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <if>if <condition>(<expr>(<name>outputFilterChains</name> != <name>null</name> &amp;&amp; <call><name><name>outputFilterChains</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0)
+                    || !(<call><name><name>outputEncoding</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>inputEncoding</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <decl_stmt><decl><type><name>LeadPipeInputStream</name></type> <name>snk</name> =<init> <expr>new <call><name>LeadPipeInputStream</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>snk</name>.<name>setManagingComponent</name></name><argument_list>(<argument><expr><name>managingTask</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                    <decl_stmt><decl><type><name>InputStream</name></type> <name>outPumpIn</name> =<init> <expr><name>snk</name></expr></init></decl>;</decl_stmt>
+
+                    <decl_stmt><decl><type><name>Reader</name></type> <name>reader</name> =<init> <expr>new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>outPumpIn</name></expr></argument>,
+                            <argument><expr><name>inputEncoding</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <if>if <condition>(<expr><name>outputFilterChains</name> != <name>null</name>
+                            &amp;&amp; <call><name><name>outputFilterChains</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>ChainReaderHelper</name></type> <name>helper</name> =<init> <expr>new <call><name>ChainReaderHelper</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>helper</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name><name>managingTask</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>helper</name>.<name>setPrimaryReader</name></name><argument_list>(<argument><expr><name>reader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>helper</name>.<name>setFilterChains</name></name><argument_list>(<argument><expr><name>outputFilterChains</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>reader</name> = <call><name><name>helper</name>.<name>getAssembledReader</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <expr_stmt><expr><name>outPumpIn</name> = new <call><name>ReaderInputStream</name><argument_list>(<argument><expr><name>reader</name></expr></argument>, <argument><expr><name>outputEncoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                    <decl_stmt><decl><type><name>Thread</name></type> <name>t</name> =<init> <expr>new <call><name>Thread</name><argument_list>(<argument><expr><name>threadGroup</name></expr></argument>, <argument><expr>new <call><name>StreamPumper</name><argument_list>(
+                            <argument><expr><name>outPumpIn</name></expr></argument>, <argument><expr><name>outputStream</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr></argument>, <argument><expr>"output pumper"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>t</name>.<name>setPriority</name></name><argument_list>(<argument><expr><name><name>Thread</name>.<name>MAX_PRIORITY</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>outputStream</name> = new <call><name>PipedOutputStream</name><argument_list>(<argument><expr><name>snk</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>t</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>eyeOhEx</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"error setting up output stream"</expr></argument>,
+                            <argument><expr><name>eyeOhEx</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></synchronized>
+
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <expr_stmt><expr><call><name>errorStreams</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>alwaysLogErr</name> || <name>errorStream</name> == <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>OutputStream</name></type> <name>errorLog</name> =<init> <expr>new <call><name>LogOutputStream</name><argument_list>(<argument><expr><name>managingTask</name></expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>errorStream</name> = (<name>errorStream</name> == <name>null</name>) ? <name>errorLog</name>
+                        : new <call><name>TeeOutputStream</name><argument_list>(<argument><expr><name>errorLog</name></expr></argument>, <argument><expr><name>errorStream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <if>if <condition>(<expr>(<name>errorFilterChains</name> != <name>null</name> &amp;&amp; <call><name><name>errorFilterChains</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0)
+                    || !(<call><name><name>errorEncoding</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>inputEncoding</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <decl_stmt><decl><type><name>LeadPipeInputStream</name></type> <name>snk</name> =<init> <expr>new <call><name>LeadPipeInputStream</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>snk</name>.<name>setManagingComponent</name></name><argument_list>(<argument><expr><name>managingTask</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                    <decl_stmt><decl><type><name>InputStream</name></type> <name>errPumpIn</name> =<init> <expr><name>snk</name></expr></init></decl>;</decl_stmt>
+
+                    <decl_stmt><decl><type><name>Reader</name></type> <name>reader</name> =<init> <expr>new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>errPumpIn</name></expr></argument>,
+                            <argument><expr><name>inputEncoding</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <if>if <condition>(<expr><name>errorFilterChains</name> != <name>null</name>
+                            &amp;&amp; <call><name><name>errorFilterChains</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>ChainReaderHelper</name></type> <name>helper</name> =<init> <expr>new <call><name>ChainReaderHelper</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>helper</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name><name>managingTask</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>helper</name>.<name>setPrimaryReader</name></name><argument_list>(<argument><expr><name>reader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>helper</name>.<name>setFilterChains</name></name><argument_list>(<argument><expr><name>errorFilterChains</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>reader</name> = <call><name><name>helper</name>.<name>getAssembledReader</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <expr_stmt><expr><name>errPumpIn</name> = new <call><name>ReaderInputStream</name><argument_list>(<argument><expr><name>reader</name></expr></argument>, <argument><expr><name>errorEncoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                    <decl_stmt><decl><type><name>Thread</name></type> <name>t</name> =<init> <expr>new <call><name>Thread</name><argument_list>(<argument><expr><name>threadGroup</name></expr></argument>, <argument><expr>new <call><name>StreamPumper</name><argument_list>(
+                            <argument><expr><name>errPumpIn</name></expr></argument>, <argument><expr><name>errorStream</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr></argument>, <argument><expr>"error pumper"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>t</name>.<name>setPriority</name></name><argument_list>(<argument><expr><name><name>Thread</name>.<name>MAX_PRIORITY</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>errorStream</name> = new <call><name>PipedOutputStream</name><argument_list>(<argument><expr><name>snk</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>t</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>eyeOhEx</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"error setting up error stream"</expr></argument>,
+                            <argument><expr><name>eyeOhEx</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></synchronized>
+
+        <synchronized>synchronized (<expr><name>inMutex</name></expr>) <block>{
+            <comment type="line">// if input files are specified, inputString and inputStream are</comment>
+            <comment type="line">// ignored;</comment>
+            <comment type="line">// classes that work with redirector attributes can enforce</comment>
+            <comment type="line">// whatever warnings are needed</comment>
+            <if>if <condition>(<expr><name>input</name> != <name>null</name> &amp;&amp; <name><name>input</name>.<name>length</name></name> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>managingTask</name>
+                        .<name>log</name></name><argument_list>(<argument><expr>"Redirecting input from file"
+                                + ((<name><name>input</name>.<name>length</name></name> == 1) ? "" : "s")</expr></argument>,
+                                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <try>try <block>{
+                    <expr_stmt><expr><name>inputStream</name> = new <call><name>ConcatFileInputStream</name><argument_list>(<argument><expr><name>input</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>eyeOhEx</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>eyeOhEx</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+                <expr_stmt><expr>((<name>ConcatFileInputStream</name>) <name>inputStream</name>)
+                        .<call><name>setManagingComponent</name><argument_list>(<argument><expr><name>managingTask</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name>inputString</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr>"Using input "</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>logInputString</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>'"'</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>inputString</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>'"'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>"string"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <expr_stmt><expr><call><name><name>managingTask</name>.<name>log</name></name><argument_list>(<argument><expr><call><name><name>buf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>inputStream</name> = new <call><name>ByteArrayInputStream</name><argument_list>(<argument><expr><call><name><name>inputString</name>.<name>getBytes</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if>
+
+            <if>if <condition>(<expr><name>inputStream</name> != <name>null</name> &amp;&amp; <name>inputFilterChains</name> != <name>null</name>
+                    &amp;&amp; <call><name><name>inputFilterChains</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>ChainReaderHelper</name></type> <name>helper</name> =<init> <expr>new <call><name>ChainReaderHelper</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>helper</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name><name>managingTask</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>helper</name>.<name>setPrimaryReader</name></name><argument_list>(<argument><expr>new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>inputStream</name></expr></argument>,
+                            <argument><expr><name>inputEncoding</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>eyeOhEx</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"error setting up input stream"</expr></argument>,
+                            <argument><expr><name>eyeOhEx</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+                <expr_stmt><expr><call><name><name>helper</name>.<name>setFilterChains</name></name><argument_list>(<argument><expr><name>inputFilterChains</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>inputStream</name> = new <call><name>ReaderInputStream</name><argument_list>(
+                        <argument><expr><call><name><name>helper</name>.<name>getAssembledReader</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>inputEncoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/** outStreams */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>outStreams</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>out</name> != <name>null</name> &amp;&amp; <name><name>out</name>.<name>length</name></name> &gt; 0</expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>logHead</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr>"Output "</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(
+                    <argument><expr>((<name>appendOut</name>) ? "appended" : "redirected")</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>" to "</expr></argument>)</argument_list></call>
+                    .<call><name>toString</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>outputStream</name> = <call><name>foldFiles</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name>logHead</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>,
+                    <argument><expr><name>appendOut</name></expr></argument>, <argument><expr><name>createEmptyFilesOut</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>outputProperty</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>baos</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>baos</name> = new <call><name>PropertyOutputStream</name><argument_list>(<argument><expr><name>outputProperty</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>managingTask</name>.<name>log</name></name><argument_list>(<argument><expr>"Output redirected to property: "
+                        + <name>outputProperty</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <comment type="line">// shield it from being closed by a filtering StreamPumper</comment>
+            <decl_stmt><decl><type><name>OutputStream</name></type> <name>keepAliveOutput</name> =<init> <expr>new <call><name>KeepAliveOutputStream</name><argument_list>(<argument><expr><name>baos</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>outputStream</name> = (<name>outputStream</name> == <name>null</name>) ? <name>keepAliveOutput</name>
+                    : new <call><name>TeeOutputStream</name><argument_list>(<argument><expr><name>outputStream</name></expr></argument>, <argument><expr><name>keepAliveOutput</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>baos</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>errorStreams</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>error</name> != <name>null</name> &amp;&amp; <name><name>error</name>.<name>length</name></name> &gt; 0</expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>logHead</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr>"Error "</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(
+                    <argument><expr>((<name>appendErr</name>) ? "appended" : "redirected")</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>" to "</expr></argument>)</argument_list></call>
+                    .<call><name>toString</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>errorStream</name> = <call><name>foldFiles</name><argument_list>(<argument><expr><name>error</name></expr></argument>, <argument><expr><name>logHead</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>,
+                    <argument><expr><name>appendErr</name></expr></argument>, <argument><expr><name>createEmptyFilesErr</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>!(<name>logError</name> || <name>outputStream</name> == <name>null</name>) &amp;&amp; <name>errorProperty</name> == <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>long</name></type> <name>funnelTimeout</name> =<init> <expr>0L</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>OutputStreamFunneler</name></type> <name>funneler</name> =<init> <expr>new <call><name>OutputStreamFunneler</name><argument_list>(
+                    <argument><expr><name>outputStream</name></expr></argument>, <argument><expr><name>funnelTimeout</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>outputStream</name> = new <call><name>LineOrientedOutputStreamRedirector</name><argument_list>(<argument><expr><call><name><name>funneler</name>.<name>getFunnelInstance</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>errorStream</name> = new <call><name>LineOrientedOutputStreamRedirector</name><argument_list>(<argument><expr><call><name><name>funneler</name>.<name>getFunnelInstance</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>eyeOhEx</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                        <argument><expr>"error splitting output/error streams"</expr></argument>, <argument><expr><name>eyeOhEx</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></then></if></else></if>
+        <if>if <condition>(<expr><name>errorProperty</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>errorBaos</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>errorBaos</name> = new <call><name>PropertyOutputStream</name><argument_list>(<argument><expr><name>errorProperty</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>managingTask</name>.<name>log</name></name><argument_list>(<argument><expr>"Error redirected to property: "
+                        + <name>errorProperty</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <comment type="line">// shield it from being closed by a filtering StreamPumper</comment>
+            <decl_stmt><decl><type><name>OutputStream</name></type> <name>keepAliveError</name> =<init> <expr>new <call><name>KeepAliveOutputStream</name><argument_list>(<argument><expr><name>errorBaos</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>errorStream</name> = (<name>error</name> == <name>null</name> || <name><name>error</name>.<name>length</name></name> == 0) ? <name>keepAliveError</name>
+                    : new <call><name>TeeOutputStream</name><argument_list>(<argument><expr><name>errorStream</name></expr></argument>, <argument><expr><name>keepAliveError</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>errorBaos</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create the StreamHandler to use with our Execute instance.
+     *
+     * @return the execute stream handler to manage the input, output and error
+     *         streams.
+     *
+     * @throws BuildException
+     *             if the execute stream handler cannot be created.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ExecuteStreamHandler</name></type> <name>createHandler</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>createStreams</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>nonBlockingRead</name> =<init> <expr><name>input</name> == <name>null</name> &amp;&amp; <name>inputString</name> == <name>null</name></expr></init></decl>;</decl_stmt>
+        <return>return <expr>new <call><name>PumpStreamHandler</name><argument_list>(<argument><expr><call><name>getOutputStream</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name>getErrorStream</name><argument_list>()</argument_list></call></expr></argument>,
+                <argument><expr><call><name>getInputStream</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>nonBlockingRead</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Pass output sent to System.out to specified output.
+     *
+     * @param output
+     *            the data to be output
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>handleOutput</name><parameter_list>(<param><decl><type><name>String</name></type> <name>output</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>outPrintStream</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>outPrintStream</name> = new <call><name>PrintStream</name><argument_list>(<argument><expr><name>outputStream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>outPrintStream</name>.<name>print</name></name><argument_list>(<argument><expr><name>output</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Handle an input request
+     *
+     * @param buffer
+     *            the buffer into which data is to be read.
+     * @param offset
+     *            the offset into the buffer at which data is stored.
+     * @param length
+     *            the amount of data to read
+     *
+     * @return the number of bytes read
+     *
+     * @exception IOException
+     *                if the data cannot be read
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>int</name></type> <name>handleInput</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>buffer</name></decl></param>, <param><decl><type><name>int</name></type> <name>offset</name></decl></param>, <param><decl><type><name>int</name></type> <name>length</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <synchronized>synchronized (<expr><name>inMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>inputStream</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><call><name><name>managingTask</name>.<name>getProject</name></name><argument_list>()</argument_list></call>.<call><name>defaultInput</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>,
+                        <argument><expr><name>length</name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></then></if>
+            <return>return <expr><call><name><name>inputStream</name>.<name>read</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>length</name></expr></argument>)</argument_list></call></expr>;</return>
+
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process data due to a flush operation.
+     *
+     * @param output
+     *            the data being flushed.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>handleFlush</name><parameter_list>(<param><decl><type><name>String</name></type> <name>output</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>outPrintStream</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>outPrintStream</name> = new <call><name>PrintStream</name><argument_list>(<argument><expr><name>outputStream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>outPrintStream</name>.<name>print</name></name><argument_list>(<argument><expr><name>output</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>outPrintStream</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process error output
+     *
+     * @param output
+     *            the error output data.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>handleErrorOutput</name><parameter_list>(<param><decl><type><name>String</name></type> <name>output</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>errorPrintStream</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>errorPrintStream</name> = new <call><name>PrintStream</name><argument_list>(<argument><expr><name>errorStream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>errorPrintStream</name>.<name>print</name></name><argument_list>(<argument><expr><name>output</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Handle a flush operation on the error stream
+     *
+     * @param output
+     *            the error information being flushed.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>handleErrorFlush</name><parameter_list>(<param><decl><type><name>String</name></type> <name>output</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>errorPrintStream</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>errorPrintStream</name> = new <call><name>PrintStream</name><argument_list>(<argument><expr><name>errorStream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>errorPrintStream</name>.<name>print</name></name><argument_list>(<argument><expr><name>output</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>errorPrintStream</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the output stream for the redirector
+     *
+     * @return the redirector's output stream or null if no output has been
+     *         configured
+     */</comment>
+    <function><type><specifier>public</specifier> <name>OutputStream</name></type> <name>getOutputStream</name><parameter_list>()</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <return>return <expr><name>outputStream</name></expr>;</return>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the error stream for the redirector
+     *
+     * @return the redirector's error stream or null if no output has been
+     *         configured
+     */</comment>
+    <function><type><specifier>public</specifier> <name>OutputStream</name></type> <name>getErrorStream</name><parameter_list>()</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <return>return <expr><name>errorStream</name></expr>;</return>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the input stream for the redirector
+     *
+     * @return the redirector's input stream or null if no output has been
+     *         configured
+     */</comment>
+    <function><type><specifier>public</specifier> <name>InputStream</name></type> <name>getInputStream</name><parameter_list>()</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>inMutex</name></expr>) <block>{
+            <return>return <expr><name>inputStream</name></expr>;</return>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Complete redirection.
+     *
+     * This operation will close any streams and create any specified property
+     * values.
+     *
+     * @throws IOException
+     *             if the output properties cannot be read from their output
+     *             streams.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>complete</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>err</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <synchronized>synchronized (<expr><name>inMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>inputStream</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>inputStream</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></synchronized>
+
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <expr_stmt><expr><call><name><name>outputStream</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>outputStream</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <expr_stmt><expr><call><name><name>errorStream</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>errorStream</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+
+        <comment type="line">// wait for the StreamPumpers to finish</comment>
+        <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+            <while>while <condition>(<expr><call><name><name>threadGroup</name>.<name>activeCount</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>managingTask</name>.<name>log</name></name><argument_list>(<argument><expr>"waiting for " + <call><name><name>threadGroup</name>.<name>activeCount</name></name><argument_list>()</argument_list></call>
+                            + " Threads:"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>Thread</name><index>[]</index></type> <name>thread</name> =<init> <expr>new <name><name>Thread</name><index>[<expr><call><name><name>threadGroup</name>.<name>activeCount</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>threadGroup</name>.<name>enumerate</name></name><argument_list>(<argument><expr><name>thread</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>thread</name>.<name>length</name></name> &amp;&amp; <name><name>thread</name><index>[<expr><name>i</name></expr>]</index></name> != <name>null</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                        <try>try <block>{
+                            <expr_stmt><expr><call><name><name>managingTask</name>.<name>log</name></name><argument_list>(<argument><expr><name><name>thread</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>toString</name><argument_list>()</argument_list></call></expr></argument>,
+                                    <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block> <catch>catch (<param><decl><type><name>NullPointerException</name></type> <name>enPeaEx</name></decl></param>) <block>{
+                            <comment type="line">// Ignore exception</comment>
+                        }</block></catch></try>
+                    }</block></for>
+                    <expr_stmt><expr><call><name>wait</name><argument_list>(<argument><expr><name>STREAMPUMPER_WAIT_INTERVAL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>eyeEx</name></decl></param>) <block>{
+                    <decl_stmt><decl><type><name>Thread</name><index>[]</index></type> <name>thread</name> =<init> <expr>new <name><name>Thread</name><index>[<expr><call><name><name>threadGroup</name>.<name>activeCount</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>threadGroup</name>.<name>enumerate</name></name><argument_list>(<argument><expr><name>thread</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>thread</name>.<name>length</name></name> &amp;&amp; <name><name>thread</name><index>[<expr><name>i</name></expr>]</index></name> != <name>null</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                        <expr_stmt><expr><name><name>thread</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>interrupt</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></for>
+                }</block></catch></try>
+            }</block></while>
+        }</block></synchronized>
+
+        <expr_stmt><expr><call><name>setProperties</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <synchronized>synchronized (<expr><name>inMutex</name></expr>) <block>{
+            <expr_stmt><expr><name>inputStream</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></synchronized>
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <expr_stmt><expr><name>outputStream</name> = <name>null</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>outPrintStream</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></synchronized>
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <expr_stmt><expr><name>errorStream</name> = <name>null</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>errorPrintStream</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Notify the &lt;code&gt;Redirector&lt;/code&gt; that it is now okay to set any output
+     * and/or error properties.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProperties</name><parameter_list>()</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>outMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>baos</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>baos</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>eyeOhEx</name></decl></param>) <block>{
+                    <comment type="line">// Ignore exception</comment>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></synchronized>
+        <synchronized>synchronized (<expr><name>errMutex</name></expr>) <block>{
+            <if>if <condition>(<expr><name>errorBaos</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>errorBaos</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>eyeOhEx</name></decl></param>) <block>{
+                    <comment type="line">// Ignore exception</comment>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></synchronized>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>OutputStream</name></type> <name>foldFiles</name><parameter_list>(<param><decl><type><name><name>File</name><index>[]</index></name></type> <name>file</name></decl></param>, <param><decl><type><name>String</name></type> <name>logHead</name></decl></param>, <param><decl><type><name>int</name></type> <name>loglevel</name></decl></param>,
+            <param><decl><type><name>boolean</name></type> <name>append</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>createEmptyFiles</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>OutputStream</name></type> <name>result</name> =<init> <expr>new <call><name>LazyFileOutputStream</name><argument_list>(<argument><expr><name><name>file</name><index>[<expr>0</expr>]</index></name></expr></argument>, <argument><expr><name>append</name></expr></argument>,
+                <argument><expr><name>createEmptyFiles</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name><name>managingTask</name>.<name>log</name></name><argument_list>(<argument><expr><name>logHead</name> + <name><name>file</name><index>[<expr>0</expr>]</index></name></expr></argument>, <argument><expr><name>loglevel</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>char</name><index>[]</index></type> <name>c</name> =<init> <expr>new <name><name>char</name><index>[<expr><call><name><name>logHead</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>Arrays</name>.<name>fill</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>, <argument><expr>' '</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>indent</name> =<init> <expr>new <call><name>String</name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>1</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>file</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name>outputStream</name> = new <call><name>TeeOutputStream</name><argument_list>(<argument><expr><name>outputStream</name></expr></argument>,
+                    <argument><expr>new <call><name>LazyFileOutputStream</name><argument_list>(<argument><expr><name><name>file</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>, <argument><expr><name>append</name></expr></argument>, <argument><expr><name>createEmptyFiles</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>managingTask</name>.<name>log</name></name><argument_list>(<argument><expr><name>indent</name> + <name><name>file</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>, <argument><expr><name>loglevel</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

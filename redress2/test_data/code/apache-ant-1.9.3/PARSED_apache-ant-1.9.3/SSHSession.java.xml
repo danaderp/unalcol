@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ssh\SSHSession.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ssh</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Set</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>TreeSet</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>TaskContainer</name></name>;</import>
+
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>JSchException</name></name>;</import>
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>Session</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Establishes an ssh session with a remote machine, optionally
+ * establishing port forwarding, then executes any nested task(s)
+ * before closing the session.
+ * @since Ant 1.8.0
+ */</comment>
+<class><specifier>public</specifier> class <name>SSHSession</name> <super><extends>extends <name>SSHBase</name></extends></super> <block>{
+
+    <comment type="javadoc">/** units are milliseconds, default is 0=infinite */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>maxwait</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>localTunnels</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Set</name></type> <name>localPortsUsed</name> =<init> <expr>new <call><name>TreeSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>remoteTunnels</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Set</name></type> <name>remotePortsUsed</name> =<init> <expr>new <call><name>TreeSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>NestedSequential</name></type> <name>nestedSequential</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>TIMEOUT_MESSAGE</name> =<init>
+        <expr>"Timeout period exceeded, connection dropped."</expr></init></decl>;</decl_stmt>
+
+
+    <comment type="javadoc">/** Optional Vector holding the nested tasks */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>nestedTasks</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Add a nested task to Sequential.
+     * &lt;p&gt;
+     * @param nestedTask        Nested task to execute Sequential
+     * &lt;p&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addTask</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>nestedTask</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>nestedTasks</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>nestedTask</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The connection can be dropped after a specified number of
+     * milliseconds. This is sometimes useful when a connection may be
+     * flaky. Default is 0, which means &amp;quot;wait forever&amp;quot;.
+     *
+     * @param timeout  The new timeout value in seconds
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTimeout</name><parameter_list>(<param><decl><type><name>long</name></type> <name>timeout</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>maxwait</name> = <name>timeout</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Changes the comma-delimited list of local tunnels to establish
+     * on the connection.
+     *
+     * @param tunnels a comma-delimited list of lport:rhost:rport
+     * tunnel specifications
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLocaltunnels</name><parameter_list>(<param><decl><type><name>String</name></type> <name>tunnels</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>specs</name> =<init> <expr><call><name><name>tunnels</name>.<name>split</name></name><argument_list>(<argument><expr>", "</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>specs</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><name><name>specs</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>spec</name> =<init> <expr><name><name>specs</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>split</name><argument_list>(<argument><expr>":"</expr></argument>, <argument><expr>3</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>lport</name> =<init> <expr><call><name><name>Integer</name>.<name>parseInt</name></name><argument_list>(<argument><expr><name><name>spec</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>rhost</name> =<init> <expr><name><name>spec</name><index>[<expr>1</expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>rport</name> =<init> <expr><call><name><name>Integer</name>.<name>parseInt</name></name><argument_list>(<argument><expr><name><name>spec</name><index>[<expr>2</expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>LocalTunnel</name></type> <name>tunnel</name> =<init> <expr><call><name>createLocalTunnel</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>tunnel</name>.<name>setLPort</name></name><argument_list>(<argument><expr><name>lport</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>tunnel</name>.<name>setRHost</name></name><argument_list>(<argument><expr><name>rhost</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>tunnel</name>.<name>setRPort</name></name><argument_list>(<argument><expr><name>rport</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Changes the comma-delimited list of remote tunnels to establish
+     * on the connection.
+     *
+     * @param tunnels a comma-delimited list of rport:lhost:lport
+     * tunnel specifications
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRemotetunnels</name><parameter_list>(<param><decl><type><name>String</name></type> <name>tunnels</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>specs</name> =<init> <expr><call><name><name>tunnels</name>.<name>split</name></name><argument_list>(<argument><expr>", "</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>specs</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><name><name>specs</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>spec</name> =<init> <expr><name><name>specs</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>split</name><argument_list>(<argument><expr>":"</expr></argument>, <argument><expr>3</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>rport</name> =<init> <expr><call><name><name>Integer</name>.<name>parseInt</name></name><argument_list>(<argument><expr><name><name>spec</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>lhost</name> =<init> <expr><name><name>spec</name><index>[<expr>1</expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>lport</name> =<init> <expr><call><name><name>Integer</name>.<name>parseInt</name></name><argument_list>(<argument><expr><name><name>spec</name><index>[<expr>2</expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>RemoteTunnel</name></type> <name>tunnel</name> =<init> <expr><call><name>createRemoteTunnel</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>tunnel</name>.<name>setRPort</name></name><argument_list>(<argument><expr><name>rport</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>tunnel</name>.<name>setLHost</name></name><argument_list>(<argument><expr><name>lhost</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>tunnel</name>.<name>setLPort</name></name><argument_list>(<argument><expr><name>lport</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Establish the ssh session and execute all nestedTasks
+     *
+     * @exception BuildException if one of the nested tasks fails, or
+     * network error or bad parameter.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name>getHost</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Host is required."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>getUserInfo</name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Username is required."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>getUserInfo</name><argument_list>()</argument_list></call>.<call><name>getKeyfile</name><argument_list>()</argument_list></call> == <name>null</name>
+            &amp;&amp; <call><name>getUserInfo</name><argument_list>()</argument_list></call>.<call><name>getPassword</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Password or Keyfile is required."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>nestedSequential</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Missing sequential element."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+
+        <decl_stmt><decl><type><name>Session</name></type> <name>session</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <comment type="line">// establish the session</comment>
+            <expr_stmt><expr><name>session</name> = <call><name>openSession</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>session</name>.<name>setTimeout</name></name><argument_list>(<argument><expr>(<name>int</name>) <name>maxwait</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name><name>localTunnels</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>LocalTunnel</name></type> <name>tunnel</name> =<init> <expr>(<name>LocalTunnel</name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>session</name>.<name>setPortForwardingL</name></name><argument_list>(<argument><expr><call><name><name>tunnel</name>.<name>getLPort</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                           <argument><expr><call><name><name>tunnel</name>.<name>getRHost</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                           <argument><expr><call><name><name>tunnel</name>.<name>getRPort</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name><name>remoteTunnels</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>RemoteTunnel</name></type> <name>tunnel</name> =<init> <expr>(<name>RemoteTunnel</name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>session</name>.<name>setPortForwardingR</name></name><argument_list>(<argument><expr><call><name><name>tunnel</name>.<name>getRPort</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                           <argument><expr><call><name><name>tunnel</name>.<name>getLHost</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                           <argument><expr><call><name><name>tunnel</name>.<name>getLPort</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name><name>nestedSequential</name>.<name>getNested</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init>
+                 <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>Task</name></type> <name>nestedTask</name> =<init> <expr>(<name>Task</name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>nestedTask</name>.<name>perform</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <comment type="line">// completed successfully</comment>
+
+        }</block> <catch>catch (<param><decl><type><name>JSchException</name></type> <name>e</name></decl></param>) <block>{
+            <if>if <condition>(<expr><call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call>.<call><name>indexOf</name><argument_list>(<argument><expr>"session is down"</expr></argument>)</argument_list></call> &gt;= 0</expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name>getFailonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>TIMEOUT_MESSAGE</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>TIMEOUT_MESSAGE</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then> <else>else <block>{
+                <if>if <condition>(<expr><call><name>getFailonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Caught exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></else></if>
+        }</block></catch> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// avoid wrapping it into yet another BuildException further down</comment>
+            <throw>throw <expr><name>e</name></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <if>if <condition>(<expr><call><name>getFailonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Caught exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></catch> <finally>finally <block>{
+            <if>if <condition>(<expr><name>session</name> != <name>null</name> &amp;&amp; <call><name><name>session</name>.<name>isConnected</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>session</name>.<name>disconnect</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <function><type><specifier>public</specifier> <name>LocalTunnel</name></type> <name>createLocalTunnel</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>LocalTunnel</name></type> <name>tunnel</name> =<init> <expr>new <call><name>LocalTunnel</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>localTunnels</name>.<name>add</name></name><argument_list>(<argument><expr><name>tunnel</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>tunnel</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>public</specifier> <name>RemoteTunnel</name></type> <name>createRemoteTunnel</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>RemoteTunnel</name></type> <name>tunnel</name> =<init> <expr>new <call><name>RemoteTunnel</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>remoteTunnels</name>.<name>add</name></name><argument_list>(<argument><expr><name>tunnel</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>tunnel</name></expr>;</return>
+    }</block></function>
+
+    <class><specifier>public</specifier> class <name>LocalTunnel</name> <block>{
+        <constructor><specifier>public</specifier> <name>LocalTunnel</name><parameter_list>()</parameter_list> <block>{}</block></constructor>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>lport</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>rhost</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>rport</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setLPort</name><parameter_list>(<param><decl><type><name>int</name></type> <name>lport</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>Integer</name></type> <name>portKey</name> =<init> <expr>new <call><name>Integer</name><argument_list>(<argument><expr><name>lport</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>localPortsUsed</name>.<name>contains</name></name><argument_list>(<argument><expr><name>portKey</name></expr></argument>)</argument_list></call></expr>)</condition><then>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Multiple local tunnels defined to"
+                                         + " use same local port " + <name>lport</name></expr></argument>)</argument_list></call></expr>;</throw></then></if>
+            <expr_stmt><expr><call><name><name>localPortsUsed</name>.<name>add</name></name><argument_list>(<argument><expr><name>portKey</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>lport</name></name> = <name>lport</name></expr>;</expr_stmt>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setRHost</name><parameter_list>(<param><decl><type><name>String</name></type> <name>rhost</name></decl></param>)</parameter_list> <block>{ <expr_stmt><expr><name><name>this</name>.<name>rhost</name></name> = <name>rhost</name></expr>;</expr_stmt> }</block></function>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setRPort</name><parameter_list>(<param><decl><type><name>int</name></type> <name>rport</name></decl></param>)</parameter_list> <block>{ <expr_stmt><expr><name><name>this</name>.<name>rport</name></name> = <name>rport</name></expr>;</expr_stmt> }</block></function>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>getLPort</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>lport</name> == 0</expr>)</condition><then> <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"lport is required for"
+                                                     + " LocalTunnel."</expr></argument>)</argument_list></call></expr>;</throw></then></if>
+            <return>return <expr><name>lport</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getRHost</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>rhost</name> == <name>null</name></expr>)</condition><then> <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"rhost is required"
+                                                        + " for LocalTunnel."</expr></argument>)</argument_list></call></expr>;</throw></then></if>
+            <return>return <expr><name>rhost</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>getRPort</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>rport</name> == 0</expr>)</condition><then> <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"rport is required for"
+                                                     + " LocalTunnel."</expr></argument>)</argument_list></call></expr>;</throw></then></if>
+            <return>return <expr><name>rport</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <class><specifier>public</specifier> class <name>RemoteTunnel</name> <block>{
+        <constructor><specifier>public</specifier> <name>RemoteTunnel</name><parameter_list>()</parameter_list> <block>{}</block></constructor>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>lport</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>lhost</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>rport</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setLPort</name><parameter_list>(<param><decl><type><name>int</name></type> <name>lport</name></decl></param>)</parameter_list> <block>{ <expr_stmt><expr><name><name>this</name>.<name>lport</name></name> = <name>lport</name></expr>;</expr_stmt> }</block></function>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setLHost</name><parameter_list>(<param><decl><type><name>String</name></type> <name>lhost</name></decl></param>)</parameter_list> <block>{ <expr_stmt><expr><name><name>this</name>.<name>lhost</name></name> = <name>lhost</name></expr>;</expr_stmt> }</block></function>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setRPort</name><parameter_list>(<param><decl><type><name>int</name></type> <name>rport</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>Integer</name></type> <name>portKey</name> =<init> <expr>new <call><name>Integer</name><argument_list>(<argument><expr><name>rport</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>remotePortsUsed</name>.<name>contains</name></name><argument_list>(<argument><expr><name>portKey</name></expr></argument>)</argument_list></call></expr>)</condition><then>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Multiple remote tunnels defined to"
+                                         + " use same remote port " + <name>rport</name></expr></argument>)</argument_list></call></expr>;</throw></then></if>
+            <expr_stmt><expr><call><name><name>remotePortsUsed</name>.<name>add</name></name><argument_list>(<argument><expr><name>portKey</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>rport</name></name> = <name>rport</name></expr>;</expr_stmt>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>getLPort</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>lport</name> == 0</expr>)</condition><then> <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"lport is required for"
+                                                     + " RemoteTunnel."</expr></argument>)</argument_list></call></expr>;</throw></then></if>
+            <return>return <expr><name>lport</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getLHost</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>lhost</name> == <name>null</name></expr>)</condition><then> <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"lhost is required for"
+                                                        + " RemoteTunnel."</expr></argument>)</argument_list></call></expr>;</throw></then></if>
+            <return>return <expr><name>lhost</name></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>getRPort</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>rport</name> == 0</expr>)</condition><then> <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"rport is required for"
+                                                     + " RemoteTunnel."</expr></argument>)</argument_list></call></expr>;</throw></then></if>
+            <return>return <expr><name>rport</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * This is the sequential nested element of the macrodef.
+     *
+     * @return a sequential element to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>NestedSequential</name></type> <name>createSequential</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>nestedSequential</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one sequential allowed"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>nestedSequential</name></name> = new <call><name>NestedSequential</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name><name>this</name>.<name>nestedSequential</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The class corresponding to the sequential nested element.
+     * This is a simple task container.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>NestedSequential</name> <super><implements>implements <name>TaskContainer</name></implements></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>List</name></type> <name>nested</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Add a task or type to the container.
+         *
+         * @param task an unknown element.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>addTask</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>task</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name><name>nested</name>.<name>add</name></name><argument_list>(<argument><expr><name>task</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @return the list of unknown elements
+         */</comment>
+        <function><type><specifier>public</specifier> <name>List</name></type> <name>getNested</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>nested</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+}</block></class>
+</unit>

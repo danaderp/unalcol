@@ -1,0 +1,633 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\i18n\Translate.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>i18n</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStreamReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStreamWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Locale</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>MatchingTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>LineTokenizer</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Translates text embedded in files using Resource Bundle files.
+ * Since ant 1.6 preserves line endings
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>Translate</name> <super><extends>extends <name>MatchingTask</name></extends></super> <block>{
+    <comment type="javadoc">/**
+     * search a bundle matching the specified language, the country and the variant
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUNDLE_SPECIFIED_LANGUAGE_COUNTRY_VARIANT</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * search a bundle matching the specified language, and the country
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUNDLE_SPECIFIED_LANGUAGE_COUNTRY</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * search a bundle matching the specified language only
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUNDLE_SPECIFIED_LANGUAGE</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * search a bundle matching nothing special
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUNDLE_NOMATCH</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * search a bundle matching the language, the country and the variant
+     * of the current locale of the computer
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUNDLE_DEFAULT_LANGUAGE_COUNTRY_VARIANT</name> =<init> <expr>4</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * search a bundle matching the language, and the country
+     * of the current locale of the computer
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUNDLE_DEFAULT_LANGUAGE_COUNTRY</name> =<init> <expr>5</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * search a bundle matching the language only
+     * of the current locale of the computer
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUNDLE_DEFAULT_LANGUAGE</name> =<init> <expr>6</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * number of possibilities for the search
+     */</comment>
+     <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUNDLE_MAX_ALTERNATIVES</name> =<init> <expr><name>BUNDLE_DEFAULT_LANGUAGE</name> + 1</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Family name of resource bundle
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>bundle</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Locale specific language of the resource bundle
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>bundleLanguage</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Locale specific country of the resource bundle
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>bundleCountry</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Locale specific variant of the resource bundle
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>bundleVariant</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Destination directory
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>toDir</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Source file encoding scheme
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>srcEncoding</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Destination file encoding scheme
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>destEncoding</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Resource Bundle file encoding scheme, defaults to srcEncoding
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>bundleEncoding</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Starting token to identify keys
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>startToken</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Ending token to identify keys
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>endToken</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether or not to create a new destination file.
+     * Defaults to &lt;code&gt;false&lt;/code&gt;.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>forceOverwrite</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Vector to hold source file sets.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>filesets</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Holds key value pairs loaded from resource bundle file
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Hashtable</name></type> <name>resourceMap</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+
+     * Used to resolve file names.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Last Modified Timestamp of resource bundle file being used.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name><index>[]</index></type> <name>bundleLastModified</name> =<init> <expr>new <name><name>long</name><index>[<expr><name>BUNDLE_MAX_ALTERNATIVES</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Last Modified Timestamp of source file being used.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>srcLastModified</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Last Modified Timestamp of destination file being used.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>destLastModified</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Has at least one file from the bundle been loaded?
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>loaded</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Sets Family name of resource bundle; required.
+     * @param bundle family name of resource bundle
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBundle</name><parameter_list>(<param><decl><type><name>String</name></type> <name>bundle</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>bundle</name></name> = <name>bundle</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets locale specific language of resource bundle; optional.
+     * @param bundleLanguage language of the bundle
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBundleLanguage</name><parameter_list>(<param><decl><type><name>String</name></type> <name>bundleLanguage</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>bundleLanguage</name></name> = <name>bundleLanguage</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets locale specific country of resource bundle; optional.
+     * @param bundleCountry country of the bundle
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBundleCountry</name><parameter_list>(<param><decl><type><name>String</name></type> <name>bundleCountry</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>bundleCountry</name></name> = <name>bundleCountry</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets locale specific variant of resource bundle; optional.
+     * @param bundleVariant locale variant of resource bundle
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBundleVariant</name><parameter_list>(<param><decl><type><name>String</name></type> <name>bundleVariant</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>bundleVariant</name></name> = <name>bundleVariant</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets Destination directory; required.
+     * @param toDir destination directory
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setToDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>toDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>toDir</name></name> = <name>toDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets starting token to identify keys; required.
+     * @param startToken starting token to identify keys
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setStartToken</name><parameter_list>(<param><decl><type><name>String</name></type> <name>startToken</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>startToken</name></name> = <name>startToken</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets ending token to identify keys; required.
+     * @param endToken ending token to identify keys
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEndToken</name><parameter_list>(<param><decl><type><name>String</name></type> <name>endToken</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>endToken</name></name> = <name>endToken</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets source file encoding scheme; optional,
+     * defaults to encoding of local system.
+     * @param srcEncoding source file encoding
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSrcEncoding</name><parameter_list>(<param><decl><type><name>String</name></type> <name>srcEncoding</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>srcEncoding</name></name> = <name>srcEncoding</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets destination file encoding scheme; optional.  Defaults to source file
+     * encoding
+     * @param destEncoding destination file encoding scheme
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestEncoding</name><parameter_list>(<param><decl><type><name>String</name></type> <name>destEncoding</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destEncoding</name></name> = <name>destEncoding</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets Resource Bundle file encoding scheme; optional.  Defaults to source file
+     * encoding
+     * @param bundleEncoding bundle file encoding scheme
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBundleEncoding</name><parameter_list>(<param><decl><type><name>String</name></type> <name>bundleEncoding</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>bundleEncoding</name></name> = <name>bundleEncoding</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether or not to overwrite existing file irrespective of
+     * whether it is newer than the source file as well as the
+     * resource bundle file.
+     * Defaults to false.
+     * @param forceOverwrite whether or not to overwrite existing files
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setForceOverwrite</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>forceOverwrite</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>forceOverwrite</name></name> = <name>forceOverwrite</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a set of files to translate as a nested fileset element.
+     * @param set the fileset to be added
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileset</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>set</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filesets</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>set</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check attributes values, load resource map and translate
+     * @throws BuildException if the required attributes are not set
+     * Required : &lt;ul&gt;
+     *       &lt;li&gt;bundle&lt;/li&gt;
+     *       &lt;li&gt;starttoken&lt;/li&gt;
+     *       &lt;li&gt;endtoken&lt;/li&gt;
+     *            &lt;/ul&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>bundle</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The bundle attribute must be set."</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>startToken</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The starttoken attribute must be set."</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>endToken</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The endtoken attribute must be set."</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>bundleLanguage</name> == <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Locale</name></type> <name>l</name> =<init> <expr><call><name><name>Locale</name>.<name>getDefault</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>bundleLanguage</name>  = <call><name><name>l</name>.<name>getLanguage</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>bundleCountry</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>bundleCountry</name> = <call><name><name>Locale</name>.<name>getDefault</name></name><argument_list>()</argument_list></call>.<call><name>getCountry</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>bundleVariant</name> == <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Locale</name></type> <name>l</name> =<init> <expr>new <call><name>Locale</name><argument_list>(<argument><expr><name>bundleLanguage</name></expr></argument>, <argument><expr><name>bundleCountry</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>bundleVariant</name> = <call><name><name>l</name>.<name>getVariant</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>toDir</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The todir attribute must be set."</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr>!<call><name><name>toDir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>toDir</name>.<name>mkdirs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>toDir</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>toDir</name> + " is not a directory"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if></else></if>
+
+        <if>if <condition>(<expr><name>srcEncoding</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>srcEncoding</name> = <call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"file.encoding"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>destEncoding</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>destEncoding</name> = <name>srcEncoding</name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>bundleEncoding</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>bundleEncoding</name> = <name>srcEncoding</name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>loadResourceMaps</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>translate</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Load resource maps based on resource bundle encoding scheme.
+     * The resource bundle lookup searches for resource files with various
+     * suffixes on the basis of (1) the desired locale and (2) the default
+     * locale (basebundlename), in the following order from lower-level
+     * (more specific) to parent-level (less specific):
+     *
+     * basebundlename + "_" + language1 + "_" + country1 + "_" + variant1
+     * basebundlename + "_" + language1 + "_" + country1
+     * basebundlename + "_" + language1
+     * basebundlename
+     * basebundlename + "_" + language2 + "_" + country2 + "_" + variant2
+     * basebundlename + "_" + language2 + "_" + country2
+     * basebundlename + "_" + language2
+     *
+     * To the generated name, a ".properties" string is appeneded and
+     * once this file is located, it is treated just like a properties file
+     * but with bundle encoding also considered while loading.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>loadResourceMaps</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Locale</name></type> <name>locale</name> =<init> <expr>new <call><name>Locale</name><argument_list>(<argument><expr><name>bundleLanguage</name></expr></argument>,
+                                   <argument><expr><name>bundleCountry</name></expr></argument>,
+                                   <argument><expr><name>bundleVariant</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>language</name> =<init> <expr><call><name><name>locale</name>.<name>getLanguage</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0
+            ? "_" + <call><name><name>locale</name>.<name>getLanguage</name></name><argument_list>()</argument_list></call> : ""</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>country</name> =<init> <expr><call><name><name>locale</name>.<name>getCountry</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0
+            ? "_" + <call><name><name>locale</name>.<name>getCountry</name></name><argument_list>()</argument_list></call> : ""</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>variant</name> =<init> <expr><call><name><name>locale</name>.<name>getVariant</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0
+            ? "_" + <call><name><name>locale</name>.<name>getVariant</name></name><argument_list>()</argument_list></call> : ""</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>bundleFile</name> =<init> <expr><name>bundle</name> + <name>language</name> + <name>country</name> + <name>variant</name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>processBundle</name><argument_list>(<argument><expr><name>bundleFile</name></expr></argument>, <argument><expr><name>BUNDLE_SPECIFIED_LANGUAGE_COUNTRY_VARIANT</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>bundleFile</name> = <name>bundle</name> + <name>language</name> + <name>country</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>processBundle</name><argument_list>(<argument><expr><name>bundleFile</name></expr></argument>, <argument><expr><name>BUNDLE_SPECIFIED_LANGUAGE_COUNTRY</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>bundleFile</name> = <name>bundle</name> + <name>language</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>processBundle</name><argument_list>(<argument><expr><name>bundleFile</name></expr></argument>, <argument><expr><name>BUNDLE_SPECIFIED_LANGUAGE</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>bundleFile</name> = <name>bundle</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>processBundle</name><argument_list>(<argument><expr><name>bundleFile</name></expr></argument>, <argument><expr><name>BUNDLE_NOMATCH</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//Load default locale bundle files</comment>
+        <comment type="line">//using default file encoding scheme.</comment>
+        <expr_stmt><expr><name>locale</name> = <call><name><name>Locale</name>.<name>getDefault</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>language</name> = <call><name><name>locale</name>.<name>getLanguage</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0
+            ? "_" + <call><name><name>locale</name>.<name>getLanguage</name></name><argument_list>()</argument_list></call> : ""</expr>;</expr_stmt>
+        <expr_stmt><expr><name>country</name> = <call><name><name>locale</name>.<name>getCountry</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0
+            ? "_" + <call><name><name>locale</name>.<name>getCountry</name></name><argument_list>()</argument_list></call> : ""</expr>;</expr_stmt>
+        <expr_stmt><expr><name>variant</name> = <call><name><name>locale</name>.<name>getVariant</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0
+            ? "_" + <call><name><name>locale</name>.<name>getVariant</name></name><argument_list>()</argument_list></call> : ""</expr>;</expr_stmt>
+        <expr_stmt><expr><name>bundleEncoding</name> = <call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"file.encoding"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>bundleFile</name> = <name>bundle</name> + <name>language</name> + <name>country</name> + <name>variant</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>processBundle</name><argument_list>(<argument><expr><name>bundleFile</name></expr></argument>, <argument><expr><name>BUNDLE_DEFAULT_LANGUAGE_COUNTRY_VARIANT</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>bundleFile</name> = <name>bundle</name> + <name>language</name> + <name>country</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>processBundle</name><argument_list>(<argument><expr><name>bundleFile</name></expr></argument>, <argument><expr><name>BUNDLE_DEFAULT_LANGUAGE_COUNTRY</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>bundleFile</name> = <name>bundle</name> + <name>language</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>processBundle</name><argument_list>(<argument><expr><name>bundleFile</name></expr></argument>, <argument><expr><name>BUNDLE_DEFAULT_LANGUAGE</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process each file that makes up this bundle.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>processBundle</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>bundleFile</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>i</name></decl></param>,
+                               <param><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>checkLoaded</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>File</name></type> <name>propsFile</name> =<init> <expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><name>bundleFile</name> + ".properties"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>FileInputStream</name></type> <name>ins</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>ins</name> = new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>propsFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>loaded</name> = true</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>bundleLastModified</name><index>[<expr><name>i</name></expr>]</index></name> = <call><name><name>propsFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Using " + <name>propsFile</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>loadResourceMap</name><argument_list>(<argument><expr><name>ins</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>propsFile</name> + " not found."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//if all resource files associated with this bundle</comment>
+            <comment type="line">//have been scanned for and still not able to</comment>
+            <comment type="line">//find a single resrouce file, throw exception</comment>
+            <if>if <condition>(<expr>!<name>loaded</name> &amp;&amp; <name>checkLoaded</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Load resourceMap with key value pairs.  Values of existing keys
+     * are not overwritten.  Bundle's encoding scheme is used.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>loadResourceMap</name><parameter_list>(<param><decl><type><name>FileInputStream</name></type> <name>ins</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>BufferedReader</name></type> <name>in</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>InputStreamReader</name></type> <name>isr</name> =<init> <expr>new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>ins</name></expr></argument>, <argument><expr><name>bundleEncoding</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>in</name> = new <call><name>BufferedReader</name><argument_list>(<argument><expr><name>isr</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr>(<name>line</name> = <call><name><name>in</name>.<name>readLine</name></name><argument_list>()</argument_list></call>) != <name>null</name></expr>)</condition> <block>{
+                <comment type="line">//So long as the line isn't empty and isn't a comment...</comment>
+                <if>if <condition>(<expr><call><name><name>line</name>.<name>trim</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 1 &amp;&amp; '#' != <call><name><name>line</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> &amp;&amp; '!' != <call><name><name>line</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <comment type="line">//Legal Key-Value separators are :, = and white space.</comment>
+                    <decl_stmt><decl><type><name>int</name></type> <name>sepIndex</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'='</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr>-1 == <name>sepIndex</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>sepIndex</name> = <call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <if>if <condition>(<expr>-1 == <name>sepIndex</name></expr>)</condition><then> <block>{
+                        <for>for (<init><decl><type><name>int</name></type> <name>k</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>k</name> &lt; <call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr><name>k</name>++</expr></incr>) <block>{
+                            <if>if <condition>(<expr><call><name><name>Character</name>.<name>isSpaceChar</name></name><argument_list>(<argument><expr><call><name><name>line</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>k</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><name>sepIndex</name> = <name>k</name></expr>;</expr_stmt>
+                                <break>break;</break>
+                            }</block></then></if>
+                        }</block></for>
+                    }</block></then></if>
+                    <comment type="line">//Only if we do have a key is there going to be a value</comment>
+                    <if>if <condition>(<expr>-1 != <name>sepIndex</name></expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>sepIndex</name></expr></argument>)</argument_list></call>.<call><name>trim</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>sepIndex</name> + 1</expr></argument>)</argument_list></call>.<call><name>trim</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <comment type="line">//Handle line continuations, if any</comment>
+                        <while>while <condition>(<expr><call><name><name>value</name>.<name>endsWith</name></name><argument_list>(<argument><expr>"\\"</expr></argument>)</argument_list></call></expr>)</condition> <block>{
+                            <expr_stmt><expr><name>value</name> = <call><name><name>value</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>value</name>.<name>length</name></name><argument_list>()</argument_list></call> - 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><name>line</name> = <call><name><name>in</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            <if>if <condition>(<expr><name>line</name> != <name>null</name></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><name>value</name> = <name>value</name> + <call><name><name>line</name>.<name>trim</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            }</block></then> <else>else <block>{
+                                <break>break;</break>
+                            }</block></else></if>
+                        }</block></while>
+                        <if>if <condition>(<expr><call><name><name>key</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                            <comment type="line">//Has key already been loaded into resourceMap?</comment>
+                            <if>if <condition>(<expr><call><name><name>resourceMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><call><name><name>resourceMap</name>.<name>put</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            }</block></then></if>
+                        }</block></then></if>
+                    }</block></then></if>
+                }</block></then></if>
+            }</block></while>
+            <if>if <condition>(<expr><name>in</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>in</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Reads source file line by line using the source encoding and
+     * searches for keys that are sandwiched between the startToken
+     * and endToken.  The values for these keys are looked up from
+     * the hashtable and substituted.  If the hashtable doesn't
+     * contain the key, they key itself is used as the value.
+     * Detination files and directories are created as needed.
+     * The destination file is overwritten only if
+     * the forceoverwritten attribute is set to true if
+     * the source file or any associated bundle resource file is
+     * newer than the destination file.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>translate</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>filesProcessed</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>filesets</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>FileSet</name></type> <name>fs</name> =<init> <expr>(<name>FileSet</name>) <call><name><name>filesets</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name><name>fs</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>srcFiles</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>srcFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                <try>try <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>dest</name> =<init> <expr><call><name><name>FILE_UTILS</name>.<name>resolveFile</name></name><argument_list>(<argument><expr><name>toDir</name></expr></argument>, <argument><expr><name><name>srcFiles</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <comment type="line">//Make sure parent dirs exist, else, create them.</comment>
+                    <try>try <block>{
+                        <decl_stmt><decl><type><name>File</name></type> <name>destDir</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name><name>dest</name>.<name>getParent</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr>!<call><name><name>destDir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name><name>destDir</name>.<name>mkdirs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Exception occurred while trying to check/create "
+                            + " parent directory.  " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>,
+                            <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></catch></try>
+                    <expr_stmt><expr><name>destLastModified</name> = <call><name><name>dest</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>File</name></type> <name>src</name> =<init> <expr><call><name><name>FILE_UTILS</name>.<name>resolveFile</name></name><argument_list>(<argument><expr><call><name><name>ds</name>.<name>getBasedir</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>srcFiles</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><name>srcLastModified</name> = <call><name><name>src</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <comment type="line">//Check to see if dest file has to be recreated</comment>
+                    <decl_stmt><decl><type><name>boolean</name></type> <name>needsWork</name> =<init> <expr><name>forceOverwrite</name>
+                        || <name>destLastModified</name> &lt; <name>srcLastModified</name></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr>!<name>needsWork</name></expr>)</condition><then> <block>{
+                        <for>for (<init><decl><type><name>int</name></type> <name>icounter</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>icounter</name> &lt; <name>BUNDLE_MAX_ALTERNATIVES</name></expr>;</condition> <incr><expr><name>icounter</name>++</expr></incr>) <block>{
+                            <expr_stmt><expr><name>needsWork</name> = (<name>destLastModified</name> &lt; <name><name>bundleLastModified</name><index>[<expr><name>icounter</name></expr>]</index></name>)</expr>;</expr_stmt>
+                            <if>if <condition>(<expr><name>needsWork</name></expr>)</condition><then> <block>{
+                                <break>break;</break>
+                            }</block></then></if>
+                        }</block></for>
+                    }</block></then></if>
+                    <if>if <condition>(<expr><name>needsWork</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Processing " + <name><name>srcFiles</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>,
+                            <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name>translateOneFile</name><argument_list>(<argument><expr><name>src</name></expr></argument>, <argument><expr><name>dest</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr>++<name>filesProcessed</name></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Skipping " + <name><name>srcFiles</name><index>[<expr><name>j</name></expr>]</index></name>
+                            + " as destination file is up to date"</expr></argument>,
+                            <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></for>
+        }</block></for>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Translation performed on " + <name>filesProcessed</name> + " file(s)."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>translateOneFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>src</name></decl></param>, <param><decl><type><name>File</name></type> <name>dest</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>BufferedWriter</name></type> <name>out</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>BufferedReader</name></type> <name>in</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>FileOutputStream</name></type> <name>fos</name> =<init> <expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>dest</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>out</name> = new <call><name>BufferedWriter</name><argument_list>(<argument><expr>new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr><name>fos</name></expr></argument>, <argument><expr><name>destEncoding</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>FileInputStream</name></type> <name>fis</name> =<init> <expr>new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>src</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>in</name> = new <call><name>BufferedReader</name><argument_list>(<argument><expr>new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>fis</name></expr></argument>, <argument><expr><name>srcEncoding</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>line</name></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>LineTokenizer</name></type> <name>lineTokenizer</name> =<init> <expr>new <call><name>LineTokenizer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>lineTokenizer</name>.<name>setIncludeDelims</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>line</name> = <call><name><name>lineTokenizer</name>.<name>getToken</name></name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <while>while <condition>(<expr>(<name>line</name>) != <name>null</name></expr>)</condition> <block>{
+                <comment type="line">// 2003-02-21 new replace algorithm by tbee (tbee@tbee.org)</comment>
+                <comment type="line">// because it wasn't able to replace something like "@aaa;@bbb;"</comment>
+
+                <comment type="line">// is there a startToken</comment>
+                <comment type="line">// and there is still stuff following the startToken</comment>
+                <decl_stmt><decl><type><name>int</name></type> <name>startIndex</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>startToken</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <while>while <condition>(<expr><name>startIndex</name> &gt;= 0
+                       &amp;&amp; (<name>startIndex</name> + <call><name><name>startToken</name>.<name>length</name></name><argument_list>()</argument_list></call>) &lt;= <call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                    <comment type="line">// the new value, this needs to be here</comment>
+                    <comment type="line">// because it is required to calculate the next position to</comment>
+                    <comment type="line">// search from at the end of the loop</comment>
+                    <decl_stmt><decl><type><name>String</name></type> <name>replace</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+                    <comment type="line">// we found a starttoken, is there an endtoken following?</comment>
+                    <comment type="line">// start at token+tokenlength because start and end</comment>
+                    <comment type="line">// token may be indentical</comment>
+                    <decl_stmt><decl><type><name>int</name></type> <name>endIndex</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>endToken</name></expr></argument>, <argument><expr><name>startIndex</name>
+                                                + <call><name><name>startToken</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>endIndex</name> &lt; 0</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>startIndex</name> += 1</expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <comment type="line">// grab the token</comment>
+                        <decl_stmt><decl><type><name>String</name></type> <name>token</name> =<init> <expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>startIndex</name>
+                                                      + <call><name><name>startToken</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                                      <argument><expr><name>endIndex</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                        <comment type="line">// If there is a white space or = or :, then</comment>
+                        <comment type="line">// it isn't to be treated as a valid key.</comment>
+                        <decl_stmt><decl><type><name>boolean</name></type> <name>validToken</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+                        <for>for (<init><decl><type><name>int</name></type> <name>k</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>k</name> &lt; <call><name><name>token</name>.<name>length</name></name><argument_list>()</argument_list></call> &amp;&amp; <name>validToken</name></expr>;</condition> <incr><expr><name>k</name>++</expr></incr>) <block>{
+                            <decl_stmt><decl><type><name>char</name></type> <name>c</name> =<init> <expr><call><name><name>token</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>k</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                            <if>if <condition>(<expr><name>c</name> == ':' || <name>c</name> == '='
+                                || <call><name><name>Character</name>.<name>isSpaceChar</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><name>validToken</name> = false</expr>;</expr_stmt>
+                            }</block></then></if>
+                        }</block></for>
+                        <if>if <condition>(<expr>!<name>validToken</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>startIndex</name> += 1</expr>;</expr_stmt>
+                        }</block></then> <else>else <block>{
+                            <comment type="line">// find the replace string</comment>
+                            <if>if <condition>(<expr><call><name><name>resourceMap</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>token</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><name>replace</name> = (<name>String</name>) <call><name><name>resourceMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>token</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            }</block></then> <else>else <block>{
+                                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Replacement string missing for: " + <name>token</name></expr></argument>,
+                                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                <expr_stmt><expr><name>replace</name> = <name>startToken</name> + <name>token</name> + <name>endToken</name></expr>;</expr_stmt>
+                            }</block></else></if>
+
+
+                            <comment type="line">// generate the new line</comment>
+                            <expr_stmt><expr><name>line</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>startIndex</name></expr></argument>)</argument_list></call> + <name>replace</name>
+                                + <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>endIndex</name> + <call><name><name>endToken</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                            <comment type="line">// set start position for next search</comment>
+                            <expr_stmt><expr><name>startIndex</name> += <call><name><name>replace</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        }</block></else></if>
+                    }</block></else></if>
+
+                    <comment type="line">// find next starttoken</comment>
+                    <expr_stmt><expr><name>startIndex</name> = <call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>startToken</name></expr></argument>, <argument><expr><name>startIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></while>
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>line</name> = <call><name><name>lineTokenizer</name>.<name>getToken</name></name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+}</block></class>
+</unit>

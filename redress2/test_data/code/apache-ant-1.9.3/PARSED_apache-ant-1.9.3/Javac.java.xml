@@ -1,0 +1,1263 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Javac.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name>.<name>Entry</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>MagicNames</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>compilers</name>.<name>CompilerAdapter</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>compilers</name>.<name>CompilerAdapterExtension</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>compilers</name>.<name>CompilerAdapterFactory</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Reference</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>GlobPatternMapper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>JavaEnvUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>SourceFileScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>facade</name>.<name>FacadeTaskHelper</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Compiles Java source files. This task can take the following
+ * arguments:
+ * &lt;ul&gt;
+ * &lt;li&gt;sourcedir
+ * &lt;li&gt;destdir
+ * &lt;li&gt;deprecation
+ * &lt;li&gt;classpath
+ * &lt;li&gt;bootclasspath
+ * &lt;li&gt;extdirs
+ * &lt;li&gt;optimize
+ * &lt;li&gt;debug
+ * &lt;li&gt;encoding
+ * &lt;li&gt;target
+ * &lt;li&gt;depend
+ * &lt;li&gt;verbose
+ * &lt;li&gt;failonerror
+ * &lt;li&gt;includeantruntime
+ * &lt;li&gt;includejavaruntime
+ * &lt;li&gt;source
+ * &lt;li&gt;compiler
+ * &lt;/ul&gt;
+ * Of these arguments, the &lt;b&gt;sourcedir&lt;/b&gt; and &lt;b&gt;destdir&lt;/b&gt; are required.
+ * &lt;p&gt;
+ * When this task executes, it will recursively scan the sourcedir and
+ * destdir looking for Java source files to compile. This task makes its
+ * compile decision based on timestamp.
+ *
+ *
+ * @since Ant 1.1
+ *
+ * @ant.task category="java"
+ */</comment>
+
+<class><specifier>public</specifier> class <name>Javac</name> <super><extends>extends <name>MatchingTask</name></extends></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>FAIL_MSG</name>
+        =<init> <expr>"Compile failed; see the compiler error output for details."</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JAVAC18</name> =<init> <expr>"javac1.8"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JAVAC17</name> =<init> <expr>"javac1.7"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JAVAC16</name> =<init> <expr>"javac1.6"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JAVAC15</name> =<init> <expr>"javac1.5"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JAVAC14</name> =<init> <expr>"javac1.4"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JAVAC13</name> =<init> <expr>"javac1.3"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JAVAC12</name> =<init> <expr>"javac1.2"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JAVAC11</name> =<init> <expr>"javac1.1"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>MODERN</name> =<init> <expr>"modern"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>CLASSIC</name> =<init> <expr>"classic"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EXTJAVAC</name> =<init> <expr>"extJavac"</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>src</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>destDir</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>compileClasspath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>compileSourcepath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>encoding</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>debug</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>optimize</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>deprecation</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>depend</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>verbose</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>targetAttribute</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>bootclasspath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>extdirs</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Boolean</name></type> <name>includeAntRuntime</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>includeJavaRuntime</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>fork</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>forkedExecutable</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>nowarn</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>memoryInitialSize</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>memoryMaximumSize</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>FacadeTaskHelper</name></type> <name>facade</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>failOnError</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>listFiles</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>File</name><index>[]</index></type> <name>compileList</name> =<init> <expr>new <name><name>File</name><index>[<expr>0</expr>]</index></name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Long</name></argument>&gt;</argument_list></name></type> <name>packageInfos</name> =<init> <expr>new <call><name><name>HashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Long</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>source</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>debugLevel</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>tmpDir</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>updatedProperty</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>errorProperty</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>taskSuccess</name> =<init> <expr>true</expr></init></decl>;</decl_stmt> <comment type="line">// assume the best</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>includeDestClasses</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>CompilerAdapter</name></type> <name>nestedAdapter</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>createMissingPackageInfoClass</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Javac task for compilation of Java files.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Javac</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>facade</name> = new <call><name>FacadeTaskHelper</name><argument_list>(<argument><expr><call><name>assumedJavaVersion</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>assumedJavaVersion</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>JavaEnvUtils</name>.<name>isJavaVersion</name></name><argument_list>(<argument><expr><name><name>JavaEnvUtils</name>.<name>JAVA_1_4</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>JAVAC14</name></expr>;</return>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>JavaEnvUtils</name>.<name>isJavaVersion</name></name><argument_list>(<argument><expr><name><name>JavaEnvUtils</name>.<name>JAVA_1_5</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>JAVAC15</name></expr>;</return>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>JavaEnvUtils</name>.<name>isJavaVersion</name></name><argument_list>(<argument><expr><name><name>JavaEnvUtils</name>.<name>JAVA_1_6</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>JAVAC16</name></expr>;</return>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>JavaEnvUtils</name>.<name>isJavaVersion</name></name><argument_list>(<argument><expr><name><name>JavaEnvUtils</name>.<name>JAVA_1_7</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>JAVAC17</name></expr>;</return>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>JavaEnvUtils</name>.<name>isJavaVersion</name></name><argument_list>(<argument><expr><name><name>JavaEnvUtils</name>.<name>JAVA_1_8</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>JAVAC18</name></expr>;</return>
+        }</block></then> <else>else <block>{
+            <return>return <expr><name>CLASSIC</name></expr>;</return>
+        }</block></else></if></else></if></else></if></else></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the value of debugLevel.
+     * @return value of debugLevel.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getDebugLevel</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>debugLevel</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Keyword list to be appended to the -g command-line switch.
+     *
+     * This will be ignored by all implementations except modern
+     * and classic(ver &gt;= 1.2). Legal values are none or a
+     * comma-separated list of the following keywords: lines, vars,
+     * and source. If debuglevel is not specified, by default, :none
+     * will be appended to -g. If debug is not turned on, this attribute
+     * will be ignored.
+     *
+     * @param v  Value to assign to debugLevel.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDebugLevel</name><parameter_list>(<param><decl><type><name>String</name></type>  <name>v</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>debugLevel</name></name> = <name>v</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the value of source.
+     * @return value of source.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getSource</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>source</name> != <name>null</name>
+            ? <name>source</name> : <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>BUILD_JAVAC_SOURCE</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Value of the -source command-line switch; will be ignored by
+     * all implementations except modern, jikes and gcj (gcj uses
+     * -fsource).
+     *
+     * &lt;p&gt;If you use this attribute together with jikes or gcj, you
+     * must make sure that your version of jikes supports the -source
+     * switch.&lt;/p&gt;
+     *
+     * &lt;p&gt;Legal values are 1.3, 1.4, 1.5, and 5 - by default, no
+     * -source argument will be used at all.&lt;/p&gt;
+     *
+     * @param v  Value to assign to source.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSource</name><parameter_list>(<param><decl><type><name>String</name></type>  <name>v</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>source</name></name> = <name>v</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a path for source compilation.
+     *
+     * @return a nested src element.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createSrc</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>src</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>src</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>src</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Recreate src.
+     *
+     * @return a nested src element.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Path</name></type> <name>recreateSrc</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>src</name> = <name>null</name></expr>;</expr_stmt>
+        <return>return <expr><call><name>createSrc</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the source directories to find the source Java files.
+     * @param srcDir the source directories as a path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSrcdir</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>srcDir</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>src</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>src</name> = <name>srcDir</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>src</name>.<name>append</name></name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the source dirs to find the source java files.
+     * @return the source directories as a path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getSrcdir</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>src</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the destination directory into which the Java source
+     * files should be compiled.
+     * @param destDir the destination director
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestdir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>destDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destDir</name></name> = <name>destDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the destination directory into which the java source files
+     * should be compiled.
+     * @return the destination directory
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getDestdir</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>destDir</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the sourcepath to be used for this compilation.
+     * @param sourcepath the source path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSourcepath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>sourcepath</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compileSourcepath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compileSourcepath</name> = <name>sourcepath</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>compileSourcepath</name>.<name>append</name></name><argument_list>(<argument><expr><name>sourcepath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the sourcepath to be used for this compilation.
+     * @return the source path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getSourcepath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>compileSourcepath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a path to sourcepath.
+     * @return a sourcepath to be configured
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createSourcepath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compileSourcepath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compileSourcepath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>compileSourcepath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a reference to a source path defined elsewhere.
+     * @param r a reference to a source path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSourcepathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createSourcepath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath to be used for this compilation.
+     *
+     * @param classpath an Ant Path object containing the compilation classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compileClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compileClasspath</name> = <name>classpath</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>compileClasspath</name>.<name>append</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the classpath to be used for this compilation.
+     * @return the class path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getClasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>compileClasspath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a path to the classpath.
+     * @return a class path to be configured
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compileClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compileClasspath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>compileClasspath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a reference to a classpath defined elsewhere.
+     * @param r a reference to a classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createClasspath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the bootclasspath that will be used to compile the classes
+     * against.
+     * @param bootclasspath a path to use as a boot class path (may be more
+     *                      than one)
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBootclasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>bootclasspath</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>bootclasspath</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>bootclasspath</name></name> = <name>bootclasspath</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>this</name>.<name>bootclasspath</name>.<name>append</name></name><argument_list>(<argument><expr><name>bootclasspath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the bootclasspath that will be used to compile the classes
+     * against.
+     * @return the boot path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getBootclasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>bootclasspath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a path to the bootclasspath.
+     * @return a path to be configured
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createBootclasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>bootclasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>bootclasspath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>bootclasspath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a reference to a classpath defined elsewhere.
+     * @param r a reference to a classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBootClasspathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createBootclasspath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the extension directories that will be used during the
+     * compilation.
+     * @param extdirs a path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setExtdirs</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>extdirs</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>extdirs</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>extdirs</name></name> = <name>extdirs</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>this</name>.<name>extdirs</name>.<name>append</name></name><argument_list>(<argument><expr><name>extdirs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the extension directories that will be used during the
+     * compilation.
+     * @return the extension directories as a path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getExtdirs</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>extdirs</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a path to extdirs.
+     * @return a path to be configured
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createExtdirs</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>extdirs</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>extdirs</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>extdirs</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, list the source files being handed off to the compiler.
+     * @param list if true list the source files
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setListfiles</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>list</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>listFiles</name> = <name>list</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the listfiles flag.
+     * @return the listfiles flag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getListfiles</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>listFiles</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicates whether the build will continue
+     * even if there are compilation errors; defaults to true.
+     * @param fail if true halt the build on failure
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFailonerror</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>fail</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>failOnError</name> = <name>fail</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @ant.attribute ignore="true"
+     * @param proceed inverse of failoferror
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProceed</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>proceed</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>failOnError</name> = !<name>proceed</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the failonerror flag.
+     * @return the failonerror flag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getFailonerror</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>failOnError</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicates whether source should be
+     * compiled with deprecation information; defaults to off.
+     * @param deprecation if true turn on deprecation information
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDeprecation</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>deprecation</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>deprecation</name></name> = <name>deprecation</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the deprecation flag.
+     * @return the deprecation flag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getDeprecation</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>deprecation</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The initial size of the memory for the underlying VM
+     * if javac is run externally; ignored otherwise.
+     * Defaults to the standard VM memory setting.
+     * (Examples: 83886080, 81920k, or 80m)
+     * @param memoryInitialSize string to pass to VM
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMemoryInitialSize</name><parameter_list>(<param><decl><type><name>String</name></type> <name>memoryInitialSize</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>memoryInitialSize</name></name> = <name>memoryInitialSize</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the memoryInitialSize flag.
+     * @return the memoryInitialSize flag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getMemoryInitialSize</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>memoryInitialSize</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The maximum size of the memory for the underlying VM
+     * if javac is run externally; ignored otherwise.
+     * Defaults to the standard VM memory setting.
+     * (Examples: 83886080, 81920k, or 80m)
+     * @param memoryMaximumSize string to pass to VM
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMemoryMaximumSize</name><parameter_list>(<param><decl><type><name>String</name></type> <name>memoryMaximumSize</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>memoryMaximumSize</name></name> = <name>memoryMaximumSize</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the memoryMaximumSize flag.
+     * @return the memoryMaximumSize flag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getMemoryMaximumSize</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>memoryMaximumSize</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the Java source file encoding name.
+     * @param encoding the source file encoding
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEncoding</name><parameter_list>(<param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>encoding</name></name> = <name>encoding</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the java source file encoding name.
+     * @return the source file encoding name
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getEncoding</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>encoding</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicates whether source should be compiled
+     * with debug information; defaults to off.
+     * @param debug if true compile with debug information
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDebug</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>debug</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>debug</name></name> = <name>debug</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the debug flag.
+     * @return the debug flag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getDebug</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>debug</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, compiles with optimization enabled.
+     * @param optimize if true compile with optimization enabled
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOptimize</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>optimize</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>optimize</name></name> = <name>optimize</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the optimize flag.
+     * @return the optimize flag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getOptimize</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>optimize</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Enables dependency-tracking for compilers
+     * that support this (jikes and classic).
+     * @param depend if true enable dependency-tracking
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDepend</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>depend</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>depend</name></name> = <name>depend</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the depend flag.
+     * @return the depend flag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getDepend</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>depend</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, asks the compiler for verbose output.
+     * @param verbose if true, asks the compiler for verbose output
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVerbose</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>verbose</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>verbose</name></name> = <name>verbose</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the verbose flag.
+     * @return the verbose flag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getVerbose</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>verbose</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the target VM that the classes will be compiled for. Valid
+     * values depend on the compiler, for jdk 1.4 the valid values are
+     * "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "5", "6", "7" and "8".
+     * @param target the target VM
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTarget</name><parameter_list>(<param><decl><type><name>String</name></type> <name>target</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>targetAttribute</name></name> = <name>target</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the target VM that the classes will be compiled for.
+     * @return the target VM
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getTarget</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>targetAttribute</name> != <name>null</name>
+            ? <name>targetAttribute</name>
+            : <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>BUILD_JAVAC_TARGET</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, includes Ant's own classpath in the classpath.
+     * @param include if true, includes Ant's own classpath in the classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIncludeantruntime</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>include</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>includeAntRuntime</name> = <call><name><name>Boolean</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>include</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets whether or not the ant classpath is to be included in the classpath.
+     * @return whether or not the ant classpath is to be included in the classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getIncludeantruntime</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>includeAntRuntime</name> != <name>null</name> ? <call><name><name>includeAntRuntime</name>.<name>booleanValue</name></name><argument_list>()</argument_list></call> : true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, includes the Java runtime libraries in the classpath.
+     * @param include if true, includes the Java runtime libraries in the classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIncludejavaruntime</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>include</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>includeJavaRuntime</name> = <name>include</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets whether or not the java runtime should be included in this
+     * task's classpath.
+     * @return the includejavaruntime attribute
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getIncludejavaruntime</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>includeJavaRuntime</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, forks the javac compiler.
+     *
+     * @param f "true|false|on|off|yes|no"
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFork</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>fork</name> = <name>f</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the name of the javac executable.
+     *
+     * &lt;p&gt;Ignored unless fork is true or extJavac has been specified
+     * as the compiler.&lt;/p&gt;
+     * @param forkExec the name of the executable
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setExecutable</name><parameter_list>(<param><decl><type><name>String</name></type> <name>forkExec</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>forkedExecutable</name> = <name>forkExec</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The value of the executable attribute, if any.
+     *
+     * @since Ant 1.6
+     * @return the name of the java executable
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getExecutable</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>forkedExecutable</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Is this a forked invocation of JDK's javac?
+     * @return true if this is a forked invocation
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isForkedJavac</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>fork</name> || <call><name><name>EXTJAVAC</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><call><name>getCompiler</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The name of the javac executable to use in fork-mode.
+     *
+     * &lt;p&gt;This is either the name specified with the executable
+     * attribute or the full path of the javac compiler of the VM Ant
+     * is currently running in - guessed by Ant.&lt;/p&gt;
+     *
+     * &lt;p&gt;You should &lt;strong&gt;not&lt;/strong&gt; invoke this method if you
+     * want to get the value of the executable command - use {@link
+     * #getExecutable getExecutable} for this.&lt;/p&gt;
+     * @return the name of the javac executable
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getJavacExecutable</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>forkedExecutable</name> == <name>null</name> &amp;&amp; <call><name>isForkedJavac</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>forkedExecutable</name> = <call><name>getSystemJavac</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>forkedExecutable</name> != <name>null</name> &amp;&amp; !<call><name>isForkedJavac</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>forkedExecutable</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></then></if></else></if>
+        <return>return <expr><name>forkedExecutable</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, enables the -nowarn option.
+     * @param flag if true, enable the -nowarn option
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNowarn</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>flag</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>nowarn</name></name> = <name>flag</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Should the -nowarn option be used.
+     * @return true if the -nowarn option should be used
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getNowarn</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>nowarn</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds an implementation specific command-line argument.
+     * @return a ImplementationSpecificArgument to be configured
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ImplementationSpecificArgument</name></type> <name>createCompilerArg</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>ImplementationSpecificArgument</name></type> <name>arg</name> =<init>
+            <expr>new <call><name>ImplementationSpecificArgument</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>facade</name>.<name>addImplementationArgument</name></name><argument_list>(<argument><expr><name>arg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>arg</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the additional implementation specific command line arguments.
+     * @return array of command line arguments, guaranteed to be non-null.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getCurrentCompilerArgs</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>chosen</name> =<init> <expr><call><name><name>facade</name>.<name>getExplicitChoice</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <comment type="line">// make sure facade knows about magic properties and fork setting</comment>
+            <decl_stmt><decl><type><name>String</name></type> <name>appliedCompiler</name> =<init> <expr><call><name>getCompiler</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>facade</name>.<name>setImplementation</name></name><argument_list>(<argument><expr><name>appliedCompiler</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>result</name> =<init> <expr><call><name><name>facade</name>.<name>getArgs</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>String</name></type> <name>altCompilerName</name> =<init> <expr><call><name>getAltCompilerName</name><argument_list>(<argument><expr><call><name><name>facade</name>.<name>getImplementation</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name><name>result</name>.<name>length</name></name> == 0 &amp;&amp; <name>altCompilerName</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>facade</name>.<name>setImplementation</name></name><argument_list>(<argument><expr><name>altCompilerName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>result</name> = <call><name><name>facade</name>.<name>getArgs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <return>return <expr><name>result</name></expr>;</return>
+
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>facade</name>.<name>setImplementation</name></name><argument_list>(<argument><expr><name>chosen</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>getAltCompilerName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>anImplementation</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>JAVAC17</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>anImplementation</name></expr></argument>)</argument_list></call>
+                || <call><name><name>JAVAC18</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>anImplementation</name></expr></argument>)</argument_list></call>
+                || <call><name><name>JAVAC16</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>anImplementation</name></expr></argument>)</argument_list></call>
+                || <call><name><name>JAVAC15</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>anImplementation</name></expr></argument>)</argument_list></call>
+                || <call><name><name>JAVAC14</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>anImplementation</name></expr></argument>)</argument_list></call>
+                || <call><name><name>JAVAC13</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>anImplementation</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>MODERN</name></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>JAVAC12</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>anImplementation</name></expr></argument>)</argument_list></call>
+                || <call><name><name>JAVAC11</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>anImplementation</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>CLASSIC</name></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>MODERN</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>anImplementation</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>nextSelected</name> =<init> <expr><call><name>assumedJavaVersion</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>JAVAC17</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>nextSelected</name></expr></argument>)</argument_list></call>
+                    || <call><name><name>JAVAC18</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>nextSelected</name></expr></argument>)</argument_list></call>
+                    || <call><name><name>JAVAC16</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>nextSelected</name></expr></argument>)</argument_list></call>
+                    || <call><name><name>JAVAC15</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>nextSelected</name></expr></argument>)</argument_list></call>
+                    || <call><name><name>JAVAC14</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>nextSelected</name></expr></argument>)</argument_list></call>
+                    || <call><name><name>JAVAC13</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>nextSelected</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>nextSelected</name></expr>;</return>
+            }</block></then></if>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>CLASSIC</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>anImplementation</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>assumedJavaVersion</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>EXTJAVAC</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>anImplementation</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>assumedJavaVersion</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Where Ant should place temporary files.
+     *
+     * @since Ant 1.6
+     * @param tmpDir the temporary directory
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTempdir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>tmpDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>tmpDir</name></name> = <name>tmpDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Where Ant should place temporary files.
+     *
+     * @since Ant 1.6
+     * @return the temporary directory
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getTempdir</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>tmpDir</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The property to set on compilation success.
+     * This property will not be set if the compilation
+     * fails, or if there are no files to compile.
+     * @param updatedProperty the property name to use.
+     * @since Ant 1.7.1.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUpdatedProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>updatedProperty</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>updatedProperty</name></name> = <name>updatedProperty</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The property to set on compilation failure.
+     * This property will be set if the compilation
+     * fails.
+     * @param errorProperty the property name to use.
+     * @since Ant 1.7.1.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setErrorProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>errorProperty</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>errorProperty</name></name> = <name>errorProperty</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This property controls whether to include the
+     * destination classes directory in the classpath
+     * given to the compiler.
+     * The default value is "true".
+     * @param includeDestClasses the value to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIncludeDestClasses</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>includeDestClasses</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>includeDestClasses</name></name> = <name>includeDestClasses</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the value of the includeDestClasses property.
+     * @return the value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isIncludeDestClasses</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>includeDestClasses</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the result of the javac task (success or failure).
+     * @return true if compilation succeeded, or
+     *         was not necessary, false if the compilation failed.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getTaskSuccess</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>taskSuccess</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The classpath to use when loading the compiler implementation
+     * if it is not a built-in one.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createCompilerClasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>facade</name>.<name>getImplementationClasspath</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the compiler adapter explicitly.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>CompilerAdapter</name></type> <name>adapter</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>nestedAdapter</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Can't have more than one compiler"
+                                     + " adapter"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>nestedAdapter</name> = <name>adapter</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether package-info.class files will be created by Ant
+     * matching package-info.java files that have been compiled but
+     * didn't create class files themselves.
+     *
+     * @since Ant 1.8.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCreateMissingPackageInfoClass</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>createMissingPackageInfoClass</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Executes the task.
+     * @exception BuildException if an error occurs
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>checkParameters</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>resetFileLists</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// scan source directories and dest directory to build up</comment>
+        <comment type="line">// compile lists</comment>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>list</name> =<init> <expr><call><name><name>src</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>list</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>srcDir</name> =<init> <expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><name><name>list</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name><name>srcDir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"srcdir \""
+                                         + <call><name><name>srcDir</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                                         + "\" does not exist!"</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name><name>this</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name>scanDir</name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>, <argument><expr><name>destDir</name> != <name>null</name> ? <name>destDir</name> : <name>srcDir</name></expr></argument>, <argument><expr><name>files</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <expr_stmt><expr><call><name>compile</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>updatedProperty</name> != <name>null</name>
+            &amp;&amp; <name>taskSuccess</name>
+            &amp;&amp; <name><name>compileList</name>.<name>length</name></name> != 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>setNewProperty</name><argument_list>(<argument><expr><name>updatedProperty</name></expr></argument>, <argument><expr>"true"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Clear the list of files to be compiled and copied..
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>resetFileLists</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>compileList</name> = new <name><name>File</name><index>[<expr>0</expr>]</index></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>packageInfos</name> = new <call><name><name>HashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Long</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Scans the directory looking for source files to be compiled.
+     * The results are returned in the class variable compileList
+     *
+     * @param srcDir   The source directory
+     * @param destDir  The destination directory
+     * @param files    An array of filenames
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>scanDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>srcDir</name></decl></param>, <param><decl><type><name>File</name></type> <name>destDir</name></decl></param>, <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>files</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>GlobPatternMapper</name></type> <name>m</name> =<init> <expr>new <call><name>GlobPatternMapper</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>extensions</name> =<init> <expr><call><name>findSupportedFileExtensions</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>extensions</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>m</name>.<name>setFrom</name></name><argument_list>(<argument><expr><name><name>extensions</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>m</name>.<name>setTo</name></name><argument_list>(<argument><expr>"*.class"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>SourceFileScanner</name></type> <name>sfs</name> =<init> <expr>new <call><name>SourceFileScanner</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>newFiles</name> =<init> <expr><call><name><name>sfs</name>.<name>restrictAsFiles</name></name><argument_list>(<argument><expr><name>files</name></expr></argument>, <argument><expr><name>srcDir</name></expr></argument>, <argument><expr><name>destDir</name></expr></argument>, <argument><expr><name>m</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name><name>newFiles</name>.<name>length</name></name> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>lookForPackageInfos</name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>, <argument><expr><name>newFiles</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>newCompileList</name>
+                    =<init> <expr>new <name><name>File</name><index>[<expr><name><name>compileList</name>.<name>length</name></name> + <name><name>newFiles</name>.<name>length</name></name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>compileList</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>newCompileList</name></expr></argument>, <argument><expr>0</expr></argument>,
+                                 <argument><expr><name><name>compileList</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>newFiles</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>newCompileList</name></expr></argument>,
+                                 <argument><expr><name><name>compileList</name>.<name>length</name></name></expr></argument>, <argument><expr><name><name>newFiles</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>compileList</name> = <name>newCompileList</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>findSupportedFileExtensions</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>compilerImpl</name> =<init> <expr><call><name>getCompiler</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>CompilerAdapter</name></type> <name>adapter</name> =<init>
+            <expr><name>nestedAdapter</name> != <name>null</name> ? <name>nestedAdapter</name> :
+            <call><name><name>CompilerAdapterFactory</name>.<name>getCompiler</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>, <argument><expr><name>this</name></expr></argument>,
+                                               <argument><expr><call><name>createCompilerClasspath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>extensions</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>adapter</name> <name>instanceof</name> <name>CompilerAdapterExtension</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>extensions</name> =
+                ((<name>CompilerAdapterExtension</name>) <name>adapter</name>).<call><name>getSupportedFileExtensions</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>extensions</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>extensions</name> = new <name><name>String</name><index>[]</index></name> <block>{ <expr>"java"</expr> }</block></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// now process the extensions to ensure that they are the</comment>
+        <comment type="line">// right format</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>extensions</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr>!<name><name>extensions</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>startsWith</name><argument_list>(<argument><expr>"*."</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>extensions</name><index>[<expr><name>i</name></expr>]</index></name> = "*." + <name><name>extensions</name><index>[<expr><name>i</name></expr>]</index></name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr><name>extensions</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the list of files to be compiled.
+     * @return the list of files as an array
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name><index>[]</index></type> <name>getFileList</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>compileList</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Is the compiler implementation a jdk compiler
+     *
+     * @param compilerImpl the name of the compiler implementation
+     * @return true if compilerImpl is "modern", "classic",
+     * "javac1.1", "javac1.2", "javac1.3", "javac1.4", "javac1.5" or
+     * "javac1.6".
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>isJdkCompiler</name><parameter_list>(<param><decl><type><name>String</name></type> <name>compilerImpl</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>MODERN</name>.<name>equals</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>)</argument_list></call>
+            || <call><name><name>CLASSIC</name>.<name>equals</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>)</argument_list></call>
+            || <call><name><name>JAVAC18</name>.<name>equals</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>)</argument_list></call>
+            || <call><name><name>JAVAC17</name>.<name>equals</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>)</argument_list></call>
+            || <call><name><name>JAVAC16</name>.<name>equals</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>)</argument_list></call>
+            || <call><name><name>JAVAC15</name>.<name>equals</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>)</argument_list></call>
+            || <call><name><name>JAVAC14</name>.<name>equals</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>)</argument_list></call>
+            || <call><name><name>JAVAC13</name>.<name>equals</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>)</argument_list></call>
+            || <call><name><name>JAVAC12</name>.<name>equals</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>)</argument_list></call>
+            || <call><name><name>JAVAC11</name>.<name>equals</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the executable name of the java compiler
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getSystemJavac</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>JavaEnvUtils</name>.<name>getJdkExecutable</name></name><argument_list>(<argument><expr>"javac"</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Choose the implementation for this particular task.
+     * @param compiler the name of the compiler
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCompiler</name><parameter_list>(<param><decl><type><name>String</name></type> <name>compiler</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>facade</name>.<name>setImplementation</name></name><argument_list>(<argument><expr><name>compiler</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The implementation for this particular task.
+     *
+     * &lt;p&gt;Defaults to the build.compiler property but can be overridden
+     * via the compiler and fork attributes.&lt;/p&gt;
+     *
+     * &lt;p&gt;If fork has been set to true, the result will be extJavac
+     * and not classic or java1.2 - no matter what the compiler
+     * attribute looks like.&lt;/p&gt;
+     *
+     * @see #getCompilerVersion
+     * @return the compiler.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getCompiler</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>compilerImpl</name> =<init> <expr><call><name>getCompilerVersion</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>fork</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name>isJdkCompiler</name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>compilerImpl</name> = <name>EXTJAVAC</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Since compiler setting isn't classic or modern, "
+                    + "ignoring fork setting."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+        <return>return <expr><name>compilerImpl</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The implementation for this particular task.
+     *
+     * &lt;p&gt;Defaults to the build.compiler property but can be overridden
+     * via the compiler attribute.&lt;/p&gt;
+     *
+     * &lt;p&gt;This method does not take the fork attribute into
+     * account.&lt;/p&gt;
+     *
+     * @see #getCompiler
+     * @return the compiler.
+     *
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getCompilerVersion</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>facade</name>.<name>setMagicValue</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr>"build.compiler"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>facade</name>.<name>getImplementation</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check that all required attributes have been set and nothing
+     * silly has been entered.
+     *
+     * @since Ant 1.5
+     * @exception BuildException if an error occurs
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>checkParameters</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>src</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"srcdir attribute must be set!"</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>src</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"srcdir attribute must be set!"</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>destDir</name> != <name>null</name> &amp;&amp; !<call><name><name>destDir</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"destination directory \""
+                                     + <name>destDir</name>
+                                     + "\" does not exist "
+                                     + "or is not a directory"</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>includeAntRuntime</name> == <name>null</name> &amp;&amp; <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr>"build.sysclasspath"</expr></argument>)</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call> + "warning: 'includeantruntime' was not set, " +
+                    "defaulting to build.sysclasspath=last; set to false for repeatable builds"</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Perform the compilation.
+     *
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>compile</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>compilerImpl</name> =<init> <expr><call><name>getCompiler</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name><name>compileList</name>.<name>length</name></name> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Compiling " + <name><name>compileList</name>.<name>length</name></name> + " source file"
+                + (<name><name>compileList</name>.<name>length</name></name> == 1 ? "" : "s")
+                + (<name>destDir</name> != <name>null</name> ? " to " + <name>destDir</name> : "")</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>listFiles</name></expr>)</condition><then> <block>{
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>compileList</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                  <decl_stmt><decl><type><name>String</name></type> <name>filename</name> =<init> <expr><name><name>compileList</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                  <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>CompilerAdapter</name></type> <name>adapter</name> =<init>
+                <expr><name>nestedAdapter</name> != <name>null</name> ? <name>nestedAdapter</name> :
+                <call><name><name>CompilerAdapterFactory</name>.<name>getCompiler</name></name><argument_list>(<argument><expr><name>compilerImpl</name></expr></argument>, <argument><expr><name>this</name></expr></argument>,
+                                                   <argument><expr><call><name>createCompilerClasspath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// now we need to populate the compiler adapter</comment>
+            <expr_stmt><expr><call><name><name>adapter</name>.<name>setJavac</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// finally, lets execute the compiler!!</comment>
+            <if>if <condition>(<expr><call><name><name>adapter</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// Success</comment>
+                <if>if <condition>(<expr><name>createMissingPackageInfoClass</name></expr>)</condition><then> <block>{
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name>generateMissingPackageInfoClasses</name><argument_list>(<argument><expr><name>destDir</name> != <name>null</name>
+                                                          ? <name>destDir</name>
+                                                          : <call><name>getProject</name><argument_list>()</argument_list></call>
+                                                          .<call><name>resolveFile</name><argument_list>(<argument><expr><call><name><name>src</name>.<name>list</name></name><argument_list>()</argument_list></call><index>[<expr>0</expr>]</index></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>x</name></decl></param>) <block>{
+                        <comment type="line">// Should this be made a nonfatal warning?</comment>
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>x</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch></try>
+                }</block></then></if>
+            }</block></then> <else>else <block>{
+                <comment type="line">// Fail path</comment>
+                <expr_stmt><expr><name><name>this</name>.<name>taskSuccess</name></name> = false</expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>errorProperty</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>setNewProperty</name><argument_list>(
+                        <argument><expr><name>errorProperty</name></expr></argument>, <argument><expr>"true"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <if>if <condition>(<expr><name>failOnError</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>FAIL_MSG</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>FAIL_MSG</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></else></if>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds an "compiler" attribute to Commandline$Attribute used to
+     * filter command line attributes based on the current
+     * implementation.
+     */</comment>
+    <class><specifier>public</specifier> class <name>ImplementationSpecificArgument</name> <super><extends>extends
+        <name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>facade</name>.<name>ImplementationSpecificArgument</name></extends></super> <block>{
+
+        <comment type="javadoc">/**
+         * @param impl the name of the compiler
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setCompiler</name><parameter_list>(<param><decl><type><name>String</name></type> <name>impl</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name><name>super</name>.<name>setImplementation</name></name><argument_list>(<argument><expr><name>impl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>lookForPackageInfos</name><parameter_list>(<param><decl><type><name>File</name></type> <name>srcDir</name></decl></param>, <param><decl><type><name><name>File</name><index>[]</index></name></type> <name>newFiles</name></decl></param>)</parameter_list> <block>{
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>newFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr><name><name>newFiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name><name>f</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>"package-info.java"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>path</name> =<init> <expr><call><name><name>FILE_UTILS</name>.<name>removeLeadingPath</name></name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>, <argument><expr><name>f</name></expr></argument>)</argument_list></call>.
+                    <call><name>replace</name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>suffix</name> =<init> <expr>"/package-info.java"</expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name><name>path</name>.<name>endsWith</name></name><argument_list>(<argument><expr><name>suffix</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"anomalous package-info.java path: " + <name>path</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <continue>continue;</continue>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>pkg</name> =<init> <expr><call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>path</name>.<name>length</name></name><argument_list>()</argument_list></call> - <call><name><name>suffix</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>packageInfos</name>.<name>put</name></name><argument_list>(<argument><expr><name>pkg</name></expr></argument>, <argument><expr>new <call><name>Long</name><argument_list>(<argument><expr><call><name><name>f</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Ensure that every {@code package-info.java} produced a {@code package-info.class}.
+     * Otherwise this task's up-to-date tracking mechanisms do not work.
+     * @see &lt;a href="https://issues.apache.org/bugzilla/show_bug.cgi?id=43114"&gt;Bug #43114&lt;/a&gt;
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>generateMissingPackageInfoClasses</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dest</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <for>for (<init><decl><type><name><name>Entry</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Long</name></argument>&gt;</argument_list></name></type> <name>entry</name> :<range> <expr><call><name><name>packageInfos</name>.<name>entrySet</name></name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>pkg</name> =<init> <expr><call><name><name>entry</name>.<name>getKey</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Long</name></type> <name>sourceLastMod</name> =<init> <expr><call><name><name>entry</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>pkgBinDir</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>dest</name></expr></argument>, <argument><expr><call><name><name>pkg</name>.<name>replace</name></name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>pkgBinDir</name>.<name>mkdirs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>pkgInfoClass</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>pkgBinDir</name></expr></argument>, <argument><expr>"package-info.class"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>pkgInfoClass</name>.<name>isFile</name></name><argument_list>()</argument_list></call> &amp;&amp; <call><name><name>pkgInfoClass</name>.<name>lastModified</name></name><argument_list>()</argument_list></call> &gt;= <call><name><name>sourceLastMod</name>.<name>longValue</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Creating empty " + <name>pkgInfoClass</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>OutputStream</name></type> <name>os</name> =<init> <expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>pkgInfoClass</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>os</name>.<name>write</name></name><argument_list>(<argument><expr><name>PACKAGE_INFO_CLASS_HEADER</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>name</name> =<init> <expr><call><name><name>pkg</name>.<name>getBytes</name></name><argument_list>(<argument><expr>"UTF-8"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>length</name> =<init> <expr><name><name>name</name>.<name>length</name></name> + <comment type="block">/* "/package-info" */</comment> 13</expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>os</name>.<name>write</name></name><argument_list>(<argument><expr>(<name>byte</name>) <name>length</name> / 256</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>os</name>.<name>write</name></name><argument_list>(<argument><expr>(<name>byte</name>) <name>length</name> % 256</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>os</name>.<name>write</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>os</name>.<name>write</name></name><argument_list>(<argument><expr><name>PACKAGE_INFO_CLASS_FOOTER</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <finally>finally <block>{
+                <expr_stmt><expr><call><name><name>os</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></finally></try>
+        }</block></for>
+    }</block></function>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>PACKAGE_INFO_CLASS_HEADER</name> =<init> <expr><block>{
+        <expr>(<name>byte</name>) 0xca</expr>, <expr>(<name>byte</name>) 0xfe</expr>, <expr>(<name>byte</name>) 0xba</expr>, <expr>(<name>byte</name>) 0xbe</expr>, <expr>0x00</expr>, <expr>0x00</expr>, <expr>0x00</expr>,
+        <expr>0x31</expr>, <expr>0x00</expr>, <expr>0x07</expr>, <expr>0x07</expr>, <expr>0x00</expr>, <expr>0x05</expr>, <expr>0x07</expr>, <expr>0x00</expr>, <expr>0x06</expr>, <expr>0x01</expr>, <expr>0x00</expr>, <expr>0x0a</expr>,
+        <expr>0x53</expr>, <expr>0x6f</expr>, <expr>0x75</expr>, <expr>0x72</expr>, <expr>0x63</expr>, <expr>0x65</expr>, <expr>0x46</expr>, <expr>0x69</expr>, <expr>0x6c</expr>, <expr>0x65</expr>, <expr>0x01</expr>, <expr>0x00</expr>,
+        <expr>0x11</expr>, <expr>0x70</expr>, <expr>0x61</expr>, <expr>0x63</expr>, <expr>0x6b</expr>, <expr>0x61</expr>, <expr>0x67</expr>, <expr>0x65</expr>, <expr>0x2d</expr>, <expr>0x69</expr>, <expr>0x6e</expr>, <expr>0x66</expr>,
+        <expr>0x6f</expr>, <expr>0x2e</expr>, <expr>0x6a</expr>, <expr>0x61</expr>, <expr>0x76</expr>, <expr>0x61</expr>, <expr>0x01</expr>
+    }</block></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>PACKAGE_INFO_CLASS_FOOTER</name> =<init> <expr><block>{
+        <expr>0x2f</expr>, <expr>0x70</expr>, <expr>0x61</expr>, <expr>0x63</expr>, <expr>0x6b</expr>, <expr>0x61</expr>, <expr>0x67</expr>, <expr>0x65</expr>, <expr>0x2d</expr>, <expr>0x69</expr>, <expr>0x6e</expr>, <expr>0x66</expr>,
+        <expr>0x6f</expr>, <expr>0x01</expr>, <expr>0x00</expr>, <expr>0x10</expr>, <expr>0x6a</expr>, <expr>0x61</expr>, <expr>0x76</expr>, <expr>0x61</expr>, <expr>0x2f</expr>, <expr>0x6c</expr>, <expr>0x61</expr>, <expr>0x6e</expr>,
+        <expr>0x67</expr>, <expr>0x2f</expr>, <expr>0x4f</expr>, <expr>0x62</expr>, <expr>0x6a</expr>, <expr>0x65</expr>, <expr>0x63</expr>, <expr>0x74</expr>, <expr>0x02</expr>, <expr>0x00</expr>, <expr>0x00</expr>, <expr>0x01</expr>,
+        <expr>0x00</expr>, <expr>0x02</expr>, <expr>0x00</expr>, <expr>0x00</expr>, <expr>0x00</expr>, <expr>0x00</expr>, <expr>0x00</expr>, <expr>0x00</expr>, <expr>0x00</expr>, <expr>0x01</expr>, <expr>0x00</expr>, <expr>0x03</expr>,
+        <expr>0x00</expr>, <expr>0x00</expr>, <expr>0x00</expr>, <expr>0x02</expr>, <expr>0x00</expr>, <expr>0x04</expr>
+    }</block></expr></init></decl>;</decl_stmt>
+
+}</block></class>
+</unit>

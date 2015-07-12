@@ -1,0 +1,505 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\junit\JUnitTest.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>junit</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Properties</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>PropertyHelper</name></name>;</import>
+
+<comment type="javadoc">/**
+ * &lt;p&gt; Run a single JUnit test.
+ *
+ * &lt;p&gt; The JUnit test is actually run by {@link JUnitTestRunner}.
+ * So read the doc comments for that class :)
+ *
+ * @since Ant 1.2
+ *
+ * @see JUnitTask
+ * @see JUnitTestRunner
+ */</comment>
+<class><specifier>public</specifier> class <name>JUnitTest</name> <super><extends>extends <name>BaseTest</name></extends> <implements>implements <name>Cloneable</name></implements></super> <block>{
+
+    <comment type="javadoc">/** the name of the test case */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>name</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * whether the list of test methods has been specified
+     * @see #setMethods(java.lang.String)
+     * @see #setMethods(java.lang.String[])
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>methodsSpecified</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** comma-separated list of names of test methods to execute */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>methodsList</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** the names of test methods to execute */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>methods</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    
+    <comment type="javadoc">/** the name of the result file */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>outfile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// @todo this is duplicating TestResult information. Only the time is not</comment>
+    <comment type="line">// part of the result. So we'd better derive a new class from TestResult</comment>
+    <comment type="line">// and deal with it. (SB)</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>runs</name>, <name>failures</name>, <name>errors</name></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+    @since Ant 1.9.0
+    */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>skips</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>runTime</name></decl>;</decl_stmt>
+
+    <comment type="line">// Snapshot of the system properties</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Properties</name></type> <name>props</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** No arg constructor. */</comment>
+    <constructor><specifier>public</specifier> <name>JUnitTest</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor with name.
+     * @param name the name of the test.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>JUnitTest</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>name</name></name>  = <name>name</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor with options.
+     * @param name the name of the test.
+     * @param haltOnError if true halt the tests if there is an error.
+     * @param haltOnFailure if true halt the tests if there is a failure.
+     * @param filtertrace if true filter stack traces.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>JUnitTest</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>haltOnError</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>haltOnFailure</name></decl></param>,
+            <param><decl><type><name>boolean</name></type> <name>filtertrace</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>haltOnError</name></expr></argument>, <argument><expr><name>haltOnFailure</name></expr></argument>, <argument><expr><name>filtertrace</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>    
+    
+    <comment type="javadoc">/**
+     * Constructor with options.
+     * @param name the name of the test.
+     * @param haltOnError if true halt the tests if there is an error.
+     * @param haltOnFailure if true halt the tests if there is a failure.
+     * @param filtertrace if true filter stack traces.
+     * @param methods if non-null run only these test methods
+     * @since 1.8.2
+     */</comment>
+    <constructor><specifier>public</specifier> <name>JUnitTest</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>haltOnError</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>haltOnFailure</name></decl></param>,
+                     <param><decl><type><name>boolean</name></type> <name>filtertrace</name></decl></param>, <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>methods</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>name</name></name>  = <name>name</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>haltOnError</name></name> = <name>haltOnError</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>haltOnFail</name></name> = <name>haltOnFailure</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>filtertrace</name></name> = <name>filtertrace</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>methodsSpecified</name></name> = <name>methods</name> != <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>methods</name></name> = <name>methodsSpecified</name> ? (<name><name>String</name><index>[]</index></name>) <call><name><name>methods</name>.<name>clone</name></name><argument_list>()</argument_list></call> : <name>null</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Sets names of individual test methods to be executed.
+     * @param value comma-separated list of names of individual test methods
+     *              to be executed,
+     *              or &lt;code&gt;null&lt;/code&gt; if all test methods should be executed
+     * @since 1.8.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMethods</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>methodsList</name> = <name>value</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>methodsSpecified</name> = (<name>value</name> != <name>null</name>)</expr>;</expr_stmt>
+        <expr_stmt><expr><name>methods</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets names of individual test methods to be executed.
+     * @param value non-empty array of names of test methods to be executed
+     * @see #setMethods(String)
+     * @since 1.8.2
+     */</comment>
+    <function><type><name>void</name></type> <name>setMethods</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>methods</name> = <name>value</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>methodsSpecified</name> = (<name>value</name> != <name>null</name>)</expr>;</expr_stmt>
+        <expr_stmt><expr><name>methodsList</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of the test class.
+     * @param value the name to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>name</name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of the output file.
+     * @param value the name of the output file to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutfile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>outfile</name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Informs whether a list of test methods has been specified in this test.
+     * @return &lt;code&gt;true&lt;/code&gt; if test methods to be executed have been
+     *         specified, &lt;code&gt;false&lt;/code&gt; otherwise
+     * @see #setMethods(java.lang.String)
+     * @see #setMethods(java.lang.String[])
+     * @since 1.8.2
+     */</comment>
+    <function><type><name>boolean</name></type> <name>hasMethodsSpecified</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>methodsSpecified</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get names of individual test methods to be executed.
+     *
+     * @return array of names of the individual test methods to be executed,
+     *         or &lt;code&gt;null&lt;/code&gt; if all test methods in the suite
+     *         defined by the test class will be executed
+     * @since 1.8.2
+     */</comment>
+    <function><type><name>String</name><index>[]</index></type> <name>getMethods</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>methodsSpecified</name> &amp;&amp; (<name>methods</name> == <name>null</name>)</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>resolveMethods</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>methods</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets a comma-separated list of names of methods that are to be executed
+     * by this test.
+     * @return the comma-separated list of test method names, or an empty
+     *         string of no method is to be executed, or &lt;code&gt;null&lt;/code&gt;
+     *         if no method is specified
+     * @since 1.8.2
+     */</comment>
+    <function><type><name>String</name></type> <name>getMethodsString</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr>(<name>methodsList</name> == <name>null</name>) &amp;&amp; <name>methodsSpecified</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name><name>methods</name>.<name>length</name></name> == 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>methodsList</name> = ""</expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name><name>methods</name>.<name>length</name></name> == 1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>methodsList</name> = <name><name>methods</name><index>[<expr>0</expr>]</index></name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><name><name>methods</name>.<name>length</name></name> * 16</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>methods</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>1</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>methods</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>','</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name><name>methods</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+                <expr_stmt><expr><name>methodsList</name> = <call><name><name>buf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if></else></if>
+        }</block></then></if>
+        <return>return <expr><name>methodsList</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Computes the value of the {@link #methods} field from the value
+     * of the {@link #methodsList} field, if it has not been computed yet.
+     * @exception BuildException if the value of the {@link #methodsList} field
+     *                           was invalid
+     * @since 1.8.2
+     */</comment>
+    <function><type><name>void</name></type> <name>resolveMethods</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr>(<name>methods</name> == <name>null</name>) &amp;&amp; <name>methodsSpecified</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>methods</name> = <call><name>parseTestMethodNamesList</name><argument_list>(<argument><expr><name>methodsList</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IllegalArgumentException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                        <argument><expr>"Invalid specification of test methods: \""
+                            + <name>methodsList</name>
+                            + "\"; expected: comma-separated list of valid Java identifiers"</expr></argument>,
+                        <argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parses a comma-separated list of method names and check their validity.
+     * @param methodNames comma-separated list of method names to be parsed
+     * @return array of individual test method names
+     * @exception  java.lang.IllegalArgumentException
+     *             if the given string is &lt;code&gt;null&lt;/code&gt; or if it is not
+     *             a comma-separated list of valid Java identifiers;
+     *             an empty string is acceptable and is handled as an empty
+     *             list
+     * @since 1.8.2
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name><index>[]</index></type> <name>parseTestMethodNamesList</name><parameter_list>(<param><decl><type><name>String</name></type> <name>methodNames</name></decl></param>)</parameter_list>
+                                            <throws>throws <argument><expr><name>IllegalArgumentException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>methodNames</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"methodNames is &lt;null&gt;"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>methodNames</name> = <call><name><name>methodNames</name>.<name>trim</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>length</name> =<init> <expr><call><name><name>methodNames</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>length</name> == 0</expr>)</condition><then> <block>{
+            <return>return <expr>new <name><name>String</name><index>[<expr>0</expr>]</index></name></expr>;</return>
+        }</block></then></if>
+
+        <comment type="block">/* strip the trailing comma, if any */</comment>
+        <if>if <condition>(<expr><call><name><name>methodNames</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>length</name> - 1</expr></argument>)</argument_list></call> == ','</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>methodNames</name> = <call><name><name>methodNames</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>length</name> - 1</expr></argument>)</argument_list></call>.<call><name>trim</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>length</name> = <call><name><name>methodNames</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>length</name> == 0</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"Empty method name"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>char</name><index>[]</index></type> <name>chars</name> =<init> <expr><call><name><name>methodNames</name>.<name>toCharArray</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="block">/* easy detection of one particular case of illegal string: */</comment>
+        <if>if <condition>(<expr><name><name>chars</name><index>[<expr>0</expr>]</index></name> == ','</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"Empty method name"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <comment type="block">/* count number of method names: */</comment>
+        <decl_stmt><decl><type><name>int</name></type> <name>wordCount</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>1</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>chars</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><name><name>chars</name><index>[<expr><name>i</name></expr>]</index></name> == ','</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>wordCount</name>++</expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+        <comment type="block">/* prepare the resulting array: */</comment>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>result</name> =<init> <expr>new <name><name>String</name><index>[<expr><name>wordCount</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <comment type="block">/* parse the string: */</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>stateBeforeWord</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>stateInsideWord</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>stateAfterWord</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+        <comment type="line">//</comment>
+        <decl_stmt><decl><type><name>int</name></type> <name>state</name> =<init> <expr><name>stateBeforeWord</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>wordStartIndex</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>wordIndex</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>chars</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>char</name></type> <name>c</name> =<init> <expr><name><name>chars</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <switch>switch <condition>(<expr><name>state</name></expr>)</condition> <block>{
+                <case>case <expr><name>stateBeforeWord</name></expr>:
+                    <if>if <condition>(<expr><name>c</name> == ','</expr>)</condition><then> <block>{
+                        <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"Empty method name"</expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then> <else>else <if>if <condition>(<expr><name>c</name> == ' '</expr>)</condition><then> <block>{
+                        <comment type="line">// remain in the same state</comment>
+                    }</block></then> <else>else <if>if <condition>(<expr><call><name><name>Character</name>.<name>isJavaIdentifierStart</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>wordStartIndex</name> = <name>i</name></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>state</name> = <name>stateInsideWord</name></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"Illegal start of method name: " + <name>c</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></else></if></else></if></else></if>
+                    <break>break;</break>
+                </case><case>case <expr><name>stateInsideWord</name></expr>:
+                    <if>if <condition>(<expr><name>c</name> == ','</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name><name>result</name><index>[<expr><name>wordIndex</name>++</expr>]</index></name> = <call><name><name>methodNames</name>.<name>substring</name></name><argument_list>(<argument><expr><name>wordStartIndex</name></expr></argument>, <argument><expr><name>i</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>state</name> = <name>stateBeforeWord</name></expr>;</expr_stmt>
+                    }</block></then> <else>else <if>if <condition>(<expr><name>c</name> == ' '</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name><name>result</name><index>[<expr><name>wordIndex</name>++</expr>]</index></name> = <call><name><name>methodNames</name>.<name>substring</name></name><argument_list>(<argument><expr><name>wordStartIndex</name></expr></argument>, <argument><expr><name>i</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>state</name> = <name>stateAfterWord</name></expr>;</expr_stmt>
+                    }</block></then> <else>else <if>if <condition>(<expr><call><name><name>Character</name>.<name>isJavaIdentifierPart</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// remain in the same state</comment>
+                    }</block></then> <else>else <block>{
+                        <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"Illegal character in method name: " + <name>c</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></else></if></else></if></else></if>
+                    <break>break;</break>
+                </case><case>case <expr><name>stateAfterWord</name></expr>:
+                    <if>if <condition>(<expr><name>c</name> == ','</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>state</name> = <name>stateBeforeWord</name></expr>;</expr_stmt>
+                    }</block></then> <else>else <if>if <condition>(<expr><name>c</name> == ' '</expr>)</condition><then> <block>{
+                        <comment type="line">// remain in the same state</comment>
+                    }</block></then> <else>else <block>{
+                        <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"Space in method name"</expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></else></if></else></if>
+                    <break>break;</break>
+                </case><default>default:
+                    <comment type="line">// this should never happen</comment>
+            </default>}</block></switch>
+        }</block></for>
+        <switch>switch <condition>(<expr><name>state</name></expr>)</condition> <block>{
+            <case>case <expr><name>stateBeforeWord</name></expr>:
+            </case><case>case <expr><name>stateAfterWord</name></expr>:
+                <break>break;</break>
+            </case><case>case <expr><name>stateInsideWord</name></expr>:
+                <expr_stmt><expr><name><name>result</name><index>[<expr><name>wordIndex</name>++</expr>]</index></name> = <call><name><name>methodNames</name>.<name>substring</name></name><argument_list>(<argument><expr><name>wordStartIndex</name></expr></argument>, <argument><expr><name><name>chars</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+            </case><default>default:
+                <comment type="line">// this should never happen</comment>
+        </default>}</block></switch>
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the name of the test class.
+     * @return the name of the test.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getName</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>name</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the name of the output file
+     *
+     * @return the name of the output file.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getOutfile</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>outfile</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the number of runs, failures, errors, and skipped tests.
+     * @param runs     the number of runs.
+     * @param failures the number of failures.
+     * @param errors   the number of errors.
+     * Kept for backward compatibility with Ant 1.8.4
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCounts</name><parameter_list>(<param><decl><type><name>long</name></type> <name>runs</name></decl></param>, <param><decl><type><name>long</name></type> <name>failures</name></decl></param>, <param><decl><type><name>long</name></type> <name>errors</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>runs</name></name> = <name>runs</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>failures</name></name> = <name>failures</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>errors</name></name> = <name>errors</name></expr>;</expr_stmt>
+    }</block></function>
+    <comment type="javadoc">/**
+     * Set the number of runs, failures, errors, and skipped tests.
+     * @param runs     the number of runs.
+     * @param failures the number of failures.
+     * @param errors   the number of errors.
+     * @param skips   the number of skipped tests.
+     * @since Ant 1.9.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCounts</name><parameter_list>(<param><decl><type><name>long</name></type> <name>runs</name></decl></param>, <param><decl><type><name>long</name></type> <name>failures</name></decl></param>, <param><decl><type><name>long</name></type> <name>errors</name></decl></param>, <param><decl><type><name>long</name></type> <name>skips</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>runs</name></name> = <name>runs</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>failures</name></name> = <name>failures</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>errors</name></name> = <name>errors</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>skips</name></name> = <name>skips</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the runtime.
+     * @param runTime the time in milliseconds.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRunTime</name><parameter_list>(<param><decl><type><name>long</name></type> <name>runTime</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>runTime</name></name> = <name>runTime</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the number of runs.
+     * @return the number of runs.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>long</name></type> <name>runCount</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>runs</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the number of failures.
+     * @return the number of failures.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>long</name></type> <name>failureCount</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>failures</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the number of errors.
+     * @return the number of errors.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>long</name></type> <name>errorCount</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>errors</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the number of skipped tests.
+     * @return the number of skipped tests.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>long</name></type> <name>skipCount</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>skips</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the run time.
+     * @return the run time in milliseconds.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>long</name></type> <name>getRunTime</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>runTime</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the properties used in the test.
+     * @return the properties.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Properties</name></type> <name>getProperties</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>props</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the properties to be used in the test.
+     * @param p the properties.
+     *          This is a copy of the projects ant properties.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProperties</name><parameter_list>(<param><decl><type><name>Hashtable</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>props</name> = new <call><name>Properties</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>p</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>Object</name></type> <name>key</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>props</name>.<name>put</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr><call><name><name>p</name>.<name>get</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if this test should run based on the if and unless
+     * attributes.
+     * @param p the project to use to check if the if and unless
+     *          properties exist in.
+     * @return true if this test or testsuite should be run.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>shouldRun</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>PropertyHelper</name></type> <name>ph</name> =<init> <expr><call><name><name>PropertyHelper</name>.<name>getPropertyHelper</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name><name>ph</name>.<name>testIfCondition</name></name><argument_list>(<argument><expr><call><name>getIfCondition</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+            &amp;&amp; <call><name><name>ph</name>.<name>testUnlessCondition</name></name><argument_list>(<argument><expr><call><name>getUnlessCondition</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the formatters set for this test.
+     * @return the formatters as an array.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>FormatterElement</name><index>[]</index></type> <name>getFormatters</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>FormatterElement</name><index>[]</index></type> <name>fes</name> =<init> <expr>new <name><name>FormatterElement</name><index>[<expr><call><name><name>formatters</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>formatters</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>fes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>fes</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenient method to add formatters to a vector
+     */</comment>
+    <function><type><name>void</name></type> <name>addFormattersTo</name><parameter_list>(<param><decl><type><name>Vector</name></type> <name>v</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>count</name> =<init> <expr><call><name><name>formatters</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>count</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>v</name>.<name>addElement</name></name><argument_list>(<argument><expr><call><name><name>formatters</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @since Ant 1.5
+     * @return a clone of this test.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>JUnitTest</name></type> <name>t</name> =<init> <expr>(<name>JUnitTest</name>) <call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name><name>t</name>.<name>props</name></name> = <name>props</name> == <name>null</name> ? <name>null</name> : (<name>Properties</name>) <call><name><name>props</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>t</name>.<name>formatters</name></name> = (<name>Vector</name>) <call><name><name>formatters</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>t</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>CloneNotSupportedException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// plain impossible</comment>
+            <return>return <expr><name>this</name></expr>;</return>
+        }</block></catch></try>
+    }</block></function>
+}</block></class>
+</unit>

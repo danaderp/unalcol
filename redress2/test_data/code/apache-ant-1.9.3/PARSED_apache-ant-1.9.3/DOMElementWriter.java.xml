@@ -1,0 +1,600 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\util\DOMElementWriter.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStreamWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Writer</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Attr</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Element</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>NamedNodeMap</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Node</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>NodeList</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Text</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Writes a DOM tree to a given Writer.
+ * warning: this utility currently does not declare XML Namespaces.
+ * &lt;p&gt;Utility class used by {@link org.apache.tools.ant.XmlLogger
+ * XmlLogger} and
+ * org.apache.tools.ant.taskdefs.optional.junit.XMLJUnitResultFormatter
+ * XMLJUnitResultFormatter}.&lt;/p&gt;
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>DOMElementWriter</name> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>HEX</name> =<init> <expr>16</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name><index>[]</index></type> <name>WS_ENTITIES</name> =<init> <expr>new <name><name>String</name><index>[<expr>'\r' - '\t' + 1</expr>]</index></name></expr></init></decl>;</decl_stmt>
+    static <block>{
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>'\t'</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; '\r' + 1</expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name><name>WS_ENTITIES</name><index>[<expr><name>i</name> - '\t'</expr>]</index></name> = "&amp;#x" + <call><name><name>Integer</name>.<name>toHexString</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call> + ";"</expr>;</expr_stmt>
+        }</block></for>
+    }</block>
+
+    <comment type="javadoc">/** prefix for generated prefixes */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>NS</name> =<init> <expr>"ns"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** xml declaration is on by default */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>xmlDeclaration</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * XML Namespaces are ignored by default.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>XmlNamespacePolicy</name></type> <name>namespacePolicy</name> =<init> <expr><name><name>XmlNamespacePolicy</name>.<name>IGNORE</name></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Map (URI to prefix) of known namespaces.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>HashMap</name></type> <name>nsPrefixMap</name> =<init> <expr>new <call><name>HashMap</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Number of generated prefix to use next.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>nextPrefix</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Map (Element to URI) of namespaces defined on a given element.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>HashMap</name></type> <name>nsURIByElement</name> =<init> <expr>new <call><name>HashMap</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether namespaces should be ignored for elements and attributes.
+     *
+     * @since Ant 1.7
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>XmlNamespacePolicy</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>qualifyElements</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>qualifyAttributes</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Ignores namespaces for elements and attributes, the default.
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>XmlNamespacePolicy</name></type> <name>IGNORE</name> =<init>
+            <expr>new <call><name>XmlNamespacePolicy</name><argument_list>(<argument><expr>false</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Ignores namespaces for attributes.
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>XmlNamespacePolicy</name></type> <name>ONLY_QUALIFY_ELEMENTS</name> =<init>
+            <expr>new <call><name>XmlNamespacePolicy</name><argument_list>(<argument><expr>true</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Qualifies namespaces for elements and attributes.
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>XmlNamespacePolicy</name></type> <name>QUALIFY_ALL</name> =<init>
+            <expr>new <call><name>XmlNamespacePolicy</name><argument_list>(<argument><expr>true</expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * @param qualifyElements whether to qualify elements
+         * @param qualifyAttributes whether to qualify elements
+         */</comment>
+        <constructor><specifier>public</specifier> <name>XmlNamespacePolicy</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>qualifyElements</name></decl></param>,
+                                  <param><decl><type><name>boolean</name></type> <name>qualifyAttributes</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>qualifyElements</name></name> = <name>qualifyElements</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>qualifyAttributes</name></name> = <name>qualifyAttributes</name></expr>;</expr_stmt>
+        }</block></constructor>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Create an element writer.
+     * The ?xml? declaration will be included, namespaces ignored.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>DOMElementWriter</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Create an element writer
+     * XML namespaces will be ignored.
+     * @param xmlDeclaration flag to indicate whether the ?xml? declaration
+     * should be included.
+     * @since Ant1.7
+     */</comment>
+    <constructor><specifier>public</specifier> <name>DOMElementWriter</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>xmlDeclaration</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>xmlDeclaration</name></expr></argument>, <argument><expr><name><name>XmlNamespacePolicy</name>.<name>IGNORE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Create an element writer
+     * XML namespaces will be ignored.
+     * @param xmlDeclaration flag to indicate whether the ?xml? declaration
+     * should be included.
+     * @param namespacePolicy the policy to use.
+     * @since Ant1.7
+     */</comment>
+    <constructor><specifier>public</specifier> <name>DOMElementWriter</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>xmlDeclaration</name></decl></param>,
+                            <param><decl><type><name>XmlNamespacePolicy</name></type> <name>namespacePolicy</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>xmlDeclaration</name></name> = <name>xmlDeclaration</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>namespacePolicy</name></name> = <name>namespacePolicy</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>lSep</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"line.separator"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+    <comment type="javadoc">/**
+     * Don't try to be too smart but at least recognize the predefined
+     * entities.
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name><index>[]</index></type> <name>knownEntities</name> =<init> <expr><block>{<expr>"gt"</expr>, <expr>"amp"</expr>, <expr>"lt"</expr>, <expr>"apos"</expr>, <expr>"quot"</expr>}</block></expr></init></decl>;</decl_stmt>
+    <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+
+
+    <comment type="javadoc">/**
+     * Writes a DOM tree to a stream in UTF8 encoding. Note that
+     * it prepends the &amp;lt;?xml version='1.0' encoding='UTF-8'?&amp;gt; if
+     * the xmlDeclaration field is true.
+     * The indent number is set to 0 and a 2-space indent.
+     * @param root the root element of the DOM tree.
+     * @param out the outputstream to write to.
+     * @throws IOException if an error happens while writing to the stream.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>Element</name></type> <name>root</name></decl></param>, <param><decl><type><name>OutputStream</name></type> <name>out</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Writer</name></type> <name>wri</name> =<init> <expr>new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"UTF8"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>writeXMLDeclaration</name><argument_list>(<argument><expr><name>wri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr><name>root</name></expr></argument>, <argument><expr><name>wri</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr>"  "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>wri</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes the XML declaration if xmlDeclaration is true.
+     * @param wri the writer to write to.
+     * @throws IOException if there is an error.
+     * @since Ant 1.7.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>writeXMLDeclaration</name><parameter_list>(<param><decl><type><name>Writer</name></type> <name>wri</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>xmlDeclaration</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>wri</name>.<name>write</name></name><argument_list>(<argument><expr>"&lt;?xml version=\"1.0\" encoding=\"UTF-8\"?&gt;\n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes a DOM tree to a stream.
+     *
+     * @param element the Root DOM element of the tree
+     * @param out where to send the output
+     * @param indent number of
+     * @param indentWith string that should be used to indent the
+     * corresponding tag.
+     * @throws IOException if an error happens while writing to the stream.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>write</name><parameter_list>(<param><decl><type><name>Element</name></type> <name>element</name></decl></param>, <param><decl><type><name>Writer</name></type> <name>out</name></decl></param>, <param><decl><type><name>int</name></type> <name>indent</name></decl></param>,
+                      <param><decl><type><name>String</name></type> <name>indentWith</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+
+        <comment type="line">// Write child elements and text</comment>
+        <decl_stmt><decl><type><name>NodeList</name></type> <name>children</name> =<init> <expr><call><name><name>element</name>.<name>getChildNodes</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>hasChildren</name> =<init> <expr>(<call><name><name>children</name>.<name>getLength</name></name><argument_list>()</argument_list></call> &gt; 0)</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>hasChildElements</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>openElement</name><argument_list>(<argument><expr><name>element</name></expr></argument>, <argument><expr><name>out</name></expr></argument>, <argument><expr><name>indent</name></expr></argument>, <argument><expr><name>indentWith</name></expr></argument>, <argument><expr><name>hasChildren</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>hasChildren</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <call><name><name>children</name>.<name>getLength</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>Node</name></type> <name>child</name> =<init> <expr><call><name><name>children</name>.<name>item</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <switch>switch <condition>(<expr><call><name><name>child</name>.<name>getNodeType</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+
+                <case>case <expr><name><name>Node</name>.<name>ELEMENT_NODE</name></name></expr>:
+                    <expr_stmt><expr><name>hasChildElements</name> = true</expr>;</expr_stmt>
+                    <if>if <condition>(<expr><name>i</name> == 0</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>lSep</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <expr_stmt><expr><call><name>write</name><argument_list>(<argument><expr>(<name>Element</name>) <name>child</name></expr></argument>, <argument><expr><name>out</name></expr></argument>, <argument><expr><name>indent</name> + 1</expr></argument>, <argument><expr><name>indentWith</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <break>break;</break>
+
+                </case><case>case <expr><name><name>Node</name>.<name>TEXT_NODE</name></name></expr>:
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><call><name>encode</name><argument_list>(<argument><expr><call><name><name>child</name>.<name>getNodeValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <break>break;</break>
+
+                </case><case>case <expr><name><name>Node</name>.<name>COMMENT_NODE</name></name></expr>:
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"&lt;!--"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><call><name>encode</name><argument_list>(<argument><expr><call><name><name>child</name>.<name>getNodeValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"--&gt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <break>break;</break>
+
+                </case><case>case <expr><name><name>Node</name>.<name>CDATA_SECTION_NODE</name></name></expr>:
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"&lt;![CDATA["</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><call><name>encodedata</name><argument_list>(<argument><expr>((<name>Text</name>) <name>child</name>).<call><name>getData</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"]]&gt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <break>break;</break>
+
+                </case><case>case <expr><name><name>Node</name>.<name>ENTITY_REFERENCE_NODE</name></name></expr>:
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>'&amp;'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>child</name>.<name>getNodeName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>';'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <break>break;</break>
+
+                </case><case>case <expr><name><name>Node</name>.<name>PROCESSING_INSTRUCTION_NODE</name></name></expr>:
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"&lt;?"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>child</name>.<name>getNodeName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>data</name> =<init> <expr><call><name><name>child</name>.<name>getNodeValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>data</name> != <name>null</name> &amp;&amp; <call><name><name>data</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>' '</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>data</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"?&gt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><default>default:
+                    <comment type="line">// Do nothing</comment>
+                </default>}</block></switch>
+            }</block></for>
+            <expr_stmt><expr><call><name>closeElement</name><argument_list>(<argument><expr><name>element</name></expr></argument>, <argument><expr><name>out</name></expr></argument>, <argument><expr><name>indent</name></expr></argument>, <argument><expr><name>indentWith</name></expr></argument>, <argument><expr><name>hasChildElements</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes the opening tag - including all attributes -
+     * corresponding to a DOM element.
+     *
+     * @param element the DOM element to write
+     * @param out where to send the output
+     * @param indent number of
+     * @param indentWith string that should be used to indent the
+     * corresponding tag.
+     * @throws IOException if an error happens while writing to the stream.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>openElement</name><parameter_list>(<param><decl><type><name>Element</name></type> <name>element</name></decl></param>, <param><decl><type><name>Writer</name></type> <name>out</name></decl></param>, <param><decl><type><name>int</name></type> <name>indent</name></decl></param>,
+                            <param><decl><type><name>String</name></type> <name>indentWith</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>openElement</name><argument_list>(<argument><expr><name>element</name></expr></argument>, <argument><expr><name>out</name></expr></argument>, <argument><expr><name>indent</name></expr></argument>, <argument><expr><name>indentWith</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes the opening tag - including all attributes -
+     * corresponding to a DOM element.
+     *
+     * @param element the DOM element to write
+     * @param out where to send the output
+     * @param indent number of
+     * @param indentWith string that should be used to indent the
+     * corresponding tag.
+     * @param hasChildren whether this element has children.
+     * @throws IOException if an error happens while writing to the stream.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>openElement</name><parameter_list>(<param><decl><type><name>Element</name></type> <name>element</name></decl></param>, <param><decl><type><name>Writer</name></type> <name>out</name></decl></param>, <param><decl><type><name>int</name></type> <name>indent</name></decl></param>,
+                            <param><decl><type><name>String</name></type> <name>indentWith</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>hasChildren</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <comment type="line">// Write indent characters</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>indent</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>indentWith</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <comment type="line">// Write element</comment>
+        <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"&lt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name><name>namespacePolicy</name>.<name>qualifyElements</name></name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>uri</name> =<init> <expr><call><name>getNamespaceURI</name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>prefix</name> =<init> <expr>(<name>String</name>) <call><name><name>nsPrefixMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>prefix</name> == <name>null</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name><name>nsPrefixMap</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <comment type="line">// steal default namespace</comment>
+                    <expr_stmt><expr><name>prefix</name> = ""</expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>prefix</name> = <name>NS</name> + (<name>nextPrefix</name>++)</expr>;</expr_stmt>
+                }</block></else></if>
+                <expr_stmt><expr><call><name><name>nsPrefixMap</name>.<name>put</name></name><argument_list>(<argument><expr><name>uri</name></expr></argument>, <argument><expr><name>prefix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>addNSDefinition</name><argument_list>(<argument><expr><name>element</name></expr></argument>, <argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr>!"".<call><name>equals</name><argument_list>(<argument><expr><name>prefix</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>prefix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>":"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>element</name>.<name>getTagName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// Write attributes</comment>
+        <decl_stmt><decl><type><name>NamedNodeMap</name></type> <name>attrs</name> =<init> <expr><call><name><name>element</name>.<name>getAttributes</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <call><name><name>attrs</name>.<name>getLength</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Attr</name></type> <name>attr</name> =<init> <expr>(<name>Attr</name>) <call><name><name>attrs</name>.<name>item</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>" "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name><name>namespacePolicy</name>.<name>qualifyAttributes</name></name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>uri</name> =<init> <expr><call><name>getNamespaceURI</name><argument_list>(<argument><expr><name>attr</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>prefix</name> =<init> <expr>(<name>String</name>) <call><name><name>nsPrefixMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>prefix</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>prefix</name> = <name>NS</name> + (<name>nextPrefix</name>++)</expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>nsPrefixMap</name>.<name>put</name></name><argument_list>(<argument><expr><name>uri</name></expr></argument>, <argument><expr><name>prefix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name>addNSDefinition</name><argument_list>(<argument><expr><name>element</name></expr></argument>, <argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>prefix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>":"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>attr</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"=\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><call><name>encodeAttributeValue</name><argument_list>(<argument><expr><call><name><name>attr</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <comment type="line">// write namespace declarations</comment>
+        <decl_stmt><decl><type><name>ArrayList</name></type> <name>al</name> =<init> <expr>(<name>ArrayList</name>) <call><name><name>nsURIByElement</name>.<name>get</name></name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>al</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Iterator</name></type> <name>iter</name> =<init> <expr><call><name><name>al</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>iter</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>uri</name> =<init> <expr>(<name>String</name>) <call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>prefix</name> =<init> <expr>(<name>String</name>) <call><name><name>nsPrefixMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>" xmlns"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr>!"".<call><name>equals</name><argument_list>(<argument><expr><name>prefix</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>":"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>prefix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"=\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>hasChildren</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"&gt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>removeNSDefinitions</name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>" /&gt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>lSep</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes a DOM tree to a stream.
+     *
+     * @param element the Root DOM element of the tree
+     * @param out where to send the output
+     * @param indent number of
+     * @param indentWith string that should be used to indent the
+     * corresponding tag.
+     * @param hasChildren if true indent.
+     * @throws IOException if an error happens while writing to the stream.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>closeElement</name><parameter_list>(<param><decl><type><name>Element</name></type> <name>element</name></decl></param>, <param><decl><type><name>Writer</name></type> <name>out</name></decl></param>, <param><decl><type><name>int</name></type> <name>indent</name></decl></param>,
+                             <param><decl><type><name>String</name></type> <name>indentWith</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>hasChildren</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <comment type="line">// If we had child elements, we need to indent before we close</comment>
+        <comment type="line">// the element, otherwise we're on the same line and don't need</comment>
+        <comment type="line">// to indent</comment>
+        <if>if <condition>(<expr><name>hasChildren</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>indent</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>indentWith</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+
+        <comment type="line">// Write element close</comment>
+        <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"&lt;/"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name><name>namespacePolicy</name>.<name>qualifyElements</name></name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>uri</name> =<init> <expr><call><name>getNamespaceURI</name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>prefix</name> =<init> <expr>(<name>String</name>) <call><name><name>nsPrefixMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>prefix</name> != <name>null</name> &amp;&amp; !"".<call><name>equals</name><argument_list>(<argument><expr><name>prefix</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>prefix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>":"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>removeNSDefinitions</name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>element</name>.<name>getTagName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr>"&gt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>lSep</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Escape &amp;lt;, &amp;gt; &amp;amp; &amp;apos;, &amp;quot; as their entities and
+     * drop characters that are illegal in XML documents.
+     * @param value the string to encode.
+     * @return the encoded string.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>encode</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>encode</name><argument_list>(<argument><expr><name>value</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Escape &amp;lt;, &amp;gt; &amp;amp; &amp;apos;, &amp;quot; as their entities, \n,
+     * \r and \t as numeric entities and drop characters that are
+     * illegal in XML documents.
+     * @param value the string to encode.
+     * @return the encoded string.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>encodeAttributeValue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>encode</name><argument_list>(<argument><expr><name>value</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>encode</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>value</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>encodeWhitespace</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>len</name> =<init> <expr><call><name><name>value</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>StringBuffer</name></type> <name>sb</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><name>len</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>len</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>char</name></type> <name>c</name> =<init> <expr><call><name><name>value</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <switch>switch <condition>(<expr><name>c</name></expr>)</condition> <block>{
+            <case>case <expr>'&lt;'</expr>:
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>"&amp;lt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+            </case><case>case <expr>'&gt;'</expr>:
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>"&amp;gt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+            </case><case>case <expr>'\''</expr>:
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>"&amp;apos;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+            </case><case>case <expr>'\"'</expr>:
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>"&amp;quot;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+            </case><case>case <expr>'&amp;'</expr>:
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>"&amp;amp;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+            </case><case>case <expr>'\r'</expr>:
+            </case><case>case <expr>'\n'</expr>:
+            </case><case>case <expr>'\t'</expr>:
+                <if>if <condition>(<expr><name>encodeWhitespace</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>WS_ENTITIES</name><index>[<expr><name>c</name> - '\t'</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <break>break;</break>
+            </case><default>default:
+                <if>if <condition>(<expr><call><name>isLegalCharacter</name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <break>break;</break>
+            </default>}</block></switch>
+        }</block></for>
+        <return>return <expr><call><name><name>sb</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Drop characters that are illegal in XML documents.
+     *
+     * &lt;p&gt;Also ensure that we are not including an &lt;code&gt;]]&amp;gt;&lt;/code&gt;
+     * marker by replacing that sequence with
+     * &lt;code&gt;&amp;amp;#x5d;&amp;amp;#x5d;&amp;amp;gt;&lt;/code&gt;.&lt;/p&gt;
+     *
+     * &lt;p&gt;See XML 1.0 2.2 &lt;a
+     * href="http://www.w3.org/TR/1998/REC-xml-19980210#charsets"&gt;
+     * http://www.w3.org/TR/1998/REC-xml-19980210#charsets&lt;/a&gt; and
+     * 2.7 &lt;a
+     * href="http://www.w3.org/TR/1998/REC-xml-19980210#sec-cdata-sect"&gt;http://www.w3.org/TR/1998/REC-xml-19980210#sec-cdata-sect&lt;/a&gt;.&lt;/p&gt;
+     * @param value the value to be encoded.
+     * @return the encoded value.
+
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>encodedata</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>len</name> =<init> <expr><call><name><name>value</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>sb</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><name>len</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>len</name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>char</name></type> <name>c</name> =<init> <expr><call><name><name>value</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name>isLegalCharacter</name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+
+        <return>return <expr><call><name><name>sb</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr>"]]&gt;"</expr></argument>, <argument><expr>"]]]]&gt;&lt;![CDATA[&gt;"</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Is the given argument a character or entity reference?
+     * @param ent the value to be checked.
+     * @return true if it is an entity.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isReference</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ent</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!(<call><name><name>ent</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> == '&amp;') || !<call><name><name>ent</name>.<name>endsWith</name></name><argument_list>(<argument><expr>";"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name><name>ent</name>.<name>charAt</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call> == '#'</expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>ent</name>.<name>charAt</name></name><argument_list>(<argument><expr>2</expr></argument>)</argument_list></call> == 'x'</expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+                    <expr_stmt><expr><call><name><name>Integer</name>.<name>parseInt</name></name><argument_list>(<argument><expr><call><name><name>ent</name>.<name>substring</name></name><argument_list>(<argument><expr>3</expr></argument>, <argument><expr><call><name><name>ent</name>.<name>length</name></name><argument_list>()</argument_list></call> - 1</expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>HEX</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <comment type="line">// CheckStyle:MagicNumber ON</comment>
+                    <return>return <expr>true</expr>;</return>
+                }</block> <catch>catch (<param><decl><type><name>NumberFormatException</name></type> <name>nfe</name></decl></param>) <block>{
+                    <return>return <expr>false</expr>;</return>
+                }</block></catch></try>
+            }</block></then> <else>else <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>Integer</name>.<name>parseInt</name></name><argument_list>(<argument><expr><call><name><name>ent</name>.<name>substring</name></name><argument_list>(<argument><expr>2</expr></argument>, <argument><expr><call><name><name>ent</name>.<name>length</name></name><argument_list>()</argument_list></call> - 1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <return>return <expr>true</expr>;</return>
+                }</block> <catch>catch (<param><decl><type><name>NumberFormatException</name></type> <name>nfe</name></decl></param>) <block>{
+                    <return>return <expr>false</expr>;</return>
+                }</block></catch></try>
+            }</block></else></if>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>ent</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>, <argument><expr><call><name><name>ent</name>.<name>length</name></name><argument_list>()</argument_list></call> - 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>knownEntities</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>knownEntities</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Is the given character allowed inside an XML document?
+     *
+     * &lt;p&gt;See XML 1.0 2.2 &lt;a
+     * href="http://www.w3.org/TR/1998/REC-xml-19980210#charsets"&gt;
+     * http://www.w3.org/TR/1998/REC-xml-19980210#charsets&lt;/a&gt;.&lt;/p&gt;
+     * @param c the character to test.
+     * @return true if the character is allowed.
+     * @since 1.10, Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isLegalCharacter</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>char</name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+        <if>if <condition>(<expr><name>c</name> == 0x9 || <name>c</name> == 0xA || <name>c</name> == 0xD</expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then> <else>else <if>if <condition>(<expr><name>c</name> &lt; 0x20</expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then> <else>else <if>if <condition>(<expr><name>c</name> &lt;= 0xD7FF</expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then> <else>else <if>if <condition>(<expr><name>c</name> &lt; 0xE000</expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then> <else>else <if>if <condition>(<expr><name>c</name> &lt;= 0xFFFD</expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if></else></if></else></if></else></if></else></if>
+        <comment type="line">// CheckStyle:MagicNumber ON</comment>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>removeNSDefinitions</name><parameter_list>(<param><decl><type><name>Element</name></type> <name>element</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>ArrayList</name></type> <name>al</name> =<init> <expr>(<name>ArrayList</name>) <call><name><name>nsURIByElement</name>.<name>get</name></name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>al</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Iterator</name></type> <name>iter</name> =<init> <expr><call><name><name>al</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>iter</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <expr_stmt><expr><call><name><name>nsPrefixMap</name>.<name>remove</name></name><argument_list>(<argument><expr><call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><call><name><name>nsURIByElement</name>.<name>remove</name></name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>addNSDefinition</name><parameter_list>(<param><decl><type><name>Element</name></type> <name>element</name></decl></param>, <param><decl><type><name>String</name></type> <name>uri</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>ArrayList</name></type> <name>al</name> =<init> <expr>(<name>ArrayList</name>) <call><name><name>nsURIByElement</name>.<name>get</name></name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>al</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>al</name> = new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>nsURIByElement</name>.<name>put</name></name><argument_list>(<argument><expr><name>element</name></expr></argument>, <argument><expr><name>al</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>al</name>.<name>add</name></name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>getNamespaceURI</name><parameter_list>(<param><decl><type><name>Node</name></type> <name>n</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>uri</name> =<init> <expr><call><name><name>n</name>.<name>getNamespaceURI</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>uri</name> == <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// FIXME: Is "No Namespace is Empty Namespace" really OK?</comment>
+            <expr_stmt><expr><name>uri</name> = ""</expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>uri</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" xmlns:cpp="http://www.sdml.info/srcML/cpp" language="C#" filename="D:\thesisCode\redress2\test_data\code\virtualrouter-71075\Current\VirtualRouter\VirtualRouterHost\VirtualRouterHost.cs"><comment type="block">/*
+* Virtual Router v1.0 - http://virtualrouter.codeplex.com
+* Wifi Hot Spot for Windows 8, 7 and 2008 R2
+* Copyright (c) 2013 Chris Pietschmann (http://pietschsoft.com)
+* Licensed under the Microsoft Public License (Ms-PL)
+* http://virtualrouter.codeplex.com/license
+*/</comment>
+<using>using <name>System</name>;</using>
+<using>using <name><name>System</name>.<name>Collections</name>.<name>Generic</name></name>;</using>
+<using>using <name><name>System</name>.<name>Linq</name></name>;</using>
+<using>using <name><name>System</name>.<name>Text</name></name>;</using>
+<using>using <name><name>VirtualRouter</name>.<name>Wlan</name></name>;</using>
+<using>using <name>IcsMgr</name>;</using>
+<using>using <name><name>System</name>.<name>ServiceModel</name></name>;</using>
+<using>using <name><name>VirtualRouter</name>.<name>Wlan</name>.<name>WinAPI</name></name>;</using>
+<using>using <name><name>System</name>.<name>Threading</name></name>;</using>
+
+<namespace>namespace <name>VirtualRouterHost</name>
+<block>{
+    <class><attribute>[<expr><call><name>ServiceBehavior</name><argument_list>(<argument><expr><name>InstanceContextMode</name> = <name><name>InstanceContextMode</name>.<name>Single</name></name></expr></argument>)</argument_list></call></expr>]</attribute>
+    <specifier>public</specifier> class <name>VirtualRouterHost</name> <super>: <name>IVirtualRouterHost</name></super>
+    <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>WlanManager</name></type> <name>wlanManager</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>IcsManager</name></type> <name>icsManager</name></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>SharableConnection</name></type> <name>currentSharedConnection</name></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>VirtualRouterHost</name><parameter_list>()</parameter_list>
+        <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>wlanManager</name></name> = new <call><name>WlanManager</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>icsManager</name></name> = new <call><name>IcsManager</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <cpp:region>#<cpp:directive>region</cpp:directive> IVirtualRouterHost Members</cpp:region>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>string</name></type> <name>_lastErrorMessage</name></decl>;</decl_stmt>
+        <function><type><specifier>public</specifier> <name>string</name></type> <name>GetLastError</name><parameter_list>()</parameter_list>
+        <block>{
+            <return>return <expr><name><name>this</name>.<name>_lastErrorMessage</name></name></expr>;</return>
+        }</block></function>
+        
+        <function><type><specifier>public</specifier> <name>bool</name></type> <name>Start</name><parameter_list>(<param><decl><type><name>SharableConnection</name></type> <name>sharedConnection</name></decl></param>)</parameter_list>
+        <block>{
+            <try>try
+            <block>{
+                <expr_stmt><expr><call><name><name>this</name>.<name>Stop</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name><name>this</name>.<name>wlanManager</name>.<name>StartHostedNetwork</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name><name>Thread</name>.<name>Sleep</name></name><argument_list>(<argument><expr>1000</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><name>sharedConnection</name> != <name>null</name></expr>)</condition><then>
+                <block>{
+                    <if>if <condition>(<expr><name><name>sharedConnection</name>.<name>Guid</name></name> != <name><name>Guid</name>.<name>Empty</name></name></expr>)</condition><then>
+                    <block>{
+                        <if>if <condition>(<expr><name><name>this</name>.<name>icsManager</name>.<name>SharingInstalled</name></name></expr>)</condition><then>
+                        <block>{
+                            <decl_stmt><decl><type><name>var</name></type> <name>privateConnectionGuid</name> =<init> <expr><name><name>this</name>.<name>wlanManager</name>.<name>HostedNetworkInterfaceGuid</name></name></expr></init></decl>;</decl_stmt>
+
+                            <if>if <condition>(<expr><name>privateConnectionGuid</name> == <name><name>Guid</name>.<name>Empty</name></name></expr>)</condition><then>
+                            <block>{
+                                <comment type="line">// If the GUID for the Hosted Network Adapter isn't return properly,</comment>
+                                <comment type="line">// then retrieve it by the DeviceName.</comment>
+
+                                <expr_stmt><expr><name>privateConnectionGuid</name> = (<linq><from>from <expr><name>c</name></expr> <in>in <expr><name><name>this</name>.<name>icsManager</name>.<name>Connections</name></name></expr></in></from>
+                                                         <where>where <expr><call><name><name>c</name>.<name>props</name>.<name>DeviceName</name>.<name>ToLowerInvariant</name></name><argument_list>()</argument_list></call>.<call><name>Contains</name><argument_list>(<argument><expr>"microsoft virtual wifi miniport adapter"</expr></argument>)</argument_list></call> <comment type="line">// Windows 7</comment>
+                                                         || <call><name><name>c</name>.<name>props</name>.<name>DeviceName</name>.<name>ToLowerInvariant</name></name><argument_list>()</argument_list></call>.<call><name>Contains</name><argument_list>(<argument><expr>"microsoft hosted network virtual adapter"</expr></argument>)</argument_list></call></expr></where> <comment type="line">// Windows 8</comment>
+                                                         <select>select <expr><name><name>c</name>.<name>Guid</name></name></expr></select></linq>).<call><name>FirstOrDefault</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                                <comment type="line">// Note: For some reason the DeviceName can have different names, currently it checks for the ones that I have identified thus far.</comment>
+
+                                <if>if <condition>(<expr><name>privateConnectionGuid</name> == <name><name>Guid</name>.<name>Empty</name></name></expr>)</condition><then>
+                                <block>{
+                                    <comment type="line">// Device still now found, so throw exception so the message gets raised up to the client.</comment>
+                                    <throw>throw <expr>new <call><name>Exception</name><argument_list>(<argument><expr>"Virtual Wifi device not found!\n\nNeither \"Microsoft Hosted Network Virtual Adapter\" or \"Microsoft Virtual Wifi Miniport Adapter\" were found."</expr></argument>)</argument_list></call></expr>;</throw>
+                                }</block></then></if>
+                            }</block></then></if>
+
+                            <expr_stmt><expr><call><name><name>this</name>.<name>icsManager</name>.<name>EnableIcs</name></name><argument_list>(<argument><expr><name><name>sharedConnection</name>.<name>Guid</name></name></expr></argument>, <argument><expr><name>privateConnectionGuid</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                            <expr_stmt><expr><name><name>this</name>.<name>currentSharedConnection</name></name> = <name>sharedConnection</name></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block></then></if>
+                }</block></then>
+                <else>else
+                <block>{
+                    <expr_stmt><expr><name><name>this</name>.<name>currentSharedConnection</name></name> = <name>null</name></expr>;</expr_stmt>
+                }</block></else></if>
+
+                
+
+                <return>return <expr>true</expr>;</return>
+            }</block>
+            <catch>catch(<param><decl><type><name>Exception</name></type> <name>ex</name></decl></param>)
+            <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>_lastErrorMessage</name></name> = <name><name>ex</name>.<name>Message</name></name></expr>;</expr_stmt>
+                <return>return <expr>false</expr>;</return>
+            }</block></catch></try>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>bool</name></type> <name>Stop</name><parameter_list>()</parameter_list>
+        <block>{
+            <try>try
+            <block>{
+                <if>if <condition>(<expr><name><name>this</name>.<name>icsManager</name>.<name>SharingInstalled</name></name></expr>)</condition><then>
+                <block>{
+                    <expr_stmt><expr><call><name><name>this</name>.<name>icsManager</name>.<name>DisableIcsOnAll</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <expr_stmt><expr><call><name><name>this</name>.<name>wlanManager</name>.<name>StopHostedNetwork</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                <return>return <expr>true</expr>;</return>
+            }</block>
+            <catch>catch
+            <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></catch></try>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>bool</name></type> <name>SetConnectionSettings</name><parameter_list>(<param><decl><type><name>string</name></type> <name>ssid</name></decl></param>, <param><decl><type><name>int</name></type> <name>maxNumberOfPeers</name></decl></param>)</parameter_list>
+        <block>{
+            <try>try
+            <block>{
+                <expr_stmt><expr><call><name><name>this</name>.<name>wlanManager</name>.<name>SetConnectionSettings</name></name><argument_list>(<argument><expr><name>ssid</name></expr></argument>, <argument><expr><name>maxNumberOfPeers</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>true</expr>;</return>
+            }</block>
+            <catch>catch
+            <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></catch></try>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>ConnectionSettings</name></type> <name>GetConnectionSettings</name><parameter_list>()</parameter_list>
+        <block>{
+            <try>try
+            <block>{
+                <decl_stmt><decl><type><name>string</name></type> <name>ssid</name></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>maxNumberOfPeers</name></decl>;</decl_stmt>
+
+                <decl_stmt><decl><type><name>var</name></type> <name>r</name> =<init> <expr><call><name><name>this</name>.<name>wlanManager</name>.<name>QueryConnectionSettings</name></name><argument_list>(<argument><specifier>out</specifier> <expr><name>ssid</name></expr></argument>, <argument><specifier>out</specifier> <expr><name>maxNumberOfPeers</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <return>return <expr>new <call><name>ConnectionSettings</name><argument_list>()</argument_list></call>
+                <block>{
+                    <expr><name>SSID</name> = <name>ssid</name></expr>,
+                    <expr><name>MaxPeerCount</name> = <name>maxNumberOfPeers</name></expr>
+                }</block></expr>;</return>
+            }</block>
+            <catch>catch
+            <block>{
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></catch></try>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name><name>IEnumerable</name><argument_list>&lt;<argument><name>SharableConnection</name></argument>&gt;</argument_list></name></type> <name>GetSharableConnections</name><parameter_list>()</parameter_list>
+        <block>{
+            <decl_stmt><decl><type><name><name>List</name><argument_list>&lt;<argument><name>IcsConnection</name></argument>&gt;</argument_list></name></type> <name>connections</name></decl>;</decl_stmt>
+            <try>try
+            <block>{
+                <expr_stmt><expr><name>connections</name> = <name><name>this</name>.<name>icsManager</name>.<name>Connections</name></name></expr>;</expr_stmt>
+            }</block>
+            <catch>catch
+            <block>{
+                <expr_stmt><expr><name>connections</name> = new <call><name><name>List</name><argument_list>&lt;<argument><name>IcsConnection</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+
+            <comment type="line">// Empty item to signify No Connection Sharing</comment>
+            <return><specifier>yield</specifier> return <expr>new <call><name>SharableConnection</name><argument_list>()</argument_list></call> <block>{ <expr><name>DeviceName</name> = "None"</expr>, <expr><name>Guid</name> = <name><name>Guid</name>.<name>Empty</name></name></expr>, <expr><name>Name</name> = "None"</expr> }</block></expr>;</return>
+
+            <if>if <condition>(<expr><name>connections</name> != <name>null</name></expr>)</condition><then>
+            <block>{
+                <foreach>foreach (<init><decl><type><name>var</name></type> <name>conn</name> <init>in <expr><name>connections</name></expr></init></decl></init>)
+                <block>{
+                    <if>if <condition>(<expr><name><name>conn</name>.<name>IsConnected</name></name> &amp;&amp; <name><name>conn</name>.<name>IsSupported</name></name></expr>)</condition><then>
+                    <block>{
+                        <return><specifier>yield</specifier> return <expr>new <call><name>SharableConnection</name><argument_list>(<argument><expr><name>conn</name></expr></argument>)</argument_list></call></expr>;</return>
+                    }</block></then></if>
+                }</block></foreach>
+            }</block></then></if>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>bool</name></type> <name>SetPassword</name><parameter_list>(<param><decl><type><name>string</name></type> <name>password</name></decl></param>)</parameter_list>
+        <block>{
+            <try>try
+            <block>{
+                <expr_stmt><expr><call><name><name>this</name>.<name>wlanManager</name>.<name>SetSecondaryKey</name></name><argument_list>(<argument><expr><name>password</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>true</expr>;</return>
+            }</block>
+            <catch>catch
+            <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></catch></try>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>string</name></type> <name>GetPassword</name><parameter_list>()</parameter_list>
+        <block>{
+            <try>try
+            <block>{
+                <decl_stmt><decl><type><name>string</name></type> <name>passKey</name> =<init> <expr><name><name>string</name>.<name>Empty</name></name></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>bool</name></type> <name>isPassPhrase</name></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>bool</name></type> <name>isPersistent</name></decl>;</decl_stmt>
+
+                <decl_stmt><decl><type><name>var</name></type> <name>r</name> =<init> <expr><call><name><name>this</name>.<name>wlanManager</name>.<name>QuerySecondaryKey</name></name><argument_list>(<argument><specifier>out</specifier> <expr><name>passKey</name></expr></argument>, <argument><specifier>out</specifier> <expr><name>isPassPhrase</name></expr></argument>, <argument><specifier>out</specifier> <expr><name>isPersistent</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <return>return <expr><name>passKey</name></expr>;</return>
+            }</block>
+            <catch>catch
+            <block>{
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></catch></try>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>bool</name></type> <name>IsStarted</name><parameter_list>()</parameter_list>
+        <block>{
+            <try>try
+            <block>{
+                <return>return <expr><name><name>wlanManager</name>.<name>IsHostedNetworkStarted</name></name></expr>;</return>
+            }</block>
+            <catch>catch
+            <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></catch></try>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name><name>IEnumerable</name><argument_list>&lt;<argument><name>ConnectedPeer</name></argument>&gt;</argument_list></name></type> <name>GetConnectedPeers</name><parameter_list>()</parameter_list>
+        <block>{
+            <foreach>foreach (<init><decl><type><name>var</name></type> <name>v</name> <init>in <expr><name><name>wlanManager</name>.<name>Stations</name></name></expr></init></decl></init>)
+            <block>{
+                <return><specifier>yield</specifier> return <expr>new <call><name>ConnectedPeer</name><argument_list>(<argument><expr><name><name>v</name>.<name>Value</name></name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></foreach>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>SharableConnection</name></type> <name>GetSharedConnection</name><parameter_list>()</parameter_list>
+        <block>{
+            <return>return <expr><name><name>this</name>.<name>currentSharedConnection</name></name></expr>;</return>
+        }</block></function>
+
+        <cpp:endregion>#<cpp:directive>endregion</cpp:directive></cpp:endregion>
+    }</block></class>
+}</block></namespace>
+</unit>

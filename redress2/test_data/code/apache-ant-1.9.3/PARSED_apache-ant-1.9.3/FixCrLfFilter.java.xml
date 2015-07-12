@@ -1,0 +1,1005 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\filters\FixCrLfFilter.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>filters</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Reader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>Os</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>EnumeratedAttribute</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Converts text to local OS formatting conventions, as well as repair text
+ * damaged by misconfigured or misguided editors or file transfer programs.
+ * &lt;p&gt;
+ * This filter can take the following arguments:
+ * &lt;ul&gt;
+ * &lt;li&gt;eof
+ * &lt;li&gt;eol
+ * &lt;li&gt;fixlast
+ * &lt;li&gt;javafiles
+ * &lt;li&gt;tab
+ * &lt;li&gt;tablength
+ * &lt;/ul&gt;
+ * None of which are required.
+ * &lt;p&gt;
+ * This version generalises the handling of EOL characters, and allows for
+ * CR-only line endings (the standard on Mac systems prior to OS X). Tab
+ * handling has also been generalised to accommodate any tabwidth from 2 to 80,
+ * inclusive. Importantly, it can leave untouched any literal TAB characters
+ * embedded within Java string or character constants.
+ * &lt;p&gt;
+ * &lt;em&gt;Caution:&lt;/em&gt; run with care on carefully formatted files. This may
+ * sound obvious, but if you don't specify asis, presume that your files are
+ * going to be modified. If "tabs" is "add" or "remove", whitespace characters
+ * may be added or removed as necessary. Similarly, for EOLs, eol="asis"
+ * actually means convert to your native O/S EOL convention while eol="crlf" or
+ * cr="add" can result in CR characters being removed in one special case
+ * accommodated, i.e., CRCRLF is regarded as a single EOL to handle cases where
+ * other programs have converted CRLF into CRCRLF.
+ *
+ * &lt;P&gt;
+ * Example:
+ *
+ * &lt;pre&gt;
+ * &amp;lt;&amp;lt;fixcrlf tab=&amp;quot;add&amp;quot; eol=&amp;quot;crlf&amp;quot; eof=&amp;quot;asis&amp;quot;/&amp;gt;
+ * &lt;/pre&gt;
+ *
+ * Or:
+ *
+ * &lt;pre&gt;
+ * &amp;lt;filterreader classname=&amp;quot;org.apache.tools.ant.filters.FixCrLfFilter&amp;quot;&amp;gt;
+ *   &amp;lt;param eol=&amp;quot;crlf&amp;quot; tab=&amp;quot;asis&amp;quot;/&amp;gt;
+ *  &amp;lt;/filterreader&amp;gt;
+ * &lt;/pre&gt;
+ *
+ */</comment>
+<class><specifier>public</specifier> <specifier>final</specifier> class <name>FixCrLfFilter</name> <super><extends>extends <name>BaseParamFilterReader</name></extends> <implements>implements <name>ChainableReader</name></implements></super> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEFAULT_TAB_LENGTH</name> =<init> <expr>8</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MIN_TAB_LENGTH</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAX_TAB_LENGTH</name> =<init> <expr>80</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>char</name></type> <name>CTRLZ</name> =<init> <expr>'\u001A'</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>tabLength</name> =<init> <expr><name>DEFAULT_TAB_LENGTH</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>CrLf</name></type> <name>eol</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>AddAsisRemove</name></type> <name>ctrlz</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>AddAsisRemove</name></type> <name>tabs</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>javafiles</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>fixlast</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>initialized</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Constructor for "dummy" instances.
+     *
+     * @see BaseFilterReader#BaseFilterReader()
+     */</comment>
+    <constructor><specifier>public</specifier> <name>FixCrLfFilter</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Create a new filtered reader.
+     *
+     * @param in
+     *            A Reader object providing the underlying stream. Must not be
+     *            &lt;code&gt;null&lt;/code&gt;.
+     * @throws IOException on error.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>FixCrLfFilter</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Reader</name></type> <name>in</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="line">// Instance initializer: Executes just after the super() call in this</comment>
+    <comment type="line">// class's constructor.</comment>
+    <block>{
+        <expr_stmt><expr><name>tabs</name> = <name><name>AddAsisRemove</name>.<name>ASIS</name></name></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"mac"</expr></argument>)</argument_list></call> &amp;&amp; !<call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"unix"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>ctrlz</name> = <name><name>AddAsisRemove</name>.<name>REMOVE</name></name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setEol</name><argument_list>(<argument><expr><name><name>CrLf</name>.<name>MAC</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"dos"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>ctrlz</name> = <name><name>AddAsisRemove</name>.<name>ASIS</name></name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setEol</name><argument_list>(<argument><expr><name><name>CrLf</name>.<name>DOS</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>ctrlz</name> = <name><name>AddAsisRemove</name>.<name>REMOVE</name></name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setEol</name><argument_list>(<argument><expr><name><name>CrLf</name>.<name>UNIX</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if></else></if>
+    }</block>
+
+    <comment type="javadoc">/**
+     * Create a new FixCrLfFilter using the passed in Reader for instantiation.
+     *
+     * @param rdr
+     *            A Reader object providing the underlying stream. Must not be
+     *            &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return a new filter based on this configuration, but filtering the
+     *         specified reader.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Reader</name></type> <name>chain</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Reader</name></type> <name>rdr</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>FixCrLfFilter</name></type> <name>newFilter</name> =<init> <expr>new <call><name>FixCrLfFilter</name><argument_list>(<argument><expr><name>rdr</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name><name>newFilter</name>.<name>setJavafiles</name></name><argument_list>(<argument><expr><call><name>getJavafiles</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>newFilter</name>.<name>setEol</name></name><argument_list>(<argument><expr><call><name>getEol</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>newFilter</name>.<name>setTab</name></name><argument_list>(<argument><expr><call><name>getTab</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>newFilter</name>.<name>setTablength</name></name><argument_list>(<argument><expr><call><name>getTablength</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>newFilter</name>.<name>setEof</name></name><argument_list>(<argument><expr><call><name>getEof</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>newFilter</name>.<name>setFixlast</name></name><argument_list>(<argument><expr><call><name>getFixlast</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>newFilter</name>.<name>initInternalFilters</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <return>return <expr><name>newFilter</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get how DOS EOF (control-z) characters are being handled.
+     *
+     * @return values:
+     *         &lt;ul&gt;
+     *         &lt;li&gt;add: ensure that there is an eof at the end of the file
+     *         &lt;li&gt;asis: leave eof characters alone
+     *         &lt;li&gt;remove: remove any eof character found at the end
+     *         &lt;/ul&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>AddAsisRemove</name></type> <name>getEof</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">// Return copy so that the call must call setEof() to change the state</comment>
+        <comment type="line">// of fixCRLF</comment>
+        <return>return <expr><call><name><name>ctrlz</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get how EndOfLine characters are being handled.
+     *
+     * @return values:
+     *         &lt;ul&gt;
+     *         &lt;li&gt;asis: convert line endings to your O/S convention
+     *         &lt;li&gt;cr: convert line endings to CR
+     *         &lt;li&gt;lf: convert line endings to LF
+     *         &lt;li&gt;crlf: convert line endings to CRLF
+     *         &lt;/ul&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>CrLf</name></type> <name>getEol</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">// Return copy so that the call must call setEol() to change the state</comment>
+        <comment type="line">// of fixCRLF</comment>
+        <return>return <expr><call><name><name>eol</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get whether a missing EOL be added to the final line of the stream.
+     *
+     * @return true if a filtered file will always end with an EOL
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getFixlast</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>fixlast</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get whether the stream is to be treated as though it contains Java
+     * source.
+     * &lt;P&gt;
+     * This attribute is only used in association with the &amp;quot;&lt;i&gt;&lt;b&gt;tab&lt;/b&gt;&lt;/i&gt;&amp;quot;
+     * attribute. Tabs found in Java literals are protected from changes by this
+     * filter.
+     *
+     * @return true if whitespace in Java character and string literals is
+     *         ignored.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getJavafiles</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>javafiles</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return how tab characters are being handled.
+     *
+     * @return values:
+     *         &lt;ul&gt;
+     *         &lt;li&gt;add: convert sequences of spaces which span a tab stop to
+     *         tabs
+     *         &lt;li&gt;asis: leave tab and space characters alone
+     *         &lt;li&gt;remove: convert tabs to spaces
+     *         &lt;/ul&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>AddAsisRemove</name></type> <name>getTab</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">// Return copy so that the caller must call setTab() to change the state</comment>
+        <comment type="line">// of fixCRLF.</comment>
+        <return>return <expr><call><name><name>tabs</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the tab length to use.
+     *
+     * @return the length of tab in spaces
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getTablength</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>tabLength</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>calculateEolString</name><parameter_list>(<param><decl><type><name>CrLf</name></type> <name>eol</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Calculate the EOL string per the current config</comment>
+        <if>if <condition>(<expr><name>eol</name> == <name><name>CrLf</name>.<name>CR</name></name> || <name>eol</name> == <name><name>CrLf</name>.<name>MAC</name></name></expr>)</condition><then> <block>{
+            <return>return <expr>"\r"</expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>eol</name> == <name><name>CrLf</name>.<name>CRLF</name></name> || <name>eol</name> == <name><name>CrLf</name>.<name>DOS</name></name></expr>)</condition><then> <block>{
+            <return>return <expr>"\r\n"</expr>;</return>
+        }</block></then></if>
+        <comment type="line">// assume (eol == CrLf.LF || eol == CrLf.UNIX)</comment>
+        <return>return <expr>"\n"</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Wrap the input stream with the internal filters necessary to perform the
+     * configuration settings.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>initInternalFilters</name><parameter_list>()</parameter_list> <block>{
+
+        <comment type="line">// If I'm removing an EOF character, do so first so that the other</comment>
+        <comment type="line">// filters don't see that character.</comment>
+        <expr_stmt><expr><name>in</name> = (<name>ctrlz</name> == <name><name>AddAsisRemove</name>.<name>REMOVE</name></name>) ? new <call><name>RemoveEofFilter</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call> : <name>in</name></expr>;</expr_stmt>
+
+        <comment type="line">// Change all EOL characters to match the calculated EOL string. If</comment>
+        <comment type="line">// configured to do so, append a trailing EOL so that the file ends on</comment>
+        <comment type="line">// a EOL.</comment>
+        <if>if <condition>(<expr><name>eol</name> != <name><name>CrLf</name>.<name>ASIS</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>in</name> = new <call><name>NormalizeEolFilter</name><argument_list>(<argument><expr><name>in</name></expr></argument>, <argument><expr><call><name>calculateEolString</name><argument_list>(<argument><expr><name>eol</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><call><name>getFixlast</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>tabs</name> != <name><name>AddAsisRemove</name>.<name>ASIS</name></name></expr>)</condition><then> <block>{
+            <comment type="line">// If filtering Java source, prevent changes to whitespace in</comment>
+            <comment type="line">// character and string literals.</comment>
+            <if>if <condition>(<expr><call><name>getJavafiles</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>in</name> = new <call><name>MaskJavaTabLiteralsFilter</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <comment type="line">// Add/Remove tabs</comment>
+            <expr_stmt><expr><name>in</name> = (<name>tabs</name> == <name><name>AddAsisRemove</name>.<name>ADD</name></name>) ? (<name>Reader</name>) new <call><name>AddTabFilter</name><argument_list>(<argument><expr><name>in</name></expr></argument>, <argument><expr><call><name>getTablength</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+                    : (<name>Reader</name>) new <call><name>RemoveTabFilter</name><argument_list>(<argument><expr><name>in</name></expr></argument>, <argument><expr><call><name>getTablength</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">// Add missing EOF character</comment>
+        <expr_stmt><expr><name>in</name> = (<name>ctrlz</name> == <name><name>AddAsisRemove</name>.<name>ADD</name></name>) ? new <call><name>AddEofFilter</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call> : <name>in</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>initialized</name> = true</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the next character in the filtered stream.
+     *
+     * @return the next character in the resulting stream, or -1 if the end of
+     *         the resulting stream has been reached.
+     *
+     * @exception IOException
+     *                if the underlying stream throws an IOException during
+     *                reading.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr>!<name>initialized</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>initInternalFilters</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>in</name>.<name>read</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specify how DOS EOF (control-z) characters are to be handled.
+     *
+     * @param attr
+     *            valid values:
+     *            &lt;ul&gt;
+     *            &lt;li&gt;add: ensure that there is an eof at the end of the file
+     *            &lt;li&gt;asis: leave eof characters alone
+     *            &lt;li&gt;remove: remove any eof character found at the end
+     *            &lt;/ul&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEof</name><parameter_list>(<param><decl><type><name>AddAsisRemove</name></type> <name>attr</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>ctrlz</name> = <call><name><name>attr</name>.<name>resolve</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specify how end of line (EOL) characters are to be handled.
+     *
+     * @param attr
+     *            valid values:
+     *            &lt;ul&gt;
+     *            &lt;li&gt;asis: convert line endings to your O/S convention
+     *            &lt;li&gt;cr: convert line endings to CR
+     *            &lt;li&gt;lf: convert line endings to LF
+     *            &lt;li&gt;crlf: convert line endings to CRLF
+     *            &lt;/ul&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEol</name><parameter_list>(<param><decl><type><name>CrLf</name></type> <name>attr</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>eol</name> = <call><name><name>attr</name>.<name>resolve</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specify whether a missing EOL will be added to the final line of input.
+     *
+     * @param fixlast
+     *            if true a missing EOL will be appended.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFixlast</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>fixlast</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>fixlast</name></name> = <name>fixlast</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicate whether this stream contains Java source.
+     *
+     * This attribute is only used in assocation with the &amp;quot;&lt;i&gt;&lt;b&gt;tab&lt;/b&gt;&lt;/i&gt;&amp;quot;
+     * attribute.
+     *
+     * @param javafiles
+     *            set to true to prevent this filter from changing tabs found in
+     *            Java literals.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setJavafiles</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>javafiles</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>javafiles</name></name> = <name>javafiles</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specify how tab characters are to be handled.
+     *
+     * @param attr
+     *            valid values:
+     *            &lt;ul&gt;
+     *            &lt;li&gt;add: convert sequences of spaces which span a tab stop to
+     *            tabs
+     *            &lt;li&gt;asis: leave tab and space characters alone
+     *            &lt;li&gt;remove: convert tabs to spaces
+     *            &lt;/ul&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTab</name><parameter_list>(<param><decl><type><name>AddAsisRemove</name></type> <name>attr</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>tabs</name> = <call><name><name>attr</name>.<name>resolve</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specify tab length in characters.
+     *
+     * @param tabLength
+     *            specify the length of tab in spaces. Valid values are between
+     *            2 and 80 inclusive. The default for this parameter is 8.
+     * @throws IOException on error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTablength</name><parameter_list>(<param><decl><type><name>int</name></type> <name>tabLength</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>tabLength</name> &lt; <name>MIN_TAB_LENGTH</name>
+            || <name>tabLength</name> &gt; <name>MAX_TAB_LENGTH</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(
+                <argument><expr>"tablength must be between " + <name>MIN_TAB_LENGTH</name>
+                + " and " + <name>MAX_TAB_LENGTH</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>tabLength</name></name> = <name>tabLength</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This filter reader redirects all read I/O methods through its own read()
+     * method.
+     *
+     * &lt;P&gt;
+     * The input stream is already buffered by the copy task so this doesn't
+     * significantly impact performance while it makes writing the individual
+     * fix filters much easier.
+     * &lt;/P&gt;
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>SimpleFilterReader</name> <super><extends>extends <name>Reader</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>PREEMPT_BUFFER_LENGTH</name> =<init> <expr>16</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Reader</name></type> <name>in</name></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name><index>[]</index></type> <name>preempt</name> =<init> <expr>new <name><name>int</name><index>[<expr><name>PREEMPT_BUFFER_LENGTH</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>preemptIndex</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>SimpleFilterReader</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>in</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>in</name></name> = <name>in</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>push</name><parameter_list>(<param><decl><type><name>char</name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr>(<name>int</name>) <name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>push</name><parameter_list>(<param><decl><type><name>int</name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name><name>preempt</name><index>[<expr><name>preemptIndex</name>++</expr>]</index></name> = <name>c</name></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>ArrayIndexOutOfBoundsException</name></type> <name>e</name></decl></param>) <block>{
+                <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>p2</name> =<init> <expr>new <name><name>int</name><index>[<expr><name><name>preempt</name>.<name>length</name></name> * 2</expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>preempt</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>p2</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>preempt</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>preempt</name> = <name>p2</name></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>push</name><parameter_list>(<param><decl><type><name><name>char</name><index>[]</index></name></type> <name>cs</name></decl></param>, <param><decl><type><name>int</name></type> <name>start</name></decl></param>, <param><decl><type><name>int</name></type> <name>length</name></decl></param>)</parameter_list> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>start</name> + <name>length</name> - 1</expr></init></decl>;</init> <condition><expr><name>i</name> &gt;= <name>start</name></expr>;</condition><incr/>) <block>{
+                <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr><name><name>cs</name><index>[<expr><name>i</name>--</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>push</name><parameter_list>(<param><decl><type><name><name>char</name><index>[]</index></name></type> <name>cs</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr><name>cs</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>cs</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Does this filter want to block edits on the last character returned
+         * by read()?
+         */</comment>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>editsBlocked</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>in</name> <name>instanceof</name> <name>SimpleFilterReader</name> &amp;&amp; ((<name>SimpleFilterReader</name>) <name>in</name>).<call><name>editsBlocked</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name><name>java</name>.<name>io</name>.<name>IOException</name></name></expr></argument></throws> <block>{
+            <return>return <expr><name>preemptIndex</name> &gt; 0 ? <name><name>preempt</name><index>[<expr>--<name>preemptIndex</name></expr>]</index></name> : <call><name><name>in</name>.<name>read</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>close</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name><name>java</name>.<name>io</name>.<name>IOException</name></name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name><name>in</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>reset</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name><name>in</name>.<name>reset</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>markSupported</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>in</name>.<name>markSupported</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>ready</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name><name>java</name>.<name>io</name>.<name>IOException</name></name></expr></argument></throws> <block>{
+            <return>return <expr><call><name><name>in</name>.<name>ready</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>mark</name><parameter_list>(<param><decl><type><name>int</name></type> <name>i</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name><name>java</name>.<name>io</name>.<name>IOException</name></name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name><name>in</name>.<name>mark</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>long</name></type> <name>skip</name><parameter_list>(<param><decl><type><name>long</name></type> <name>i</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name><name>java</name>.<name>io</name>.<name>IOException</name></name></expr></argument></throws> <block>{
+            <return>return <expr><call><name><name>in</name>.<name>skip</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>(<param><decl><type><name><name>char</name><index>[]</index></name></type> <name>buf</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name><name>java</name>.<name>io</name>.<name>IOException</name></name></expr></argument></throws> <block>{
+            <return>return <expr><call><name>read</name><argument_list>(<argument><expr><name>buf</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>buf</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>(<param><decl><type><name><name>char</name><index>[]</index></name></type> <name>buf</name></decl></param>, <param><decl><type><name>int</name></type> <name>start</name></decl></param>, <param><decl><type><name>int</name></type> <name>length</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name><name>java</name>.<name>io</name>.<name>IOException</name></name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>count</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>c</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// CheckStyle:InnerAssignment OFF - leave alone</comment>
+            <while>while <condition>(<expr><name>length</name>-- &gt; 0 &amp;&amp; (<name>c</name> = <call><name><name>this</name>.<name>read</name></name><argument_list>()</argument_list></call>) != -1</expr>)</condition> <block>{
+                <expr_stmt><expr><name><name>buf</name><index>[<expr><name>start</name>++</expr>]</index></name> = (<name>char</name>) <name>c</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>count</name>++</expr>;</expr_stmt>
+            }</block></while>
+            <comment type="line">// if at EOF with no characters in the buffer, return EOF</comment>
+            <return>return <expr>(<name>count</name> == 0 &amp;&amp; <name>c</name> == -1) ? -1 : <name>count</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>MaskJavaTabLiteralsFilter</name> <super><extends>extends <name>SimpleFilterReader</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>editsBlocked</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>JAVA</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>IN_CHAR_CONST</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>IN_STR_CONST</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>IN_SINGLE_COMMENT</name> =<init> <expr>4</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>IN_MULTI_COMMENT</name> =<init> <expr>5</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>TRANS_TO_COMMENT</name> =<init> <expr>6</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>TRANS_FROM_MULTI</name> =<init> <expr>8</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>state</name></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>MaskJavaTabLiteralsFilter</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>in</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>state</name> = <name>JAVA</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>editsBlocked</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>editsBlocked</name> || <call><name><name>super</name>.<name>editsBlocked</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>thisChar</name> =<init> <expr><call><name><name>super</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <comment type="line">// Mask, block from being edited, all characters in constants.</comment>
+            <expr_stmt><expr><name>editsBlocked</name> = (<name>state</name> == <name>IN_CHAR_CONST</name> || <name>state</name> == <name>IN_STR_CONST</name>)</expr>;</expr_stmt>
+
+            <switch>switch <condition>(<expr><name>state</name></expr>)</condition> <block>{
+            <case>case <expr><name>JAVA</name></expr>:
+                <comment type="line">// The current character is always emitted.</comment>
+                <switch>switch <condition>(<expr><name>thisChar</name></expr>)</condition> <block>{
+                <case>case <expr>'\''</expr>:
+                    <expr_stmt><expr><name>state</name> = <name>IN_CHAR_CONST</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><case>case <expr>'"'</expr>:
+                    <expr_stmt><expr><name>state</name> = <name>IN_STR_CONST</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><case>case <expr>'/'</expr>:
+                    <expr_stmt><expr><name>state</name> = <name>TRANS_TO_COMMENT</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><default>default:
+                    <comment type="line">// Fall tru</comment>
+                </default>}</block></switch>
+                <break>break;</break>
+            </case><case>case <expr><name>IN_CHAR_CONST</name></expr>:
+                <switch>switch <condition>(<expr><name>thisChar</name></expr>)</condition> <block>{
+                <case>case <expr>'\''</expr>:
+                    <expr_stmt><expr><name>state</name> = <name>JAVA</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><default>default:
+                    <comment type="line">// Fall tru</comment>
+                </default>}</block></switch>
+                <break>break;</break>
+            </case><case>case <expr><name>IN_STR_CONST</name></expr>:
+                <switch>switch <condition>(<expr><name>thisChar</name></expr>)</condition> <block>{
+                <case>case <expr>'"'</expr>:
+                    <expr_stmt><expr><name>state</name> = <name>JAVA</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><default>default:
+                    <comment type="line">// Fall tru</comment>
+                </default>}</block></switch>
+                <break>break;</break>
+            </case><case>case <expr><name>IN_SINGLE_COMMENT</name></expr>:
+                <comment type="line">// The current character is always emitted.</comment>
+                <switch>switch <condition>(<expr><name>thisChar</name></expr>)</condition> <block>{
+                <case>case <expr>'\n'</expr>:
+                </case><case>case <expr>'\r'</expr>: <comment type="line">// EOL</comment>
+                    <expr_stmt><expr><name>state</name> = <name>JAVA</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><default>default:
+                    <comment type="line">// Fall tru</comment>
+                </default>}</block></switch>
+                <break>break;</break>
+            </case><case>case <expr><name>IN_MULTI_COMMENT</name></expr>:
+                <comment type="line">// The current character is always emitted.</comment>
+                <switch>switch <condition>(<expr><name>thisChar</name></expr>)</condition> <block>{
+                <case>case <expr>'*'</expr>:
+                    <expr_stmt><expr><name>state</name> = <name>TRANS_FROM_MULTI</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><default>default:
+                    <comment type="line">// Fall tru</comment>
+                </default>}</block></switch>
+                <break>break;</break>
+            </case><case>case <expr><name>TRANS_TO_COMMENT</name></expr>:
+                <comment type="line">// The current character is always emitted.</comment>
+                <switch>switch <condition>(<expr><name>thisChar</name></expr>)</condition> <block>{
+                <case>case <expr>'*'</expr>:
+                    <expr_stmt><expr><name>state</name> = <name>IN_MULTI_COMMENT</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><case>case <expr>'/'</expr>:
+                    <expr_stmt><expr><name>state</name> = <name>IN_SINGLE_COMMENT</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><case>case <expr>'\''</expr>:
+                    <expr_stmt><expr><name>state</name> = <name>IN_CHAR_CONST</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><case>case <expr>'"'</expr>:
+                    <expr_stmt><expr><name>state</name> = <name>IN_STR_CONST</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><default>default:
+                    <expr_stmt><expr><name>state</name> = <name>JAVA</name></expr>;</expr_stmt>
+                </default>}</block></switch>
+                <break>break;</break>
+            </case><case>case <expr><name>TRANS_FROM_MULTI</name></expr>:
+                <comment type="line">// The current character is always emitted.</comment>
+                <switch>switch <condition>(<expr><name>thisChar</name></expr>)</condition> <block>{
+                <case>case <expr>'/'</expr>:
+                    <expr_stmt><expr><name>state</name> = <name>JAVA</name></expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><default>default:
+                    <comment type="line">// Fall tru</comment>
+                </default>}</block></switch>
+                <break>break;</break>
+            </case><default>default:
+                <comment type="line">// Fall tru</comment>
+            </default>}</block></switch>
+            <return>return <expr><name>thisChar</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>NormalizeEolFilter</name> <super><extends>extends <name>SimpleFilterReader</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>previousWasEOL</name></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>fixLast</name></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>normalizedEOL</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>char</name><index>[]</index></type> <name>eol</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>NormalizeEolFilter</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>in</name></decl></param>, <param><decl><type><name>String</name></type> <name>eolString</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>fixLast</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>eol</name> = <call><name><name>eolString</name>.<name>toCharArray</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>fixLast</name></name> = <name>fixLast</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>thisChar</name> =<init> <expr><call><name><name>super</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>normalizedEOL</name> == 0</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>numEOL</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>boolean</name></type> <name>atEnd</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+                <switch>switch <condition>(<expr><name>thisChar</name></expr>)</condition> <block>{
+                <case>case <expr><name>CTRLZ</name></expr>:
+                    <decl_stmt><decl><type><name>int</name></type> <name>c</name> =<init> <expr><call><name><name>super</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>c</name> == -1</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>atEnd</name> = true</expr>;</expr_stmt>
+                        <if>if <condition>(<expr><name>fixLast</name> &amp;&amp; !<name>previousWasEOL</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>numEOL</name> = 1</expr>;</expr_stmt>
+                            <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr><name>thisChar</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                    <break>break;</break>
+                </case><case>case <expr>-1</expr>:
+                    <expr_stmt><expr><name>atEnd</name> = true</expr>;</expr_stmt>
+                    <if>if <condition>(<expr><name>fixLast</name> &amp;&amp; !<name>previousWasEOL</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>numEOL</name> = 1</expr>;</expr_stmt>
+                    }</block></then></if>
+                    <break>break;</break>
+                </case><case>case <expr>'\n'</expr>:
+                    <comment type="line">// EOL was "\n"</comment>
+                    <expr_stmt><expr><name>numEOL</name> = 1</expr>;</expr_stmt>
+                    <break>break;</break>
+                </case><case>case <expr>'\r'</expr>:
+                    <expr_stmt><expr><name>numEOL</name> = 1</expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>int</name></type> <name>c1</name> =<init> <expr><call><name><name>super</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>int</name></type> <name>c2</name> =<init> <expr><call><name><name>super</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <if>if <condition>(<expr><name>c1</name> == '\r' &amp;&amp; <name>c2</name> == '\n'</expr>)</condition><then> <block>{
+                        <comment type="line">// EOL was "\r\r\n"</comment>
+                    }</block></then> <else>else <if>if <condition>(<expr><name>c1</name> == '\r'</expr>)</condition><then> <block>{
+                        <comment type="line">// EOL was "\r\r" - handle as two consecutive "\r" and</comment>
+                        <comment type="line">// "\r"</comment>
+                        <expr_stmt><expr><name>numEOL</name> = 2</expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr><name>c2</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <if>if <condition>(<expr><name>c1</name> == '\n'</expr>)</condition><then> <block>{
+                        <comment type="line">// EOL was "\r\n"</comment>
+                        <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr><name>c2</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <comment type="line">// EOL was "\r"</comment>
+                        <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr><name>c2</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr><name>c1</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if></else></if></else></if>
+                </case><default>default:
+                    <comment type="line">// Fall tru</comment>
+                </default>}</block></switch>
+                <if>if <condition>(<expr><name>numEOL</name> &gt; 0</expr>)</condition><then> <block>{
+                    <while>while <condition>(<expr><name>numEOL</name>-- &gt; 0</expr>)</condition> <block>{
+                        <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr><name>eol</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>normalizedEOL</name> += <name><name>eol</name>.<name>length</name></name></expr>;</expr_stmt>
+                    }</block></while>
+                    <expr_stmt><expr><name>previousWasEOL</name> = true</expr>;</expr_stmt>
+                    <expr_stmt><expr><name>thisChar</name> = <call><name>read</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <if>if <condition>(<expr>!<name>atEnd</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>previousWasEOL</name> = false</expr>;</expr_stmt>
+                }</block></then></if></else></if>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>normalizedEOL</name>--</expr>;</expr_stmt>
+            }</block></else></if>
+            <return>return <expr><name>thisChar</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>AddEofFilter</name> <super><extends>extends <name>SimpleFilterReader</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>lastChar</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>AddEofFilter</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>in</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>thisChar</name> =<init> <expr><call><name><name>super</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// if source is EOF but last character was NOT ctrl-z, return ctrl-z</comment>
+            <if>if <condition>(<expr><name>thisChar</name> == -1</expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>lastChar</name> != <name>CTRLZ</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>lastChar</name> = <name>CTRLZ</name></expr>;</expr_stmt>
+                    <return>return <expr><name>lastChar</name></expr>;</return>
+                }</block></then></if>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>lastChar</name> = <name>thisChar</name></expr>;</expr_stmt>
+            }</block></else></if>
+            <return>return <expr><name>thisChar</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>RemoveEofFilter</name> <super><extends>extends <name>SimpleFilterReader</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>lookAhead</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>RemoveEofFilter</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>in</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <try>try <block>{
+                <expr_stmt><expr><name>lookAhead</name> = <call><name><name>in</name>.<name>read</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <expr_stmt><expr><name>lookAhead</name> = -1</expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>lookAhead2</name> =<init> <expr><call><name><name>super</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// If source at EOF and lookAhead is ctrl-z, return EOF (NOT ctrl-z)</comment>
+            <if>if <condition>(<expr><name>lookAhead2</name> == -1 &amp;&amp; <name>lookAhead</name> == <name>CTRLZ</name></expr>)</condition><then> <block>{
+                <return>return <expr>-1</expr>;</return>
+            }</block></then></if>
+            <comment type="line">// Return current look-ahead</comment>
+            <decl_stmt><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>lookAhead</name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>lookAhead</name> = <name>lookAhead2</name></expr>;</expr_stmt>
+            <return>return <expr><name>i</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>AddTabFilter</name> <super><extends>extends <name>SimpleFilterReader</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>columnNumber</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>tabLength</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>AddTabFilter</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>in</name></decl></param>, <param><decl><type><name>int</name></type> <name>tabLength</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>tabLength</name></name> = <name>tabLength</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>c</name> =<init> <expr><call><name><name>super</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <switch>switch <condition>(<expr><name>c</name></expr>)</condition> <block>{
+            <case>case <expr>'\r'</expr>:
+            </case><case>case <expr>'\n'</expr>:
+                <expr_stmt><expr><name>columnNumber</name> = 0</expr>;</expr_stmt>
+                <break>break;</break>
+            </case><case>case <expr>' '</expr>:
+                <expr_stmt><expr><name>columnNumber</name>++</expr>;</expr_stmt>
+                <if>if <condition>(<expr>!<call><name>editsBlocked</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>int</name></type> <name>colNextTab</name> =<init> <expr>((<name>columnNumber</name> + <name>tabLength</name> - 1) / <name>tabLength</name>) * <name>tabLength</name></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>int</name></type> <name>countSpaces</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>int</name></type> <name>numTabs</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+                    <label><name>scanWhitespace</name>:</label> <while>while <condition>(<expr>(<name>c</name> = <call><name><name>super</name>.<name>read</name></name><argument_list>()</argument_list></call>) != -1</expr>)</condition> <block>{
+                        <switch>switch <condition>(<expr><name>c</name></expr>)</condition> <block>{
+                        <case>case <expr>' '</expr>:
+                            <if>if <condition>(<expr>++<name>columnNumber</name> == <name>colNextTab</name></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><name>numTabs</name>++</expr>;</expr_stmt>
+                                <expr_stmt><expr><name>countSpaces</name> = 0</expr>;</expr_stmt>
+                                <expr_stmt><expr><name>colNextTab</name> += <name>tabLength</name></expr>;</expr_stmt>
+                            }</block></then> <else>else <block>{
+                                <expr_stmt><expr><name>countSpaces</name>++</expr>;</expr_stmt>
+                            }</block></else></if>
+                            <break>break;</break>
+                        </case><case>case <expr>'\t'</expr>:
+                            <expr_stmt><expr><name>columnNumber</name> = <name>colNextTab</name></expr>;</expr_stmt>
+                            <expr_stmt><expr><name>numTabs</name>++</expr>;</expr_stmt>
+                            <expr_stmt><expr><name>countSpaces</name> = 0</expr>;</expr_stmt>
+                            <expr_stmt><expr><name>colNextTab</name> += <name>tabLength</name></expr>;</expr_stmt>
+                            <break>break;</break>
+                        </case><default>default:
+                            <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <break>break scanWhitespace;</break>
+                        </default>}</block></switch>
+                    }</block></while>
+                    <while>while <condition>(<expr><name>countSpaces</name>-- &gt; 0</expr>)</condition> <block>{
+                        <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr>' '</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>columnNumber</name>--</expr>;</expr_stmt>
+                    }</block></while>
+                    <while>while <condition>(<expr><name>numTabs</name>-- &gt; 0</expr>)</condition> <block>{
+                        <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr>'\t'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>columnNumber</name> -= <name>tabLength</name></expr>;</expr_stmt>
+                    }</block></while>
+                    <expr_stmt><expr><name>c</name> = <call><name><name>super</name>.<name>read</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <switch>switch <condition>(<expr><name>c</name></expr>)</condition> <block>{
+                    <case>case <expr>' '</expr>:
+                        <expr_stmt><expr><name>columnNumber</name>++</expr>;</expr_stmt>
+                        <break>break;</break>
+                    </case><case>case <expr>'\t'</expr>:
+                        <expr_stmt><expr><name>columnNumber</name> += <name>tabLength</name></expr>;</expr_stmt>
+                        <break>break;</break>
+                    </case><default>default:
+                        <comment type="line">// Fall tru</comment>
+                    </default>}</block></switch>
+                }</block></then></if>
+                <break>break;</break>
+            </case><case>case <expr>'\t'</expr>:
+                <expr_stmt><expr><name>columnNumber</name> = ((<name>columnNumber</name> + <name>tabLength</name> - 1) / <name>tabLength</name>) * <name>tabLength</name></expr>;</expr_stmt>
+                <break>break;</break>
+            </case><default>default:
+                <expr_stmt><expr><name>columnNumber</name>++</expr>;</expr_stmt>
+            </default>}</block></switch>
+            <return>return <expr><name>c</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>RemoveTabFilter</name> <super><extends>extends <name>SimpleFilterReader</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>columnNumber</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>tabLength</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>RemoveTabFilter</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>in</name></decl></param>, <param><decl><type><name>int</name></type> <name>tabLength</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><name><name>this</name>.<name>tabLength</name></name> = <name>tabLength</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>c</name> =<init> <expr><call><name><name>super</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <switch>switch <condition>(<expr><name>c</name></expr>)</condition> <block>{
+            <case>case <expr>'\r'</expr>:
+            </case><case>case <expr>'\n'</expr>:
+                <expr_stmt><expr><name>columnNumber</name> = 0</expr>;</expr_stmt>
+                <break>break;</break>
+            </case><case>case <expr>'\t'</expr>:
+                <decl_stmt><decl><type><name>int</name></type> <name>width</name> =<init> <expr><name>tabLength</name> - <name>columnNumber</name> % <name>tabLength</name></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr>!<call><name>editsBlocked</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <for>for (<init>;</init> <condition><expr><name>width</name> &gt; 1</expr>;</condition> <incr><expr><name>width</name>--</expr></incr>) <block>{
+                        <expr_stmt><expr><call><name>push</name><argument_list>(<argument><expr>' '</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></for>
+                    <expr_stmt><expr><name>c</name> = ' '</expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><name>columnNumber</name> += <name>width</name></expr>;</expr_stmt>
+                <break>break;</break>
+            </case><default>default:
+                <expr_stmt><expr><name>columnNumber</name>++</expr>;</expr_stmt>
+            </default>}</block></switch>
+            <return>return <expr><name>c</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Enumerated attribute with the values "asis", "add" and "remove".
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>AddAsisRemove</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>AddAsisRemove</name></type> <name>ASIS</name> =<init> <expr><call><name>newInstance</name><argument_list>(<argument><expr>"asis"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>AddAsisRemove</name></type> <name>ADD</name> =<init> <expr><call><name>newInstance</name><argument_list>(<argument><expr>"add"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>AddAsisRemove</name></type> <name>REMOVE</name> =<init> <expr><call><name>newInstance</name><argument_list>(<argument><expr>"remove"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** {@inheritDoc}. */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"add"</expr>, <expr>"asis"</expr>, <expr>"remove"</expr>}</block></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Equality depending in the index.
+         * @param other the object to test equality against.
+         * @return true if the object has the same index as this.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>other</name></decl></param>)</parameter_list> <block>{
+            <return>return <expr><name>other</name> <name>instanceof</name> <name>AddAsisRemove</name>
+                    &amp;&amp; <call><name>getIndex</name><argument_list>()</argument_list></call> == ((<name>AddAsisRemove</name>) <name>other</name>).<call><name>getIndex</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Hashcode depending on the index.
+         * @return the index as the hashcode.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>hashCode</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name>getIndex</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><name>AddAsisRemove</name></type> <name>resolve</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IllegalStateException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><call><name><name>this</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ASIS</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>ASIS</name></expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>this</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ADD</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>ADD</name></expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>this</name>.<name>equals</name></name><argument_list>(<argument><expr><name>REMOVE</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>REMOVE</name></expr>;</return>
+            }</block></then></if>
+            <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>(<argument><expr>"No replacement for " + <name>this</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></function>
+
+        <comment type="line">// Works like clone() but doesn't show up in the Javadocs</comment>
+        <function><type><specifier>private</specifier> <name>AddAsisRemove</name></type> <name>newInstance</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name>newInstance</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Create an instance of this enumerated value based on the string value.
+         * @param value the value to use.
+         * @return an enumerated instance.
+         */</comment>
+        <function><type><specifier>public</specifier> <specifier>static</specifier> <name>AddAsisRemove</name></type> <name>newInstance</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>AddAsisRemove</name></type> <name>a</name> =<init> <expr>new <call><name>AddAsisRemove</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>a</name>.<name>setValue</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>a</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Enumerated attribute with the values "asis", "cr", "lf" and "crlf".
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>CrLf</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>CrLf</name></type> <name>ASIS</name> =<init> <expr><call><name>newInstance</name><argument_list>(<argument><expr>"asis"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>CrLf</name></type> <name>CR</name> =<init> <expr><call><name>newInstance</name><argument_list>(<argument><expr>"cr"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>CrLf</name></type> <name>CRLF</name> =<init> <expr><call><name>newInstance</name><argument_list>(<argument><expr>"crlf"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>CrLf</name></type> <name>DOS</name> =<init> <expr><call><name>newInstance</name><argument_list>(<argument><expr>"dos"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>CrLf</name></type> <name>LF</name> =<init> <expr><call><name>newInstance</name><argument_list>(<argument><expr>"lf"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>CrLf</name></type> <name>MAC</name> =<init> <expr><call><name>newInstance</name><argument_list>(<argument><expr>"mac"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>CrLf</name></type> <name>UNIX</name> =<init> <expr><call><name>newInstance</name><argument_list>(<argument><expr>"unix"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * @see EnumeratedAttribute#getValues
+         */</comment>
+        <comment type="javadoc">/** {@inheritDoc}. */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"asis"</expr>, <expr>"cr"</expr>, <expr>"lf"</expr>, <expr>"crlf"</expr>, <expr>"mac"</expr>, <expr>"unix"</expr>, <expr>"dos"</expr>}</block></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Equality depending in the index.
+         * @param other the object to test equality against.
+         * @return true if the object has the same index as this.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>other</name></decl></param>)</parameter_list> <block>{
+            <return>return <expr><name>other</name> <name>instanceof</name> <name>CrLf</name> &amp;&amp; <call><name>getIndex</name><argument_list>()</argument_list></call> == ((<name>CrLf</name>) <name>other</name>).<call><name>getIndex</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Hashcode depending on the index.
+         * @return the index as the hashcode.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>hashCode</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name>getIndex</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><name>CrLf</name></type> <name>resolve</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><call><name><name>this</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ASIS</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>ASIS</name></expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>this</name>.<name>equals</name></name><argument_list>(<argument><expr><name>CR</name></expr></argument>)</argument_list></call> || <call><name><name>this</name>.<name>equals</name></name><argument_list>(<argument><expr><name>MAC</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>CR</name></expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>this</name>.<name>equals</name></name><argument_list>(<argument><expr><name>CRLF</name></expr></argument>)</argument_list></call> || <call><name><name>this</name>.<name>equals</name></name><argument_list>(<argument><expr><name>DOS</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>CRLF</name></expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>this</name>.<name>equals</name></name><argument_list>(<argument><expr><name>LF</name></expr></argument>)</argument_list></call> || <call><name><name>this</name>.<name>equals</name></name><argument_list>(<argument><expr><name>UNIX</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>LF</name></expr>;</return>
+            }</block></then></if>
+            <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>(<argument><expr>"No replacement for " + <name>this</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></function>
+
+        <comment type="line">// Works like clone() but doesn't show up in the Javadocs</comment>
+        <function><type><specifier>private</specifier> <name>CrLf</name></type> <name>newInstance</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name>newInstance</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Create an instance of this enumerated value based on the string value.
+         * @param value the value to use.
+         * @return an enumerated instance.
+         */</comment>
+        <function><type><specifier>public</specifier> <specifier>static</specifier> <name>CrLf</name></type> <name>newInstance</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>CrLf</name></type> <name>c</name> =<init> <expr>new <call><name>CrLf</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>c</name>.<name>setValue</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>c</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+}</block></class>
+</unit>

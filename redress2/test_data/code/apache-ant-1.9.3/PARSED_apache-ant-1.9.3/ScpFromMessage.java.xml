@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ssh\ScpFromMessage.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ssh</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>EOFException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>ByteArrayOutputStream</name></name>;</import>
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>JSchException</name></name>;</import>
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>Session</name></name>;</import>
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>SftpATTRS</name></name>;</import>
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>SftpException</name></name>;</import>
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>Channel</name></name>;</import>
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>ChannelSftp</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * A helper object representing an scp download.
+ */</comment>
+<class><specifier>public</specifier> class <name>ScpFromMessage</name> <super><extends>extends <name>AbstractSshMessage</name></extends></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>HUNDRED_KILOBYTES</name> =<init> <expr>102400</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>byte</name></type> <name>LINE_FEED</name> =<init> <expr>0x0a</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUFFER_SIZE</name> =<init> <expr>1024</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>remoteFile</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>localFile</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>isRecursive</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>preserveLastModified</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Constructor for ScpFromMessage
+     * @param session the ssh session to use
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ScpFromMessage</name><parameter_list>(<param><decl><type><name>Session</name></type> <name>session</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>session</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor for ScpFromMessage
+     * @param verbose if true do verbose logging
+     * @param session the ssh session to use
+     * @since Ant 1.7
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ScpFromMessage</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>verbose</name></decl></param>, <param><decl><type><name>Session</name></type> <name>session</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>verbose</name></expr></argument>, <argument><expr><name>session</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor for ScpFromMessage.
+     * @param verbose if true log extra information
+     * @param session the Scp session to use
+     * @param aRemoteFile the remote file name
+     * @param aLocalFile  the local file
+     * @param recursive   if true use recursion (-r option to scp)
+     * @since Ant 1.6.2
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ScpFromMessage</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>verbose</name></decl></param>,
+                          <param><decl><type><name>Session</name></type> <name>session</name></decl></param>,
+                          <param><decl><type><name>String</name></type> <name>aRemoteFile</name></decl></param>,
+                          <param><decl><type><name>File</name></type> <name>aLocalFile</name></decl></param>,
+                          <param><decl><type><name>boolean</name></type> <name>recursive</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr>false</expr></argument>, <argument><expr><name>session</name></expr></argument>, <argument><expr><name>aRemoteFile</name></expr></argument>, <argument><expr><name>aLocalFile</name></expr></argument>, <argument><expr><name>recursive</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor for ScpFromMessage.
+     * @param session the Scp session to use
+     * @param aRemoteFile the remote file name
+     * @param aLocalFile  the local file
+     * @param recursive   if true use recursion (-r option to scp)
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ScpFromMessage</name><parameter_list>(<param><decl><type><name>Session</name></type> <name>session</name></decl></param>,
+                           <param><decl><type><name>String</name></type> <name>aRemoteFile</name></decl></param>,
+                           <param><decl><type><name>File</name></type> <name>aLocalFile</name></decl></param>,
+                           <param><decl><type><name>boolean</name></type> <name>recursive</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr>false</expr></argument>, <argument><expr><name>session</name></expr></argument>, <argument><expr><name>aRemoteFile</name></expr></argument>, <argument><expr><name>aLocalFile</name></expr></argument>, <argument><expr><name>recursive</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructor for ScpFromMessage.
+     * @param verbose if true log extra information
+     * @param session the Scp session to use
+     * @param aRemoteFile the remote file name
+     * @param aLocalFile  the local file
+     * @param recursive   if true use recursion (-r option to scp)
+     * @param preserveLastModified whether to preserve file
+     * modification times
+     * @since Ant 1.8.0
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ScpFromMessage</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>verbose</name></decl></param>,
+                          <param><decl><type><name>Session</name></type> <name>session</name></decl></param>,
+                          <param><decl><type><name>String</name></type> <name>aRemoteFile</name></decl></param>,
+                          <param><decl><type><name>File</name></type> <name>aLocalFile</name></decl></param>,
+                          <param><decl><type><name>boolean</name></type> <name>recursive</name></decl></param>,
+                          <param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>verbose</name></expr></argument>, <argument><expr><name>session</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>remoteFile</name></name> = <name>aRemoteFile</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>localFile</name></name> = <name>aLocalFile</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>isRecursive</name></name> = <name>recursive</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>preserveLastModified</name></name> = <name>preserveLastModified</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Carry out the transfer.
+     * @throws IOException on i/o errors
+     * @throws JSchException on errors detected by scp
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>JSchException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>command</name> =<init> <expr>"scp -f "</expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>isRecursive</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>command</name> += "-r "</expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><name>command</name> += <name>remoteFile</name></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>Channel</name></type> <name>channel</name> =<init> <expr><call><name>openExecChannel</name><argument_list>(<argument><expr><name>command</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <comment type="line">// get I/O streams for remote scp</comment>
+            <decl_stmt><decl><type><name>OutputStream</name></type> <name>out</name> =<init> <expr><call><name><name>channel</name>.<name>getOutputStream</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>InputStream</name></type> <name>in</name> =<init> <expr><call><name><name>channel</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name><name>channel</name>.<name>connect</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><call><name>sendAck</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>startRemoteCpProtocol</name><argument_list>(<argument><expr><name>in</name></expr></argument>, <argument><expr><name>out</name></expr></argument>, <argument><expr><name>localFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>channel</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>channel</name>.<name>disconnect</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"done\n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>getPreserveLastModified</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>preserveLastModified</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>startRemoteCpProtocol</name><parameter_list>(<param><decl><type><name>InputStream</name></type> <name>in</name></decl></param>,
+                                       <param><decl><type><name>OutputStream</name></type> <name>out</name></decl></param>,
+                                       <param><decl><type><name>File</name></type> <name>localFile</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>JSchException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>startFile</name> =<init> <expr><name>localFile</name></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr>true</expr>)</condition> <block>{
+            <comment type="line">// C0644 filesize filename - header for a regular file</comment>
+            <comment type="line">// T time 0 time 0\n - present if perserve time.</comment>
+            <comment type="line">// D directory - this is the header for a directory.</comment>
+            <decl_stmt><decl><type><name>ByteArrayOutputStream</name></type> <name>stream</name> =<init> <expr>new <call><name>ByteArrayOutputStream</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr>true</expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>read</name> =<init> <expr><call><name><name>in</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>read</name> &lt; 0</expr>)</condition><then> <block>{
+                    <return>return;</return>
+                }</block></then></if>
+                <if>if <condition>(<expr>(<name>byte</name>) <name>read</name> == <name>LINE_FEED</name></expr>)</condition><then> <block>{
+                    <break>break;</break>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>stream</name>.<name>write</name></name><argument_list>(<argument><expr><name>read</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+            <decl_stmt><decl><type><name>String</name></type> <name>serverResponse</name> =<init> <expr><call><name><name>stream</name>.<name>toString</name></name><argument_list>(<argument><expr>"UTF-8"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>serverResponse</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> == 'C'</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>parseAndFetchFile</name><argument_list>(<argument><expr><name>serverResponse</name></expr></argument>, <argument><expr><name>startFile</name></expr></argument>, <argument><expr><name>out</name></expr></argument>, <argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>serverResponse</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> == 'D'</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>startFile</name> = <call><name>parseAndCreateDirectory</name><argument_list>(<argument><expr><name>serverResponse</name></expr></argument>,
+                                                    <argument><expr><name>startFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>sendAck</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>serverResponse</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> == 'E'</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>startFile</name> = <call><name><name>startFile</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>sendAck</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>serverResponse</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> == '\01'
+                    || <call><name><name>serverResponse</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> == '\02'</expr>)</condition><then> <block>{
+                <comment type="line">// this indicates an error.</comment>
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr><call><name><name>serverResponse</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if></else></if></else></if></else></if>
+        }</block></while>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>File</name></type> <name>parseAndCreateDirectory</name><parameter_list>(<param><decl><type><name>String</name></type> <name>serverResponse</name></decl></param>,
+                                         <param><decl><type><name>File</name></type> <name>localFile</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>start</name> =<init> <expr><call><name><name>serverResponse</name>.<name>indexOf</name></name><argument_list>(<argument><expr>" "</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// appears that the next token is not used and it's zero.</comment>
+        <expr_stmt><expr><name>start</name> = <call><name><name>serverResponse</name>.<name>indexOf</name></name><argument_list>(<argument><expr>" "</expr></argument>, <argument><expr><name>start</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>directoryName</name> =<init> <expr><call><name><name>serverResponse</name>.<name>substring</name></name><argument_list>(<argument><expr><name>start</name> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>localFile</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>dir</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>localFile</name></expr></argument>, <argument><expr><name>directoryName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>dir</name>.<name>mkdir</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Creating: " + <name>dir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>dir</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>parseAndFetchFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>serverResponse</name></decl></param>,
+                                   <param><decl><type><name>File</name></type> <name>localFile</name></decl></param>,
+                                   <param><decl><type><name>OutputStream</name></type> <name>out</name></decl></param>,
+                                   <param><decl><type><name>InputStream</name></type> <name>in</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>JSchException</name></expr></argument></throws>  <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>start</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>end</name> =<init> <expr><call><name><name>serverResponse</name>.<name>indexOf</name></name><argument_list>(<argument><expr>" "</expr></argument>, <argument><expr><name>start</name> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>start</name> = <name>end</name> + 1</expr>;</expr_stmt>
+        <expr_stmt><expr><name>end</name> = <call><name><name>serverResponse</name>.<name>indexOf</name></name><argument_list>(<argument><expr>" "</expr></argument>, <argument><expr><name>start</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>long</name></type> <name>filesize</name> =<init> <expr><call><name><name>Long</name>.<name>parseLong</name></name><argument_list>(<argument><expr><call><name><name>serverResponse</name>.<name>substring</name></name><argument_list>(<argument><expr><name>start</name></expr></argument>, <argument><expr><name>end</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>filename</name> =<init> <expr><call><name><name>serverResponse</name>.<name>substring</name></name><argument_list>(<argument><expr><name>end</name> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Receiving: " + <name>filename</name> + " : " + <name>filesize</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>transferFile</name> =<init> <expr>(<call><name><name>localFile</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call>)
+                ? new <call><name>File</name><argument_list>(<argument><expr><name>localFile</name></expr></argument>, <argument><expr><name>filename</name></expr></argument>)</argument_list></call>
+                : <name>localFile</name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>fetchFile</name><argument_list>(<argument><expr><name>transferFile</name></expr></argument>, <argument><expr><name>filesize</name></expr></argument>, <argument><expr><name>out</name></expr></argument>, <argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>waitForAck</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>sendAck</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>fetchFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>localFile</name></decl></param>,
+                            <param><decl><type><name>long</name></type> <name>filesize</name></decl></param>,
+                            <param><decl><type><name>OutputStream</name></type> <name>out</name></decl></param>,
+                           <param><decl><type><name>InputStream</name></type> <name>in</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>JSchException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>buf</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>BUFFER_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>sendAck</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// read a content of lfile</comment>
+        <decl_stmt><decl><type><name>FileOutputStream</name></type> <name>fos</name> =<init> <expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>localFile</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>length</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>long</name></type> <name>totalLength</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>long</name></type> <name>startTime</name> =<init> <expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// only track progress for files larger than 100kb in verbose mode</comment>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>trackProgress</name> =<init> <expr><call><name>getVerbose</name><argument_list>()</argument_list></call> &amp;&amp; <name>filesize</name> &gt; <name>HUNDRED_KILOBYTES</name></expr></init></decl>;</decl_stmt>
+        <comment type="line">// since filesize keeps on decreasing we have to store the</comment>
+        <comment type="line">// initial filesize</comment>
+        <decl_stmt><decl><type><name>long</name></type> <name>initFilesize</name> =<init> <expr><name>filesize</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>percentTransmitted</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <try>try <block>{
+            <while>while <condition>(<expr>true</expr>)</condition> <block>{
+                <expr_stmt><expr><name>length</name> = <call><name><name>in</name>.<name>read</name></name><argument_list>(<argument><expr><name>buf</name></expr></argument>, <argument><expr>0</expr></argument>,
+                                 <argument><expr>(<name>BUFFER_SIZE</name> &lt; <name>filesize</name>) ? <name>BUFFER_SIZE</name>
+                                                          : (<name>int</name>) <name>filesize</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>length</name> &lt; 0</expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>EOFException</name><argument_list>(<argument><expr>"Unexpected end of stream."</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>fos</name>.<name>write</name></name><argument_list>(<argument><expr><name>buf</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>length</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>filesize</name> -= <name>length</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>totalLength</name> += <name>length</name></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>filesize</name> == 0</expr>)</condition><then> <block>{
+                    <break>break;</break>
+                }</block></then></if>
+
+                <if>if <condition>(<expr><name>trackProgress</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>percentTransmitted</name> = <call><name>trackProgress</name><argument_list>(<argument><expr><name>initFilesize</name></expr></argument>,
+                                                       <argument><expr><name>totalLength</name></expr></argument>,
+                                                       <argument><expr><name>percentTransmitted</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></while>
+        }</block> <finally>finally <block>{
+            <decl_stmt><decl><type><name>long</name></type> <name>endTime</name> =<init> <expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>logStats</name><argument_list>(<argument><expr><name>startTime</name></expr></argument>, <argument><expr><name>endTime</name></expr></argument>, <argument><expr><name>totalLength</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>fos</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>fos</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+
+        <if>if <condition>(<expr><call><name>getPreserveLastModified</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setLastModified</name><argument_list>(<argument><expr><name>localFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setLastModified</name><parameter_list>(<param><decl><type><name>File</name></type> <name>localFile</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>JSchException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>SftpATTRS</name></type> <name>fileAttributes</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>ChannelSftp</name></type> <name>channel</name> =<init> <expr><call><name>openSftpChannel</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>channel</name>.<name>connect</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>fileAttributes</name> = <call><name><name>channel</name>.<name>lstat</name></name><argument_list>(<argument><expr><call><name>remoteDir</name><argument_list>(<argument><expr><name>remoteFile</name></expr></argument>)</argument_list></call>
+                                           + <call><name><name>localFile</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>SftpException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>JSchException</name><argument_list>(<argument><expr>"failed to stat remote file"</expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+        <expr_stmt><expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call>.<call><name>setFileLastModified</name><argument_list>(<argument><expr><name>localFile</name></expr></argument>,
+                                                     <argument><expr>((<name>long</name>) <call><name><name>fileAttributes</name>
+                                                      .<name>getMTime</name></name><argument_list>()</argument_list></call>)
+                                                     * 1000</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * returns the directory part of the remote file, if any.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>remoteDir</name><parameter_list>(<param><decl><type><name>String</name></type> <name>remoteFile</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>remoteFile</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>index</name> &lt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>index</name> = <call><name><name>remoteFile</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>"\\"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>index</name> &gt; -1 ? <call><name><name>remoteFile</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>index</name> + 1</expr></argument>)</argument_list></call> : ""</expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

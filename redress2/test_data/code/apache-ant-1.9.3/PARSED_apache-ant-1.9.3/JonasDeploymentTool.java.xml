@@ -1,0 +1,835 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ejb\JonasDeploymentTool.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ejb</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>SAXParser</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>AntClassLoader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Java</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+
+<comment type="javadoc">/**
+ * The deployment tool to add the jonas specific deployment descriptors to the
+ * ejb JAR file. JONAS only requires one additional file jonas-ejb-jar.xml.
+ *
+ * @version 1.0
+ * @see EjbJar#createJonas
+ */</comment>
+<class><specifier>public</specifier> class <name>JonasDeploymentTool</name> <super><extends>extends <name>GenericDeploymentTool</name></extends></super> <block>{
+
+    <comment type="javadoc">/** Public Id of the standard deployment descriptor DTD. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EJB_JAR_1_1_PUBLIC_ID</name>
+        =<init> <expr>"-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EJB_JAR_2_0_PUBLIC_ID</name>
+        =<init> <expr>"-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Public Id of the JOnAS-specific deployment descriptor DTD. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JONAS_EJB_JAR_2_4_PUBLIC_ID</name>
+        =<init> <expr>"-//ObjectWeb//DTD JOnAS 2.4//EN"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JONAS_EJB_JAR_2_5_PUBLIC_ID</name>
+        =<init> <expr>"-//ObjectWeb//DTD JOnAS 2.5//EN"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** RMI ORB. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>RMI_ORB</name> =<init> <expr>"RMI"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** JEREMIE ORB. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JEREMIE_ORB</name> =<init> <expr>"JEREMIE"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** DAVID ORB. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DAVID_ORB</name> =<init> <expr>"DAVID"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Name of the standard deployment descriptor DTD (these files are stored in
+     * the ${JONAS_ROOT}/xml directory).
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EJB_JAR_1_1_DTD</name> =<init> <expr>"ejb-jar_1_1.dtd"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EJB_JAR_2_0_DTD</name> =<init> <expr>"ejb-jar_2_0.dtd"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Name of the JOnAS-specific deployment descriptor DTD (these files are
+     * stored in the ${JONAS_ROOT}/xml directory).
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JONAS_EJB_JAR_2_4_DTD</name>
+        =<init> <expr>"jonas-ejb-jar_2_4.dtd"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JONAS_EJB_JAR_2_5_DTD</name>
+        =<init> <expr>"jonas-ejb-jar_2_5.dtd"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Default JOnAS deployment descriptor name. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JONAS_DD</name> =<init> <expr>"jonas-ejb-jar.xml"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** GenIC class name (JOnAS 2.5) */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>GENIC_CLASS</name> =<init>
+    <expr>"org.objectweb.jonas_ejb.genic.GenIC"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Old GenIC class name (JOnAS 2.4.x). */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>OLD_GENIC_CLASS_1</name> =<init>
+        <expr>"org.objectweb.jonas_ejb.tools.GenWholeIC"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Old GenIC class name. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>OLD_GENIC_CLASS_2</name> =<init>
+        <expr>"org.objectweb.jonas_ejb.tools.GenIC"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Filename of the standard EJB descriptor (which is passed to this class
+     * from the parent "ejbjar" task). This file is relative to the directory
+     * specified by the "srcdir" attribute in the ejbjar task.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>descriptorName</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Filename of the JOnAS-specific EJB descriptor (which is passed to this
+     * class from the parent "ejbjar" task). This file is relative to the
+     * directory specified by the "srcdir" attribute in the ejbjar task.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>jonasDescriptorName</name></decl>;</decl_stmt>
+
+    <comment type="block">/* ------------- */</comment>
+    <comment type="block">/* GenIC options */</comment>
+    <comment type="block">/* ------------- */</comment>
+
+    <comment type="javadoc">/**
+     * Temporary output directory used by GenIC.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>outputdir</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * &lt;code&gt;true&lt;/code&gt; if the intermediate Java source files generated by
+     * GenIC must be deleted or not. The default is &lt;code&gt;false&lt;/code&gt;
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>keepgenerated</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * &lt;code&gt;true&lt;/code&gt; if the generated source files must not be compiled via
+     * the java and rmi compilers. The default is &lt;code&gt;false&lt;/code&gt;.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>nocompil</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * &lt;code&gt;true&lt;/code&gt; if the XML deployment descriptors must be parsed
+     * without validation. The default is &lt;code&gt;false&lt;/code&gt;.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>novalidation</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Java compiler to use. The default is the value of
+     * &lt;code&gt;build.compiler&lt;/code&gt; property.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>javac</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Options to pass to the java compiler. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>javacopts</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Options to pass to the rmi compiler. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>rmicopts</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether or not the RMI skeleton and stub must be modified to
+     * implement the implicit propagation of the security context (the
+     * transactional context is always provided). The default is
+     * &lt;code&gt;false&lt;/code&gt;.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>secpropag</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * &lt;code&gt;true&lt;/code&gt; if the GenIC call must be verbose. The default
+     * is &lt;code&gt;false&lt;/code&gt;.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>verbose</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Additional args to send to GenIC. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>additionalargs</name></decl>;</decl_stmt>
+
+    <comment type="block">/* ------------- */</comment>
+    <comment type="block">/* other options */</comment>
+    <comment type="block">/* ------------- */</comment>
+
+    <comment type="javadoc">/** JOnAS root directory. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>jonasroot</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * &lt;code&gt;true&lt;/code&gt; if the generic JAR file used as input to GenIC must be
+     * retained. The default is &lt;code&gt;false&lt;/code&gt;.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>keepgeneric</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Stores the suffix for the JOnAS JAR file. The default is '.jar'. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>suffix</name> =<init> <expr>".jar"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  ORB to use (RMI, JEREMIE or DAVID). If omitted, it defaults to the one
+     *  present in classpath. If specified, the corresponding JOnAS JAR is
+     *  automatically added to the classpath.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>orb</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * &lt;code&gt;true&lt;/code&gt; if GenIC must not be run on the EJB JAR.
+     * The default is &lt;code&gt;false&lt;/code&gt;.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>nogenic</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="block">/* -------------------- */</comment>
+    <comment type="block">/* GenIC options setter */</comment>
+    <comment type="block">/* -------------------- */</comment>
+
+    <comment type="javadoc">/**
+     * Sets the &lt;code&gt;keepgenerated&lt;/code&gt; flag.
+     *
+     * @param aBoolean &lt;code&gt;true&lt;/code&gt; if the flag must be set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setKeepgenerated</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>aBoolean</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>keepgenerated</name> = <name>aBoolean</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the additional arguments.
+     *
+     * @param aString additional args.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAdditionalargs</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>additionalargs</name> = <name>aString</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the &lt;code&gt;nocompil&lt;/code&gt; flag.
+     *
+     * @param aBoolean &lt;code&gt;true&lt;/code&gt; if the flag must be set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNocompil</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>aBoolean</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>nocompil</name> = <name>aBoolean</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the &lt;code&gt;novalidation&lt;/code&gt; flag.
+     *
+     * @param aBoolean &lt;code&gt;true&lt;/code&gt; if the flag must be set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNovalidation</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>aBoolean</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>novalidation</name> = <name>aBoolean</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the java compiler to use.
+     *
+     * @param aString the java compiler.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setJavac</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>javac</name> = <name>aString</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the options to pass to the java compiler.
+     *
+     * @param aString the options.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setJavacopts</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>javacopts</name> = <name>aString</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the options to pass to the rmi compiler.
+     *
+     * @param aString the options.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRmicopts</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>rmicopts</name> = <name>aString</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the &lt;code&gt;secpropag&lt;/code&gt; flag.
+     *
+     * @param aBoolean &lt;code&gt;true&lt;/code&gt; if the flag must be set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSecpropag</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>aBoolean</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>secpropag</name> = <name>aBoolean</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the &lt;code&gt;verbose&lt;/code&gt; flag.
+     *
+     * @param aBoolean &lt;code&gt;true&lt;/code&gt; if the flag must be set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVerbose</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>aBoolean</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>verbose</name> = <name>aBoolean</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="block">/* -------------------- */</comment>
+    <comment type="block">/* other options setter */</comment>
+    <comment type="block">/* -------------------- */</comment>
+
+    <comment type="javadoc">/**
+     * Set the JOnAS root directory.
+     *
+     * @param aFile the JOnAS root directory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setJonasroot</name><parameter_list>(<param><decl><type><name>File</name></type> <name>aFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>jonasroot</name> = <name>aFile</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the &lt;code&gt;keepgeneric&lt;/code&gt; flag.
+     *
+     * @param aBoolean &lt;code&gt;true&lt;/code&gt; if the flag must be set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setKeepgeneric</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>aBoolean</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>keepgeneric</name> = <name>aBoolean</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the jar suffix.
+     *
+     * @param aString the string to use as the suffix.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setJarsuffix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>suffix</name> = <name>aString</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the &lt;code&gt;orb&lt;/code&gt; to construct classpath.
+     *
+     * @param aString 'RMI', 'JEREMIE', or 'DAVID'.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOrb</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>orb</name> = <name>aString</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the &lt;code&gt;nogenic&lt;/code&gt; flag.
+     *
+     * @param aBoolean &lt;code&gt;true&lt;/code&gt; if the flag must be set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNogenic</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>aBoolean</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>nogenic</name> = <name>aBoolean</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="block">/* ------------- */</comment>
+    <comment type="block">/* other methods */</comment>
+    <comment type="block">/* ------------- */</comment>
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>processDescriptor</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aDescriptorName</name></decl></param>, <param><decl><type><name>SAXParser</name></type> <name>saxParser</name></decl></param>)</parameter_list> <block>{
+
+        <expr_stmt><expr><name>descriptorName</name> = <name>aDescriptorName</name></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"JOnAS Deployment Tool processing: " + <name>descriptorName</name></expr></argument>,
+            <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>super</name>.<name>processDescriptor</name></name><argument_list>(<argument><expr><name>descriptorName</name></expr></argument>, <argument><expr><name>saxParser</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>outputdir</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// the method deleteOnExit() do not work because the directory is not empty</comment>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Deleting temp output directory '" + <name>outputdir</name> + "'."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>deleteAllFiles</name><argument_list>(<argument><expr><name>outputdir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>writeJar</name><parameter_list>(<param><decl><type><name>String</name></type> <name>baseName</name></decl></param>, <param><decl><type><name>File</name></type> <name>jarfile</name></decl></param>, <param><decl><type><name>Hashtable</name></type> <name>ejbFiles</name></decl></param>, <param><decl><type><name>String</name></type> <name>publicId</name></decl></param>)</parameter_list>
+    <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <comment type="line">// create the generic jar first</comment>
+        <decl_stmt><decl><type><name>File</name></type> <name>genericJarFile</name> =<init> <expr><call><name><name>super</name>.<name>getVendorOutputJarFile</name></name><argument_list>(<argument><expr><name>baseName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>super</name>.<name>writeJar</name></name><argument_list>(<argument><expr><name>baseName</name></expr></argument>, <argument><expr><name>genericJarFile</name></expr></argument>, <argument><expr><name>ejbFiles</name></expr></argument>, <argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// GenIC call on generic jar</comment>
+        <expr_stmt><expr><call><name>addGenICGeneratedFiles</name><argument_list>(<argument><expr><name>genericJarFile</name></expr></argument>, <argument><expr><name>ejbFiles</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// create the real jar</comment>
+        <expr_stmt><expr><call><name><name>super</name>.<name>writeJar</name></name><argument_list>(<argument><expr><name>baseName</name></expr></argument>, <argument><expr><call><name>getVendorOutputJarFile</name><argument_list>(<argument><expr><name>baseName</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>ejbFiles</name></expr></argument>, <argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr>!<name>keepgeneric</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Deleting generic JAR " + <call><name><name>genericJarFile</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>genericJarFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addVendorFiles</name><parameter_list>(<param><decl><type><name>Hashtable</name></type> <name>ejbFiles</name></decl></param>, <param><decl><type><name>String</name></type> <name>ddPrefix</name></decl></param>)</parameter_list> <block>{
+
+    <comment type="line">// JOnAS-specific descriptor deployment</comment>
+    <expr_stmt><expr><name>jonasDescriptorName</name> = <call><name>getJonasDescriptorName</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>jonasDD</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<name>descriptorDir</name></expr></argument>, <argument><expr><name>jonasDescriptorName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name><name>jonasDD</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>META_DIR</name> + <name>JONAS_DD</name></expr></argument>, <argument><expr><name>jonasDD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Unable to locate the JOnAS deployment descriptor. It was expected to be in: "
+                + <call><name><name>jonasDD</name>.<name>getPath</name></name><argument_list>()</argument_list></call> + "."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>protected</specifier> <name>File</name></type> <name>getVendorOutputJarFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>baseName</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>getDestDir</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>baseName</name> + <name>suffix</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Determines the name of the JOnAS-specific EJB descriptor using the
+     * specified standard EJB descriptor name. In general, the standard
+     * descriptor will be named "[basename]-ejb-jar.xml", and this method will
+     * return "[basename]-jonas-ejb-jar.xml" or "jonas-[basename].xml"
+     *
+     * @return The name of the JOnAS-specific EJB descriptor file.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>getJonasDescriptorName</name><parameter_list>()</parameter_list> <block>{
+
+        <comment type="line">// descriptorName = &lt;path&gt;&lt;basename&gt;&lt;basenameterminator&gt;&lt;remainder&gt;</comment>
+        <comment type="line">// examples = /org/objectweb/fooAppli/foo/Foo-ejb-jar.xml</comment>
+        <comment type="line">// examples = /org/objectweb/fooAppli/foo/Foo.xml (JOnAS convention)</comment>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>jonasDN</name></decl>;</decl_stmt> <comment type="line">// JOnAS-specific DD</comment>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>jonasConvention</name> =<init> <expr>false</expr></init></decl>;</decl_stmt> <comment type="line">// true if the JOnAS convention is used for the DD</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>path</name></decl>;</decl_stmt>            <comment type="line">// Directory path of the EJB descriptor</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>fileName</name></decl>;</decl_stmt>        <comment type="line">// EJB descriptor file name</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>baseName</name></decl>;</decl_stmt>        <comment type="line">// Filename appearing before name terminator</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>remainder</name></decl>;</decl_stmt>       <comment type="line">// Filename appearing after the name terminator</comment>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>startOfFileName</name> =<init> <expr><call><name><name>descriptorName</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>startOfFileName</name> != -1</expr>)</condition><then> <block>{
+            <comment type="line">// extract path info</comment>
+            <expr_stmt><expr><name>path</name> = <call><name><name>descriptorName</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>startOfFileName</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>fileName</name> = <call><name><name>descriptorName</name>.<name>substring</name></name><argument_list>(<argument><expr><name>startOfFileName</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <comment type="line">// descriptorName is just a file without path</comment>
+            <expr_stmt><expr><name>path</name> = ""</expr>;</expr_stmt>
+            <expr_stmt><expr><name>fileName</name> = <name>descriptorName</name></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <if>if <condition>(<expr><call><name><name>fileName</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>EJB_DD</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>path</name> + <name>JONAS_DD</name></expr>;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>endOfBaseName</name> =<init> <expr><call><name><name>descriptorName</name>.<name>indexOf</name></name><argument_list>(<argument><expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<name>baseNameTerminator</name></expr></argument>, <argument><expr><name>startOfFileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="block">/*
+         * Check for the odd case where the terminator and/or filename
+         * extension aren't found.  These will ensure "jonas-" appears at the
+         * end of the name and before the '.' (if present).
+         */</comment>
+        <if>if <condition>(<expr><name>endOfBaseName</name> &lt; 0</expr>)</condition><then> <block>{
+            <comment type="line">// baseNameTerminator not found: the descriptor use the</comment>
+            <comment type="line">// JOnAS naming convention, ie [Foo.xml,jonas-Foo.xml] and</comment>
+            <comment type="line">// not [Foo&lt;baseNameTerminator&gt;-ejb-jar.xml,</comment>
+            <comment type="line">// Foo&lt;baseNameTerminator&gt;-jonas-ejb-jar.xml].</comment>
+            <expr_stmt><expr><name>endOfBaseName</name> = <call><name><name>descriptorName</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>'.'</expr></argument>)</argument_list></call> - 1</expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>endOfBaseName</name> &lt; 0</expr>)</condition><then> <block>{
+                <comment type="line">// no . found</comment>
+                <expr_stmt><expr><name>endOfBaseName</name> = <call><name><name>descriptorName</name>.<name>length</name></name><argument_list>()</argument_list></call> - 1</expr>;</expr_stmt>
+            }</block></then></if>
+
+            <expr_stmt><expr><name>jonasConvention</name> = true</expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>baseName</name> = <call><name><name>descriptorName</name>.<name>substring</name></name><argument_list>(<argument><expr><name>startOfFileName</name> + 1</expr></argument>, <argument><expr><name>endOfBaseName</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>remainder</name> = <call><name><name>descriptorName</name>.<name>substring</name></name><argument_list>(<argument><expr><name>endOfBaseName</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>jonasConvention</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>jonasDN</name> = <name>path</name> + "jonas-" + <name>baseName</name> + ".xml"</expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>jonasDN</name> = <name>path</name> + <name>baseName</name> + "jonas-" + <name>remainder</name></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Standard EJB descriptor name: " + <name>descriptorName</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"JOnAS-specific descriptor name: " + <name>jonasDN</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <return>return <expr><name>jonasDN</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getJarBaseName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>descriptorFileName</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>String</name></type> <name>baseName</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<call><name><name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>EjbJar</name>.<name>NamingScheme</name>.<name>DESCRIPTOR</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+
+            <comment type="line">// try to find JOnAS specific convention name</comment>
+            <if>if <condition>(<expr><call><name><name>descriptorFileName</name>.<name>indexOf</name></name><argument_list>(<argument><expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<name>baseNameTerminator</name></expr></argument>)</argument_list></call> == -1</expr>)</condition><then> <block>{
+
+                <comment type="line">// baseNameTerminator not found: the descriptor use the</comment>
+                <comment type="line">// JOnAS naming convention, ie [Foo.xml,jonas-Foo.xml] and</comment>
+                <comment type="line">// not [Foo&lt;baseNameTerminator&gt;-ejb-jar.xml,</comment>
+                <comment type="line">// Foo&lt;baseNameTerminator&gt;-jonas-ejb-jar.xml].</comment>
+
+                <decl_stmt><decl><type><name>String</name></type> <name>aCanonicalDescriptor</name> =<init> <expr><call><name><name>descriptorFileName</name>.<name>replace</name></name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>lastSeparatorIndex</name> =<init> <expr><call><name><name>aCanonicalDescriptor</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>'/'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>endOfBaseName</name></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><name>lastSeparatorIndex</name> != -1</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>endOfBaseName</name> = <call><name><name>descriptorFileName</name>.<name>indexOf</name></name><argument_list>(<argument><expr>".xml"</expr></argument>, <argument><expr><name>lastSeparatorIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>endOfBaseName</name> = <call><name><name>descriptorFileName</name>.<name>indexOf</name></name><argument_list>(<argument><expr>".xml"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+
+                <if>if <condition>(<expr><name>endOfBaseName</name> != -1</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>baseName</name> = <call><name><name>descriptorFileName</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>endOfBaseName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then></if>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>baseName</name> == <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// else get standard baseName</comment>
+            <expr_stmt><expr><name>baseName</name> = <call><name><name>super</name>.<name>getJarBaseName</name></name><argument_list>(<argument><expr><name>descriptorFileName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"JAR base name: " + <name>baseName</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <return>return <expr><name>baseName</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>registerKnownDTDs</name><parameter_list>(<param><decl><type><name>DescriptorHandler</name></type> <name>handler</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>handler</name>.<name>registerDTD</name></name><argument_list>(<argument><expr><name>EJB_JAR_1_1_PUBLIC_ID</name></expr></argument>,
+                    <argument><expr><name>jonasroot</name> + <name><name>File</name>.<name>separator</name></name> + "xml" + <name><name>File</name>.<name>separator</name></name> + <name>EJB_JAR_1_1_DTD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>handler</name>.<name>registerDTD</name></name><argument_list>(<argument><expr><name>EJB_JAR_2_0_PUBLIC_ID</name></expr></argument>,
+                    <argument><expr><name>jonasroot</name> + <name><name>File</name>.<name>separator</name></name> + "xml" + <name><name>File</name>.<name>separator</name></name> + <name>EJB_JAR_2_0_DTD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>handler</name>.<name>registerDTD</name></name><argument_list>(<argument><expr><name>JONAS_EJB_JAR_2_4_PUBLIC_ID</name></expr></argument>,
+                    <argument><expr><name>jonasroot</name> + <name><name>File</name>.<name>separator</name></name> + "xml" + <name><name>File</name>.<name>separator</name></name> + <name>JONAS_EJB_JAR_2_4_DTD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>handler</name>.<name>registerDTD</name></name><argument_list>(<argument><expr><name>JONAS_EJB_JAR_2_5_PUBLIC_ID</name></expr></argument>,
+                    <argument><expr><name>jonasroot</name> + <name><name>File</name>.<name>separator</name></name> + "xml" + <name><name>File</name>.<name>separator</name></name> + <name>JONAS_EJB_JAR_2_5_DTD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add to the given hashtable all the file generated by GenIC.
+     *
+     * @param genericJarFile jar file.
+     * @param ejbFiles the hashtable.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>addGenICGeneratedFiles</name><parameter_list>(
+        <param><decl><type><name>File</name></type> <name>genericJarFile</name></decl></param>, <param><decl><type><name>Hashtable</name></type> <name>ejbFiles</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Java</name></type> <name>genicTask</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>    <comment type="line">// GenIC task</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>genicClass</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt> <comment type="line">// GenIC class (3 are supported for various</comment>
+                                  <comment type="line">// versions</comment>
+        <if>if <condition>(<expr><name>nogenic</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>genicTask</name> = new <call><name>Java</name><argument_list>(<argument><expr><call><name>getTask</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>genicTask</name>.<name>setTaskName</name></name><argument_list>(<argument><expr>"genic"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>genicTask</name>.<name>setFork</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// jonasroot</comment>
+        <expr_stmt><expr><call><name><name>genicTask</name>.<name>createJvmarg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-Dinstall.root=" + <name>jonasroot</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// java policy file</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>jonasConfigDir</name> =<init> <expr><name>jonasroot</name> + <name><name>File</name>.<name>separator</name></name> + "config"</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>javaPolicyFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>jonasConfigDir</name></expr></argument>, <argument><expr>"java.policy"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>javaPolicyFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createJvmarg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-Djava.security.policy="
+                              + <call><name><name>javaPolicyFile</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// outputdir</comment>
+        <try>try <block>{
+            <expr_stmt><expr><name>outputdir</name> = <call><name>createTempDir</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>aIOException</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Cannot create temp dir: " + <call><name><name>aIOException</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>aIOException</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Using temporary output directory: " + <name>outputdir</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-d"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setFile</name><argument_list>(<argument><expr><name>outputdir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// work around a bug of GenIC 2.5</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>key</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>f</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Enumeration</name></type> <name>keys</name> =<init> <expr><call><name><name>ejbFiles</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>keys</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <expr_stmt><expr><name>key</name> = (<name>String</name>) <call><name><name>keys</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>f</name> = new <call><name>File</name><argument_list>(<argument><expr><name>outputdir</name> + <name><name>File</name>.<name>separator</name></name> + <name>key</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>f</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call>.<call><name>mkdirs</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Worked around a bug of GenIC 2.5."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// classpath</comment>
+        <decl_stmt><decl><type><name>Path</name></type> <name>classpath</name> =<init> <expr><call><name>getCombinedClasspath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>classpath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>classpath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>classpath</name>.<name>append</name></name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><call><name><name>classpath</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>jonasConfigDir</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>classpath</name>.<name>append</name></name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><call><name><name>classpath</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>outputdir</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// try to create the classpath for the correct ORB</comment>
+        <if>if <condition>(<expr><name>orb</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>orbJar</name> =<init> <expr><name>jonasroot</name> + <name><name>File</name>.<name>separator</name></name> + "lib"
+                + <name><name>File</name>.<name>separator</name></name> + <name>orb</name> + "_jonas.jar"</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>classpath</name>.<name>append</name></name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><call><name><name>classpath</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>orbJar</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Using classpath: " + <call><name><name>classpath</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>genicTask</name>.<name>setClasspath</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// class name (search in the classpath provided for the ejbjar element)</comment>
+        <expr_stmt><expr><name>genicClass</name> = <call><name>getGenicClassName</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>genicClass</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Cannot find GenIC class in classpath."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"GenIC class not found, please check the classpath."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Using '" + <name>genicClass</name> + "' GenIC class."</expr></argument> , <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>setClassname</name></name><argument_list>(<argument><expr><name>genicClass</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <comment type="line">// keepgenerated</comment>
+        <if>if <condition>(<expr><name>keepgenerated</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-keepgenerated"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// nocompil</comment>
+        <if>if <condition>(<expr><name>nocompil</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-nocompil"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// novalidation</comment>
+        <if>if <condition>(<expr><name>novalidation</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-novalidation"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// javac</comment>
+        <if>if <condition>(<expr><name>javac</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-javac"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setLine</name><argument_list>(<argument><expr><name>javac</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// javacopts</comment>
+        <if>if <condition>(<expr><name>javacopts</name> != <name>null</name> &amp;&amp; !<call><name><name>javacopts</name>.<name>equals</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-javacopts"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setLine</name><argument_list>(<argument><expr><name>javacopts</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// rmicopts</comment>
+        <if>if <condition>(<expr><name>rmicopts</name> != <name>null</name> &amp;&amp; !<call><name><name>rmicopts</name>.<name>equals</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-rmicopts"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setLine</name><argument_list>(<argument><expr><name>rmicopts</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// secpropag</comment>
+        <if>if <condition>(<expr><name>secpropag</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-secpropag"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// verbose</comment>
+        <if>if <condition>(<expr><name>verbose</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-verbose"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// additionalargs</comment>
+        <if>if <condition>(<expr><name>additionalargs</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name>additionalargs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// the generated classes must not be added in the generic JAR!</comment>
+        <comment type="line">// is that buggy on old JOnAS (2.4) ??</comment>
+        <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-noaddinjar"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// input file to process by GenIC</comment>
+        <expr_stmt><expr><call><name><name>genicTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name><name>genericJarFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// calling GenIC task</comment>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Calling " + <name>genicClass</name> + " for " + <call><name>getConfig</name><argument_list>()</argument_list></call>.<name>descriptorDir</name>
+            + <name><name>File</name>.<name>separator</name></name> + <name>descriptorName</name> + "."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name><name>genicTask</name>.<name>executeJava</name></name><argument_list>()</argument_list></call> != 0</expr>)</condition><then> <block>{
+
+            <comment type="line">// the method deleteOnExit() do not work because the directory is not empty</comment>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Deleting temp output directory '" + <name>outputdir</name> + "'."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>deleteAllFiles</name><argument_list>(<argument><expr><name>outputdir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr>!<name>keepgeneric</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Deleting generic JAR " + <call><name><name>genericJarFile</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>genericJarFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"GenIC reported an error."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <comment type="line">// add the generated files to the ejbFiles</comment>
+        <expr_stmt><expr><call><name>addAllFiles</name><argument_list>(<argument><expr><name>outputdir</name></expr></argument>, <argument><expr>""</expr></argument>, <argument><expr><name>ejbFiles</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the GenIC class name to use in the given classpath.
+     *
+     * @param classpath classpath where the GenIC class must be searched.
+     * @return the GenIC class name. Return &lt;code&gt;null&lt;/code&gt; if the class name
+     * cannot be found.
+     */</comment>
+    <function><type><name>String</name></type> <name>getGenicClassName</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Looking for GenIC class in classpath: "
+            + <call><name><name>classpath</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>AntClassLoader</name></type> <name>cl</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <try>try <block>{
+            <expr_stmt><expr><name>cl</name> = <call><name><name>classpath</name>.<name>getProject</name></name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>cl</name>.<name>loadClass</name></name><argument_list>(<argument><expr><name><name>JonasDeploymentTool</name>.<name>GENIC_CLASS</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found GenIC class '" + <name><name>JonasDeploymentTool</name>.<name>GENIC_CLASS</name></name>
+                    + "' in classpath."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><name><name>JonasDeploymentTool</name>.<name>GENIC_CLASS</name></name></expr>;</return>
+
+            }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>cnf1</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"GenIC class '" + <name><name>JonasDeploymentTool</name>.<name>GENIC_CLASS</name></name>
+                    + "' not found in classpath."</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>cl</name>.<name>loadClass</name></name><argument_list>(<argument><expr><name><name>JonasDeploymentTool</name>.<name>OLD_GENIC_CLASS_1</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found GenIC class '"
+                    + <name><name>JonasDeploymentTool</name>.<name>OLD_GENIC_CLASS_1</name></name>
+                    + "' in classpath."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><name><name>JonasDeploymentTool</name>.<name>OLD_GENIC_CLASS_1</name></name></expr>;</return>
+
+            }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>cnf2</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"GenIC class '" + <name><name>JonasDeploymentTool</name>.<name>OLD_GENIC_CLASS_1</name></name>
+                    + "' not found in classpath."</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>cl</name>.<name>loadClass</name></name><argument_list>(<argument><expr><name><name>JonasDeploymentTool</name>.<name>OLD_GENIC_CLASS_2</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found GenIC class '"
+                    + <name><name>JonasDeploymentTool</name>.<name>OLD_GENIC_CLASS_2</name></name>
+                    + "' in classpath."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><name><name>JonasDeploymentTool</name>.<name>OLD_GENIC_CLASS_2</name></name></expr>;</return>
+
+            }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>cnf3</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"GenIC class '" + <name><name>JonasDeploymentTool</name>.<name>OLD_GENIC_CLASS_2</name></name>
+                    + "' not found in classpath."</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>cl</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>cl</name>.<name>cleanup</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Verify the configuration.
+     * @param descriptorFileName the name of the descriptor file.
+     * @param saxParser          not used.
+     * @throws BuildException if there is an error.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>checkConfiguration</name><parameter_list>(<param><decl><type><name>String</name></type> <name>descriptorFileName</name></decl></param>,
+                      <param><decl><type><name>SAXParser</name></type> <name>saxParser</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <comment type="line">// jonasroot</comment>
+        <if>if <condition>(<expr><name>jonasroot</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The jonasroot attribut is not set."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>jonasroot</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The jonasroot attribut '" + <name>jonasroot</name>
+                + "' is not a valid directory."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if></else></if>
+
+        <comment type="line">// orb</comment>
+        <if>if <condition>(<expr><name>orb</name> != <name>null</name> &amp;&amp; !<call><name><name>orb</name>.<name>equals</name></name><argument_list>(<argument><expr><name>RMI_ORB</name></expr></argument>)</argument_list></call> &amp;&amp; !<call><name><name>orb</name>.<name>equals</name></name><argument_list>(<argument><expr><name>JEREMIE_ORB</name></expr></argument>)</argument_list></call>
+            &amp;&amp; !<call><name><name>orb</name>.<name>equals</name></name><argument_list>(<argument><expr><name>DAVID_ORB</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The orb attribut '" + <name>orb</name>
+                + "' is not valid (must be either "
+                + <name>RMI_ORB</name> + ", " + <name>JEREMIE_ORB</name> + " or " + <name>DAVID_ORB</name> + ")."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <comment type="line">// additionalargs</comment>
+        <if>if <condition>(<expr><name>additionalargs</name> != <name>null</name> &amp;&amp; <call><name><name>additionalargs</name>.<name>equals</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Empty additionalargs attribut."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <comment type="line">// javac</comment>
+        <if>if <condition>(<expr><name>javac</name> != <name>null</name> &amp;&amp; <call><name><name>javac</name>.<name>equals</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Empty javac attribut."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="block">/* ----------------------------------------------------------------------------------- */</comment>
+    <comment type="block">/* utilitary methods */</comment>
+    <comment type="block">/* ----------------------------------------------------------------------------------- */</comment>
+
+    <comment type="javadoc">/**
+     * Create a temporary directory for GenIC output.
+     *
+     * @return the temp directory.
+     * @throws BuildException if a temp directory cannot be created.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>File</name></type> <name>createTempDir</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>tmpDir</name> =<init> <expr><call><name><name>File</name>.<name>createTempFile</name></name><argument_list>(<argument><expr>"genic"</expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>tmpDir</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr>!<call><name><name>tmpDir</name>.<name>mkdir</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Cannot create the temporary directory '" + <name>tmpDir</name> + "'."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><name>tmpDir</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Delete a file. If the file is a directory, delete recursivly all the
+     * files inside.
+     *
+     * @param aFile file to delete.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>deleteAllFiles</name><parameter_list>(<param><decl><type><name>File</name></type> <name>aFile</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>aFile</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>someFiles</name> =<init> <expr><call><name><name>aFile</name>.<name>listFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>someFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name>deleteAllFiles</name><argument_list>(<argument><expr><name><name>someFiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>aFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a file to the a given hashtable. If the file is a directory, add
+     * recursivly all the files inside to the hashtable.
+     *
+     * @param file the file to add.
+     * @param rootDir the current sub-directory to scan.
+     * @param hashtable the hashtable where to add the files.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>addAllFiles</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>, <param><decl><type><name>String</name></type> <name>rootDir</name></decl></param>, <param><decl><type><name>Hashtable</name></type> <name>hashtable</name></decl></param>)</parameter_list> <block>{
+
+        <if>if <condition>(<expr>!<call><name><name>file</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>newRootDir</name></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>file</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>file</name>.<name>listFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>files</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <if>if <condition>(<expr><call><name><name>rootDir</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>newRootDir</name> = <name>rootDir</name> + <name><name>File</name>.<name>separator</name></name> + <name><name>files</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getName</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>newRootDir</name> = <name><name>files</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getName</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <expr_stmt><expr><call><name>addAllFiles</name><argument_list>(<argument><expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>, <argument><expr><name>newRootDir</name></expr></argument>, <argument><expr><name>hashtable</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>hashtable</name>.<name>put</name></name><argument_list>(<argument><expr><name>rootDir</name></expr></argument>, <argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+}</block></class>
+</unit>

@@ -1,0 +1,848 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Rmic.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>rmi</name>.<name>Remote</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>AntClassLoader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>rmic</name>.<name>RmicAdapter</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>rmic</name>.<name>RmicAdapterFactory</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FilterSetCollection</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Reference</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileNameMapper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>SourceFileScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>facade</name>.<name>FacadeTaskHelper</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Runs the rmic compiler against classes.&lt;/p&gt;
+ * &lt;p&gt;Rmic can be run on a single class (as specified with the classname
+ * attribute) or a number of classes at once (all classes below base that
+ * are neither _Stub nor _Skel classes).  If you want to rmic a single
+ * class and this class is a class nested into another class, you have to
+ * specify the classname in the form &lt;code&gt;Outer$$Inner&lt;/code&gt; instead of
+ * &lt;code&gt;Outer.Inner&lt;/code&gt;.&lt;/p&gt;
+ * &lt;p&gt;It is possible to refine the set of files that are being rmiced. This can
+ * be done with the &lt;i&gt;includes&lt;/i&gt;, &lt;i&gt;includesfile&lt;/i&gt;, &lt;i&gt;excludes&lt;/i&gt;,
+ * &lt;i&gt;excludesfile&lt;/i&gt; and &lt;i&gt;defaultexcludes&lt;/i&gt;
+ * attributes. With the &lt;i&gt;includes&lt;/i&gt; or &lt;i&gt;includesfile&lt;/i&gt; attribute you
+ * specify the files you want to have included by using patterns. The
+ * &lt;i&gt;exclude&lt;/i&gt; or &lt;i&gt;excludesfile&lt;/i&gt; attribute is used to specify
+ * the files you want to have excluded. This is also done with patterns. And
+ * finally with the &lt;i&gt;defaultexcludes&lt;/i&gt; attribute, you can specify whether
+ * you want to use default exclusions or not. See the section on
+ * directory based tasks&lt;/a&gt;, on how the
+ * inclusion/exclusion of files works, and how to write patterns.&lt;/p&gt;
+ * &lt;p&gt;This task forms an implicit FileSet and
+ * supports all attributes of &lt;code&gt;&amp;lt;fileset&amp;gt;&lt;/code&gt;
+ * (&lt;code&gt;dir&lt;/code&gt; becomes &lt;code&gt;base&lt;/code&gt;) as well as the nested
+ * &lt;code&gt;&amp;lt;include&amp;gt;&lt;/code&gt;, &lt;code&gt;&amp;lt;exclude&amp;gt;&lt;/code&gt; and
+ * &lt;code&gt;&amp;lt;patternset&amp;gt;&lt;/code&gt; elements.&lt;/p&gt;
+ * &lt;p&gt;It is possible to use different compilers. This can be selected
+ * with the &amp;quot;build.rmic&amp;quot; property or the &lt;code&gt;compiler&lt;/code&gt;
+ * attribute. &lt;a name="compilervalues"&gt;There are three choices&lt;/a&gt;:&lt;/p&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;sun (the standard compiler of the JDK)&lt;/li&gt;
+ *   &lt;li&gt;kaffe (the standard compiler of
+ *       {@link &lt;a href="http://www.kaffe.org"&gt;Kaffe&lt;/a&gt;})&lt;/li&gt;
+ *   &lt;li&gt;weblogic&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt; The &lt;a href="http://dione.zcu.cz/~toman40/miniRMI/"&gt;miniRMI&lt;/a&gt;
+ * project contains a compiler implementation for this task as well,
+ * please consult miniRMI's documentation to learn how to use it.&lt;/p&gt;
+ *
+ * @since Ant 1.1
+ *
+ * @ant.task category="java"
+ */</comment>
+
+<class><specifier>public</specifier> class <name>Rmic</name> <super><extends>extends <name>MatchingTask</name></extends></super> <block>{
+
+    <comment type="javadoc">/** rmic failed message */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_RMIC_FAILED</name>
+        =<init> <expr>"Rmic failed; see the compiler error output for details."</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>baseDir</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>destDir</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>classname</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>sourceBase</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>stubVersion</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>compileClasspath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>extDirs</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>verify</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>filtering</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>iiop</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>  <name>iiopOpts</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>idl</name>  =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>  <name>idlOpts</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>debug</name>  =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>includeAntRuntime</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>includeJavaRuntime</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>compileList</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>AntClassLoader</name></type> <name>loader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>FacadeTaskHelper</name></type> <name>facade</name></decl>;</decl_stmt>
+    <comment type="javadoc">/** unable to verify message */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_UNABLE_TO_VERIFY_CLASS</name> =<init> <expr>"Unable to verify class "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** could not be found message */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NOT_FOUND</name> =<init> <expr>". It could not be found."</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** not defined message */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NOT_DEFINED</name> =<init> <expr>". It is not defined."</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** loaded error message */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_LOADING_CAUSED_EXCEPTION</name> =<init> <expr>". Loading caused Exception: "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** base not exists message */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_BASE_EXISTS</name> =<init> <expr>"base or destdir does not exist: "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** base not a directory message */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NOT_A_DIR</name> =<init> <expr>"base or destdir is not a directory:"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** base attribute not set message */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_BASE_NOT_SET</name> =<init> <expr>"base or destdir attribute must be set!"</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>executable</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>listFiles</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>RmicAdapter</name></type> <name>nestedAdapter</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Constructor for Rmic.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Rmic</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>facade</name> = new <call><name>FacadeTaskHelper</name><argument_list>(<argument><expr><name><name>RmicAdapterFactory</name>.<name>DEFAULT_COMPILER</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Sets the location to store the compiled files; required
+     * @param base the location to store the compiled files
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBase</name><parameter_list>(<param><decl><type><name>File</name></type> <name>base</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>baseDir</name></name> = <name>base</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the base directory to output the generated files.
+     * @param destdir the base directory to output the generated files.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestdir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>destdir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destDir</name></name> = <name>destdir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the base directory to output the generated files.
+     * @return the base directory to output the generated files.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getDestdir</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>destDir</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the base directory to output the generated files,
+     * favoring destdir if set, otherwise defaulting to basedir.
+     * @return the actual directory to output to (either destdir or basedir)
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getOutputDir</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>getDestdir</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getDestdir</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name>getBase</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the base directory to output generated class.
+     * @return the location of the compiled files
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getBase</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>baseDir</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the class to run &lt;code&gt;rmic&lt;/code&gt; against;
+     * optional
+     * @param classname the name of the class for rmic to create code for
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClassname</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>classname</name></name> = <name>classname</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the class name to compile.
+     * @return the name of the class to compile
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getClassname</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>classname</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * optional directory to save generated source files to.
+     * @param sourceBase the directory to save source files to.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSourceBase</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceBase</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>sourceBase</name></name> = <name>sourceBase</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the source dirs to find the source java files.
+     * @return sourceBase the directory containing the source files.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getSourceBase</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>sourceBase</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specify the JDK version for the generated stub code.
+     * Specify &amp;quot;1.1&amp;quot; to pass the &amp;quot;-v1.1&amp;quot; option to rmic.
+     * @param stubVersion the JDK version
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setStubVersion</name><parameter_list>(<param><decl><type><name>String</name></type> <name>stubVersion</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>stubVersion</name></name> = <name>stubVersion</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the JDK version for the generated stub code.
+     * @return stubVersion
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getStubVersion</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>stubVersion</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets token filtering [optional], default=false
+     * @param filter turn on token filtering
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFiltering</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>filter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>filtering</name></name> = <name>filter</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets whether token filtering is set
+     * @return filtering
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getFiltering</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>filtering</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Generate debug info (passes -g to rmic);
+     * optional, defaults to false
+     * @param debug turn on debug info
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDebug</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>debug</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>debug</name></name> = <name>debug</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the debug flag.
+     * @return debug
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getDebug</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>debug</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath to be used for this compilation.
+     * @param classpath the classpath used for this compilation
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compileClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compileClasspath</name> = <name>classpath</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>compileClasspath</name>.<name>append</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates a nested classpath element.
+     * @return classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compileClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compileClasspath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>compileClasspath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds to the classpath a reference to
+     * a &amp;lt;path&amp;gt; defined elsewhere.
+     * @param pathRef the reference to add to the classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>pathRef</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createClasspath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>pathRef</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the classpath.
+     * @return the classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getClasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>compileClasspath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Flag to enable verification so that the classes
+     * found by the directory match are
+     * checked to see if they implement java.rmi.Remote.
+     * optional; This defaults to false if not set.
+     * @param verify turn on verification for classes
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVerify</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>verify</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>verify</name></name> = <name>verify</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get verify flag.
+     * @return verify
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getVerify</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>verify</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicates that IIOP compatible stubs should
+     * be generated; optional, defaults to false
+     * if not set.
+     * @param iiop generate IIOP compatible stubs
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIiop</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>iiop</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>iiop</name></name> = <name>iiop</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets iiop flags.
+     * @return iiop
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getIiop</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>iiop</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set additional arguments for iiop
+     * @param iiopOpts additional arguments for iiop
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIiopopts</name><parameter_list>(<param><decl><type><name>String</name></type> <name>iiopOpts</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>iiopOpts</name></name> = <name>iiopOpts</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets additional arguments for iiop.
+     * @return iiopOpts
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getIiopopts</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>iiopOpts</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicates that IDL output should be
+     * generated.  This defaults to false
+     * if not set.
+     * @param idl generate IDL output
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIdl</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>idl</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>idl</name></name> = <name>idl</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets IDL flags.
+     * @return the idl flag
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getIdl</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>idl</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * pass additional arguments for IDL compile
+     * @param idlOpts additional IDL arguments
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIdlopts</name><parameter_list>(<param><decl><type><name>String</name></type> <name>idlOpts</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>idlOpts</name></name> = <name>idlOpts</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets additional arguments for idl compile.
+     * @return the idl options
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getIdlopts</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>idlOpts</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets file list to compile.
+     * @return the list of files to compile.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Vector</name></type> <name>getFileList</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>compileList</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets whether or not to include ant's own classpath in this task's
+     * classpath.
+     * Optional; default is &lt;code&gt;true&lt;/code&gt;.
+     * @param include if true include ant's classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIncludeantruntime</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>include</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>includeAntRuntime</name> = <name>include</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets whether or not the ant classpath is to be included in the
+     * task's classpath.
+     * @return true if ant's classpath is to be included
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getIncludeantruntime</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>includeAntRuntime</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * task's classpath.
+     * Enables or disables including the default run-time
+     * libraries from the executing VM; optional,
+     * defaults to false
+     * @param include if true include default run-time libraries
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIncludejavaruntime</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>include</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>includeJavaRuntime</name> = <name>include</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets whether or not the java runtime should be included in this
+     * task's classpath.
+     * @return true if default run-time libraries are included
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getIncludejavaruntime</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>includeJavaRuntime</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the extension directories that will be used during the
+     * compilation; optional.
+     * @param extDirs the extension directories to be used
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setExtdirs</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>extDirs</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>extDirs</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>extDirs</name></name> = <name>extDirs</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>this</name>.<name>extDirs</name>.<name>append</name></name><argument_list>(<argument><expr><name>extDirs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Maybe creates a nested extdirs element.
+     * @return path object to be configured with the extension directories
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>Path</name></type> <name>createExtdirs</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>extDirs</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>extDirs</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>extDirs</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the extension directories that will be used during the
+     * compilation.
+     * @return the extension directories to be used
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getExtdirs</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>extDirs</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the compile list.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Vector</name></type> <name>getCompileList</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>compileList</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the compiler implementation to use; optional,
+     * defaults to the value of the &lt;code&gt;build.rmic&lt;/code&gt; property,
+     * or failing that, default compiler for the current VM
+     * @param compiler the compiler implementation to use
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCompiler</name><parameter_list>(<param><decl><type><name>String</name></type> <name>compiler</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>compiler</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>facade</name>.<name>setImplementation</name></name><argument_list>(<argument><expr><name>compiler</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get the name of the current compiler
+     * @return the name of the compiler
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getCompiler</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>facade</name>.<name>setMagicValue</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr>"build.rmic"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>facade</name>.<name>getImplementation</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds an implementation specific command line argument.
+     * @return an object to be configured with a command line argument
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ImplementationSpecificArgument</name></type> <name>createCompilerArg</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>ImplementationSpecificArgument</name></type> <name>arg</name> =<init> <expr>new <call><name>ImplementationSpecificArgument</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>facade</name>.<name>addImplementationArgument</name></name><argument_list>(<argument><expr><name>arg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>arg</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the additional implementation specific command line arguments.
+     * @return array of command line arguments, guaranteed to be non-null.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getCurrentCompilerArgs</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>getCompiler</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>facade</name>.<name>getArgs</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Name of the executable to use when forking.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setExecutable</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ex</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>executable</name> = <name>ex</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Explicitly specified name of the executable to use when forking
+     * - if any.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getExecutable</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>executable</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The classpath to use when loading the compiler implementation
+     * if it is not a built-in one.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createCompilerClasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>facade</name>.<name>getImplementationClasspath</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, list the source files being handed off to the compiler.
+     * @param list if true list the source files
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setListfiles</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>list</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>listFiles</name> = <name>list</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the compiler adapter explicitly.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>RmicAdapter</name></type> <name>adapter</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>nestedAdapter</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Can't have more than one rmic adapter"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>nestedAdapter</name> = <name>adapter</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * execute by creating an instance of an implementation
+     * class and getting to do the work
+     * @throws org.apache.tools.ant.BuildException
+     * if there's a problem with baseDir or RMIC
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>compileList</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>File</name></type> <name>outputDir</name> =<init> <expr><call><name>getOutputDir</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>outputDir</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_BASE_NOT_SET</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr>!<call><name><name>outputDir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_BASE_EXISTS</name> + <name>outputDir</name></expr></argument>,
+                                         <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr>!<call><name><name>outputDir</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NOT_A_DIR</name> + <name>outputDir</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>verify</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Verify has been turned on."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>RmicAdapter</name></type> <name>adapter</name> =<init>
+                <expr><name>nestedAdapter</name> != <name>null</name> ? <name>nestedAdapter</name> :
+                <call><name><name>RmicAdapterFactory</name>.<name>getRmic</name></name><argument_list>(<argument><expr><call><name>getCompiler</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>this</name></expr></argument>,
+                                           <argument><expr><call><name>createCompilerClasspath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// now we need to populate the compiler adapter</comment>
+            <expr_stmt><expr><call><name><name>adapter</name>.<name>setRmic</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>Path</name></type> <name>classpath</name> =<init> <expr><call><name><name>adapter</name>.<name>getClasspath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>loader</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// scan base dirs to build up compile lists only if a</comment>
+            <comment type="line">// specific classname is not given</comment>
+            <if>if <condition>(<expr><name>classname</name> == <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name><name>this</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><name>baseDir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>scanDir</name><argument_list>(<argument><expr><name>baseDir</name></expr></argument>, <argument><expr><name>files</name></expr></argument>, <argument><expr><call><name><name>adapter</name>.<name>getMapper</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">// otherwise perform a timestamp comparison - at least</comment>
+                <decl_stmt><decl><type><name>String</name></type> <name>path</name> =<init> <expr><call><name><name>classname</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call>
+                    + ".class"</expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>baseDir</name></expr></argument>, <argument><expr><name>path</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>f</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>scanDir</name><argument_list>(<argument><expr><name>baseDir</name></expr></argument>, <argument><expr>new <name><name>String</name><index>[]</index></name> <block>{<expr><name>path</name></expr>}</block></expr></argument>, <argument><expr><call><name><name>adapter</name>.<name>getMapper</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <comment type="line">// Does not exist, so checking whether it is up to</comment>
+                    <comment type="line">// date makes no sense.  Compilation will fail</comment>
+                    <comment type="line">// later anyway, but tests expect a certain</comment>
+                    <comment type="line">// output.</comment>
+                    <expr_stmt><expr><call><name><name>compileList</name>.<name>add</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></else></if>
+            <decl_stmt><decl><type><name>int</name></type> <name>fileCount</name> =<init> <expr><call><name><name>compileList</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>fileCount</name> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"RMI Compiling " + <name>fileCount</name> + " class"
+                    + (<name>fileCount</name> &gt; 1 ? "es" : "") + " to "
+                    + <name>outputDir</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><name>listFiles</name></expr>)</condition><then> <block>{
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>fileCount</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>compileList</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></for>
+                }</block></then></if>
+
+                <comment type="line">// finally, lets execute the compiler!!</comment>
+                <if>if <condition>(<expr>!<call><name><name>adapter</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_RMIC_FAILED</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+            }</block></then></if>
+            <comment type="block">/*
+             * Move the generated source file to the base directory.  If
+             * base directory and sourcebase are the same, the generated
+             * sources are already in place.
+             */</comment>
+            <if>if <condition>(<expr><name>null</name> != <name>sourceBase</name> &amp;&amp; !<call><name><name>outputDir</name>.<name>equals</name></name><argument_list>(<argument><expr><name>sourceBase</name></expr></argument>)</argument_list></call>
+                &amp;&amp; <name>fileCount</name> &gt; 0</expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>idl</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Cannot determine sourcefiles in idl mode, "</expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"sourcebase attribute will be ignored."</expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name>fileCount</name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                        <expr_stmt><expr><call><name>moveGeneratedFile</name><argument_list>(<argument><expr><name>outputDir</name></expr></argument>, <argument><expr><name>sourceBase</name></expr></argument>,
+                                          <argument><expr>(<name>String</name>) <call><name><name>compileList</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>j</name></expr></argument>)</argument_list></call></expr></argument>,
+                                          <argument><expr><name>adapter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></for>
+                }</block></else></if>
+            }</block></then></if>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name>cleanup</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Cleans up resources.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>cleanup</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>loader</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>loader</name>.<name>cleanup</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>loader</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Move the generated source file(s) to the base directory
+     *
+     * @throws org.apache.tools.ant.BuildException When error
+     * copying/removing files.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>moveGeneratedFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>baseDir</name></decl></param>, <param><decl><type><name>File</name></type> <name>sourceBaseFile</name></decl></param>, <param><decl><type><name>String</name></type> <name>classname</name></decl></param>,
+                                   <param><decl><type><name>RmicAdapter</name></type> <name>adapter</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>classFileName</name> =<init> <expr><call><name><name>classname</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call>
+            + ".class"</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>generatedFiles</name> =<init> <expr><call><name><name>adapter</name>.<name>getMapper</name></name><argument_list>()</argument_list></call>.<call><name>mapFileName</name><argument_list>(<argument><expr><name>classFileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>generatedFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>generatedFile</name> =<init> <expr><name><name>generatedFiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name><name>generatedFile</name>.<name>endsWith</name></name><argument_list>(<argument><expr>".class"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// don't know how to handle that - a IDL file doesn't</comment>
+                <comment type="line">// have a corresponding Java source for example.</comment>
+                <continue>continue;</continue>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>sourceFileName</name> =<init> <expr><call><name><name>StringUtils</name>.<name>removeSuffix</name></name><argument_list>(<argument><expr><name>generatedFile</name></expr></argument>,
+                                                             <argument><expr>".class"</expr></argument>)</argument_list></call>
+                + ".java"</expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>File</name></type> <name>oldFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>baseDir</name></expr></argument>, <argument><expr><name>sourceFileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name><name>oldFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// no source file generated, nothing to move</comment>
+                <continue>continue;</continue>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>File</name></type> <name>newFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>sourceBaseFile</name></expr></argument>, <argument><expr><name>sourceFileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <if>if <condition>(<expr><name>filtering</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>FILE_UTILS</name>.<name>copyFile</name></name><argument_list>(<argument><expr><name>oldFile</name></expr></argument>, <argument><expr><name>newFile</name></expr></argument>,
+                                        <argument><expr>new <call><name>FilterSetCollection</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>
+                                                                .<call><name>getGlobalFilterSet</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>FILE_UTILS</name>.<name>copyFile</name></name><argument_list>(<argument><expr><name>oldFile</name></expr></argument>, <argument><expr><name>newFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <expr_stmt><expr><call><name><name>oldFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed to copy " + <name>oldFile</name> + " to " + <name>newFile</name>
+                    + " due to "
+                    + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>ioe</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Scans the directory looking for class files to be compiled.
+     * The result is returned in the class variable compileList.
+     * @param baseDir the base direction
+     * @param files   the list of files to scan
+     * @param mapper  the mapper of files to target files
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>scanDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>baseDir</name></decl></param>, <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>files</name></decl></param>, <param><decl><type><name>FileNameMapper</name></type> <name>mapper</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>newFiles</name> =<init> <expr><name>files</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>idl</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"will leave uptodate test to rmic implementation in idl mode."</expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>iiop</name> &amp;&amp; <name>iiopOpts</name> != <name>null</name> &amp;&amp; <call><name><name>iiopOpts</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"-always"</expr></argument>)</argument_list></call> &gt; -1</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"no uptodate test as -always option has been specified"</expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>SourceFileScanner</name></type> <name>sfs</name> =<init> <expr>new <call><name>SourceFileScanner</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>newFiles</name> = <call><name><name>sfs</name>.<name>restrict</name></name><argument_list>(<argument><expr><name>files</name></expr></argument>, <argument><expr><name>baseDir</name></expr></argument>, <argument><expr><call><name>getOutputDir</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>mapper</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if></else></if>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>newFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><name><name>newFiles</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>replace</name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr>'.'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>name</name> = <call><name><name>name</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>name</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>".class"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>compileList</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Load named class and test whether it can be rmic'ed
+     * @param classname the name of the class to be tested
+     * @return true if the class can be rmic'ed
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isValidRmiRemote</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Class</name></type> <name>testClass</name> =<init> <expr><call><name><name>loader</name>.<name>loadClass</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <comment type="line">// One cannot RMIC an interface for "classic" RMI (JRMP)</comment>
+            <if>if <condition>(<expr><call><name><name>testClass</name>.<name>isInterface</name></name><argument_list>()</argument_list></call> &amp;&amp; !<name>iiop</name> &amp;&amp; !<name>idl</name></expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+            <return>return <expr><call><name>isValidRmiRemote</name><argument_list>(<argument><expr><name>testClass</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>ERROR_UNABLE_TO_VERIFY_CLASS</name> + <name>classname</name> + <name>ERROR_NOT_FOUND</name></expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>NoClassDefFoundError</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>ERROR_UNABLE_TO_VERIFY_CLASS</name> + <name>classname</name> + <name>ERROR_NOT_DEFINED</name></expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>Throwable</name></type> <name>t</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>ERROR_UNABLE_TO_VERIFY_CLASS</name> + <name>classname</name>
+                + <name>ERROR_LOADING_CAUSED_EXCEPTION</name> + <call><name><name>t</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+        <comment type="line">// we only get here if an exception has been thrown</comment>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the topmost interface that extends Remote for a given
+     * class - if one exists.
+     * @param testClass the class to be tested
+     * @return the topmost interface that extends Remote, or null if there
+     *         is none.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Class</name></type> <name>getRemoteInterface</name><parameter_list>(<param><decl><type><name>Class</name></type> <name>testClass</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>Remote</name>.<name><name/></name></name>class.<call><name>isAssignableFrom</name><argument_list>(<argument><expr><name>testClass</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Class</name> <index>[]</index></type> <name>interfaces</name> =<init> <expr><call><name><name>testClass</name>.<name>getInterfaces</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>interfaces</name> != <name>null</name></expr>)</condition><then> <block>{
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>interfaces</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <if>if <condition>(<expr><name><name>Remote</name>.<name><name/></name></name>class.<call><name>isAssignableFrom</name><argument_list>(<argument><expr><name><name>interfaces</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <return>return <expr><name><name>interfaces</name><index>[<expr><name>i</name></expr>]</index></name></expr>;</return>
+                    }</block></then></if>
+                }</block></for>
+            }</block></then></if>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check to see if the class or (super)interfaces implement
+     * java.rmi.Remote.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isValidRmiRemote</name> <parameter_list>(<param><decl><type><name>Class</name></type> <name>testClass</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>getRemoteInterface</name><argument_list>(<argument><expr><name>testClass</name></expr></argument>)</argument_list></call> != <name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Classloader for the user-specified classpath.
+     * @return the classloader
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ClassLoader</name></type> <name>getLoader</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>loader</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds an "compiler" attribute to Commandline$Attribute used to
+     * filter command line attributes based on the current
+     * implementation.
+     */</comment>
+    <class><specifier>public</specifier> class <name>ImplementationSpecificArgument</name> <super><extends>extends
+                                                    <name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>facade</name>.<name>ImplementationSpecificArgument</name></extends></super> <block>{
+        <comment type="javadoc">/**
+         * Only pass the specified argument if the
+         * chosen compiler implementation matches the
+         * value of this attribute. Legal values are
+         * the same as those in the above list of
+         * valid compilers.)
+         * @param impl the compiler to be used.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setCompiler</name><parameter_list>(<param><decl><type><name>String</name></type> <name>impl</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name><name>super</name>.<name>setImplementation</name></name><argument_list>(<argument><expr><name>impl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+}</block></class>
+</unit>

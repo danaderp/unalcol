@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\ManifestTask.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStreamReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStreamWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Manifest</name>.<name>Attribute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>EnumeratedAttribute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Creates a manifest file for inclusion in a JAR, Ant task wrapper
+ * around {@link Manifest Manifest}.  This task can be used to write a
+ * Manifest file, optionally replacing or updating an existing file.
+ *
+ * @since Ant 1.5
+ *
+ * @ant.task category="java"
+ */</comment>
+<class><specifier>public</specifier> class <name>ManifestTask</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+
+    <comment type="javadoc">/**
+     * Specifies the valid characters which can be used in attribute names.
+     * {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>VALID_ATTRIBUTE_CHARS</name> =<init>
+        <expr>"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Holds the real data.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Manifest</name></type> <name>nestedManifest</name> =<init> <expr>new <call><name>Manifest</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The file to which the manifest should be written when used as a task
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>manifestFile</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The mode with which the manifest file is written
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Mode</name></type> <name>mode</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The encoding of the manifest file
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>encoding</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * whether to merge Class-Path attributes.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>mergeClassPaths</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * whether to flatten Class-Path attributes into a single one.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>flattenClassPaths</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Helper class for Manifest's mode attribute.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>Mode</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <comment type="javadoc">/**
+         * Get Allowed values for the mode attribute.
+         *
+         * @return a String array of the allowed values.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"update"</expr>, <expr>"replace"</expr>}</block></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Default constructor
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ManifestTask</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>mode</name> = new <call><name>Mode</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>mode</name>.<name>setValue</name></name><argument_list>(<argument><expr>"replace"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Add a section to the manifest
+     *
+     * @param section the manifest section to be added
+     *
+     * @exception ManifestException if the section is not valid.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredSection</name><parameter_list>(<param><decl><type><name><name>Manifest</name>.<name>Section</name></name></type> <name>section</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>attributeKeys</name> =<init> <expr><call><name><name>section</name>.<name>getAttributeKeys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>attributeKeys</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>Attribute</name></type> <name>attribute</name> =<init> <expr><call><name><name>section</name>.<name>getAttribute</name></name><argument_list>(
+                <argument><expr><call><name><name>attributeKeys</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>checkAttribute</name><argument_list>(<argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <expr_stmt><expr><call><name><name>nestedManifest</name>.<name>addConfiguredSection</name></name><argument_list>(<argument><expr><name>section</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add an attribute to the manifest - it is added to the main section.
+     *
+     * @param attribute the attribute to be added.
+     *
+     * @exception ManifestException if the attribute is not valid.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredAttribute</name><parameter_list>(<param><decl><type><name><name>Manifest</name>.<name>Attribute</name></name></type> <name>attribute</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>ManifestException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>checkAttribute</name><argument_list>(<argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>nestedManifest</name>.<name>addConfiguredAttribute</name></name><argument_list>(<argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Checks the attribute agains the Jar-specification.
+     *
+     * Jar-Specification &lt;i&gt;"Name-Value pairs and Sections"&lt;/i&gt;: &lt;pre&gt;
+     *   name:       alphanum *headerchar
+     *   alphanum:   {A-Z} | {a-z} | {0-9}
+     *   headerchar: alphanum | - | _
+     * &lt;/pre&gt;
+     * So the resulting regexp would be &lt;tt&gt;[A-Za-z0-9][A-Za-z0-9-_]*&lt;/tt&gt;.
+     *
+     * Because of JDK 1.2 compliance and the possible absence of a
+     * regexp matcher we can not use regexps here. Instead we have to
+     * check each character.
+     *
+     * @param attribute The attribute to check
+     * @throws BuildException if the check fails
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>checkAttribute</name><parameter_list>(<param><decl><type><name><name>Manifest</name>.<name>Attribute</name></name></type> <name>attribute</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>attribute</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>char</name></type> <name>ch</name> =<init> <expr><call><name><name>name</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>ch</name> == '-' || <name>ch</name> == '_'</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Manifest attribute names must not start with '" + <name>ch</name> + "'."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <call><name><name>name</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name>ch</name> = <call><name><name>name</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>VALID_ATTRIBUTE_CHARS</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>ch</name></expr></argument>)</argument_list></call> &lt; 0</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Manifest attribute names must not contain '" + <name>ch</name> + "'"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The name of the manifest file to create/update.
+     * Required if used as a task.
+     * @param f the Manifest file to be written
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>manifestFile</name> = <name>f</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The encoding to use for reading in an existing manifest file
+     * @param encoding the manifest file encoding.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEncoding</name><parameter_list>(<param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>encoding</name></name> = <name>encoding</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Update policy: either "update" or "replace"; default is "replace".
+     * @param m the mode value - update or replace.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMode</name><parameter_list>(<param><decl><type><name>Mode</name></type> <name>m</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>mode</name> = <name>m</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether to merge Class-Path attributes.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMergeClassPathAttributes</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>mergeClassPaths</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether to flatten multi-valued attributes (i.e. Class-Path)
+     * into a single one.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFlattenAttributes</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>flattenClassPaths</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create or update the Manifest when used as a task.
+     *
+     * @throws BuildException if the manifest cannot be written.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>manifestFile</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"the file attribute is required"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>Manifest</name></type> <name>toWrite</name> =<init> <expr><call><name><name>Manifest</name>.<name>getDefaultManifest</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Manifest</name></type> <name>current</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>BuildException</name></type> <name>error</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name><name>manifestFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>FileInputStream</name></type> <name>fis</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>InputStreamReader</name></type> <name>isr</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>fis</name> = new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>manifestFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>encoding</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>isr</name> = new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>fis</name></expr></argument>, <argument><expr>"UTF-8"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>isr</name> = new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>fis</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <expr_stmt><expr><name>current</name> = new <call><name>Manifest</name><argument_list>(<argument><expr><name>isr</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>ManifestException</name></type> <name>m</name></decl></param>) <block>{
+                <expr_stmt><expr><name>error</name> = new <call><name>BuildException</name><argument_list>(<argument><expr>"Existing manifest " + <name>manifestFile</name>
+                                           + " is invalid"</expr></argument>, <argument><expr><name>m</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <expr_stmt><expr><name>error</name> = new <call><name>BuildException</name><argument_list>(<argument><expr>"Failed to read " + <name>manifestFile</name></expr></argument>,
+                                           <argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch> <finally>finally <block>{
+                <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>isr</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></finally></try>
+        }</block></then></if>
+
+        <comment type="line">//look for and print warnings</comment>
+        <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>nestedManifest</name>.<name>getWarnings</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init>
+                <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Manifest warning: " + <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <try>try <block>{
+            <if>if <condition>(<expr><call><name><name>mode</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>"update"</expr></argument>)</argument_list></call> &amp;&amp; <call><name><name>manifestFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>current</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>toWrite</name>.<name>merge</name></name><argument_list>(<argument><expr><name>current</name></expr></argument>, <argument><expr>false</expr></argument>, <argument><expr><name>mergeClassPaths</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <if>if <condition>(<expr><name>error</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr><name>error</name></expr>;</throw>
+                }</block></then></if></else></if>
+            }</block></then></if>
+
+            <expr_stmt><expr><call><name><name>toWrite</name>.<name>merge</name></name><argument_list>(<argument><expr><name>nestedManifest</name></expr></argument>, <argument><expr>false</expr></argument>, <argument><expr><name>mergeClassPaths</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>ManifestException</name></type> <name>m</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Manifest is invalid"</expr></argument>, <argument><expr><name>m</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+
+        <if>if <condition>(<expr><call><name><name>toWrite</name>.<name>equals</name></name><argument_list>(<argument><expr><name>current</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Manifest has not changed, do not recreate"</expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>PrintWriter</name></type> <name>w</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>FileOutputStream</name></type> <name>fos</name> =<init> <expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>manifestFile</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>OutputStreamWriter</name></type> <name>osw</name> =<init> <expr>new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr><name>fos</name></expr></argument>, <argument><expr><name><name>Manifest</name>.<name>JAR_ENCODING</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>w</name> = new <call><name>PrintWriter</name><argument_list>(<argument><expr><name>osw</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>toWrite</name>.<name>write</name></name><argument_list>(<argument><expr><name>w</name></expr></argument>, <argument><expr><name>flattenClassPaths</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>w</name>.<name>checkError</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Encountered an error writing manifest"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Failed to write " + <name>manifestFile</name></expr></argument>,
+                                     <argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>w</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+}</block></class>
+</unit>

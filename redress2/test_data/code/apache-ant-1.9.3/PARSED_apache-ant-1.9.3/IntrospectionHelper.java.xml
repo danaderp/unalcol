@@ -1,0 +1,1727 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\IntrospectionHelper.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Constructor</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>InvocationTargetException</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Method</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Collections</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Locale</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>EnumeratedAttribute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileProvider</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>PreSetDef</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Helper class that collects the methods a task or nested element
+ * holds to set attributes, create nested elements or hold PCDATA
+ * elements.
+ *
+ * It contains hashtables containing classes that use introspection
+ * to handle all the invocation of the project-component specific methods.
+ *
+ * This class is somewhat complex, as it implements the O/X mapping between
+ * Ant XML and Java class instances. This is not the best place for someone new
+ * to Ant to start contributing to the codebase, as a change here can break the
+ * entire system in interesting ways. Always run a full test of Ant before checking
+ * in/submitting changes to this file.
+ *
+ * The class is final and has a private constructor.
+ * To get an instance for a specific (class,project) combination,
+ * use {@link #getHelper(Project,Class)}.
+ * This may return an existing version, or a new one
+ * ...do not make any assumptions about its uniqueness, or its validity after the Project
+ * instance has finished its build.
+ *
+ */</comment>
+<class><specifier>public</specifier> <specifier>final</specifier> class <name>IntrospectionHelper</name> <block>{
+
+    <comment type="javadoc">/**
+     * Helper instances we've already created (Class.getName() to IntrospectionHelper).
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>IntrospectionHelper</name></argument>&gt;</argument_list></name></type> <name>HELPERS</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>IntrospectionHelper</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Map from primitive types to wrapper classes for use in
+     * createAttributeSetter (Class to Class). Note that char
+     * and boolean are in here even though they get special treatment
+     * - this way we only need to test for the wrapper class.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name><name>Map</name><argument_list>&lt;<argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></argument>, <argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name></type> <name>PRIMITIVE_TYPE_MAP</name> =<init> <expr>new <call><name><name>HashMap</name><argument_list>&lt;<argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></argument>, <argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name><argument_list>(<argument><expr>8</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// Set up PRIMITIVE_TYPE_MAP</comment>
+    static <block>{
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name><index>[]</index></type> <name>primitives</name> =<init> <expr><block>{<expr><name><name>Boolean</name>.<name>TYPE</name></name></expr>, <expr><name><name>Byte</name>.<name>TYPE</name></name></expr>, <expr><name><name>Character</name>.<name>TYPE</name></name></expr>, <expr><name><name>Short</name>.<name>TYPE</name></name></expr>,
+                              <expr><name><name>Integer</name>.<name>TYPE</name></name></expr>, <expr><name><name>Long</name>.<name>TYPE</name></name></expr>, <expr><name><name>Float</name>.<name>TYPE</name></name></expr>, <expr><name><name>Double</name>.<name>TYPE</name></name></expr>}</block></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name><index>[]</index></type> <name>wrappers</name> =<init> <expr><block>{<expr><name><name>Boolean</name>.<name><name/></name></name>class</expr>, <expr><name><name>Byte</name>.<name><name/></name></name>class</expr>, <expr><name><name>Character</name>.<name><name/></name></name>class</expr>, <expr><name><name>Short</name>.<name><name/></name></name>class</expr>,
+                            <expr><name><name>Integer</name>.<name><name/></name></name>class</expr>, <expr><name><name>Long</name>.<name><name/></name></name>class</expr>, <expr><name><name>Float</name>.<name><name/></name></name>class</expr>, <expr><name><name>Double</name>.<name><name/></name></name>class</expr>}</block></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>primitives</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>PRIMITIVE_TYPE_MAP</name>.<name>put</name></name> <argument_list>(<argument><expr><name><name>primitives</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>, <argument><expr><name><name>wrappers</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAX_REPORT_NESTED_TEXT</name> =<init> <expr>20</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ELLIPSIS</name> =<init> <expr>"..."</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Map from attribute names to attribute types
+     * (String to Class).
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name></type> <name>attributeTypes</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Map from attribute names to attribute setter methods
+     * (String to AttributeSetter).
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>AttributeSetter</name></argument>&gt;</argument_list></name></type> <name>attributeSetters</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>AttributeSetter</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Map from attribute names to nested types
+     * (String to Class).
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name></type> <name>nestedTypes</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Map from attribute names to methods to create nested types
+     * (String to NestedCreator).
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>NestedCreator</name></argument>&gt;</argument_list></name></type> <name>nestedCreators</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>NestedCreator</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Vector of methods matching add[Configured](Class) pattern.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name><name>List</name><argument_list>&lt;<argument><name>Method</name></argument>&gt;</argument_list></name></type> <name>addTypeMethods</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>Method</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The method to invoke to add PCDATA.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>Method</name></type> <name>addText</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The class introspected by this instance.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>bean</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Sole constructor, which is private to ensure that all
+     * IntrospectionHelpers are created via {@link #getHelper(Class) getHelper}.
+     * Introspects the given class for bean-like methods.
+     * Each method is examined in turn, and the following rules are applied:
+     * &lt;p&gt;
+     * &lt;ul&gt;
+     * &lt;li&gt;If the method is &lt;code&gt;Task.setLocation(Location)&lt;/code&gt;,
+     * &lt;code&gt;Task.setTaskType(String)&lt;/code&gt;
+     * or &lt;code&gt;TaskContainer.addTask(Task)&lt;/code&gt;, it is ignored. These
+     * methods are handled differently elsewhere.
+     * &lt;li&gt;&lt;code&gt;void addText(String)&lt;/code&gt; is recognised as the method for
+     * adding PCDATA to a bean.
+     * &lt;li&gt;&lt;code&gt;void setFoo(Bar)&lt;/code&gt; is recognised as a method for
+     * setting the value of attribute &lt;code&gt;foo&lt;/code&gt;, so long as
+     * &lt;code&gt;Bar&lt;/code&gt; is non-void and is not an array type.
+     * As of Ant 1.8, a Resource or FileProvider parameter overrides a java.io.File parameter;
+     * in practice the only effect of this is to allow objects rendered from
+     * the 1.8 PropertyHelper implementation to be used as Resource parameters,
+     * since Resources set from Strings are resolved as project-relative files
+     * to preserve backward compatibility.  Beyond this, non-String
+     * parameter types always overload String parameter types; these are
+     * the only guarantees made in terms of priority.
+     * &lt;li&gt;&lt;code&gt;Foo createBar()&lt;/code&gt; is recognised as a method for
+     * creating a nested element called &lt;code&gt;bar&lt;/code&gt; of type
+     * &lt;code&gt;Foo&lt;/code&gt;, so long as &lt;code&gt;Foo&lt;/code&gt; is not a primitive or
+     * array type.
+     * &lt;li&gt;&lt;code&gt;void addConfiguredFoo(Bar)&lt;/code&gt; is recognised as a
+     * method for storing a pre-configured element called
+     * &lt;code&gt;foo&lt;/code&gt; and of type &lt;code&gt;Bar&lt;/code&gt;, so long as
+     * &lt;code&gt;Bar&lt;/code&gt; is not an array, primitive or String type.
+     * &lt;code&gt;Bar&lt;/code&gt; must have an accessible constructor taking no
+     * arguments.
+     * &lt;li&gt;&lt;code&gt;void addFoo(Bar)&lt;/code&gt; is recognised as a method for storing
+     * an element called &lt;code&gt;foo&lt;/code&gt; and of type &lt;code&gt;Bar&lt;/code&gt;, so
+     * long as &lt;code&gt;Bar&lt;/code&gt; is not an array, primitive or String type.
+     * &lt;code&gt;Bar&lt;/code&gt; must have an accessible constructor taking no
+     * arguments. This is distinct from the 'addConfigured' idiom in that
+     * the nested element is added to the parent immediately after it is
+     * constructed; in practice this means that &lt;code&gt;addFoo(Bar)&lt;/code&gt; should
+     * do little or nothing with its argument besides storing it for later use.
+     * &lt;/ul&gt;
+     * Note that only one method is retained to create/set/addConfigured/add
+     * any element or attribute.
+     *
+     * @param bean The bean type to introspect.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @see #getHelper(Class)
+     */</comment>
+    <constructor><specifier>private</specifier> <name>IntrospectionHelper</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>bean</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>bean</name></name> = <name>bean</name></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>Method</name><index>[]</index></type> <name>methods</name> =<init> <expr><call><name><name>bean</name>.<name>getMethods</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Method</name></type> <name>addTextMethod</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>methods</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>Method</name></type> <name>m</name> =<init> <expr><name><name>methods</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>name</name> =<init> <expr><call><name><name>m</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>returnType</name> =<init> <expr><call><name><name>m</name>.<name>getReturnType</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name><index>[]</index></type> <name>args</name> =<init> <expr><call><name><name>m</name>.<name>getParameterTypes</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// check of add[Configured](Class) pattern</comment>
+            <if>if <condition>(<expr><name><name>args</name>.<name>length</name></name> == 1 &amp;&amp; <call><name><name>java</name>.<name>lang</name>.<name>Void</name>.<name>TYPE</name>.<name>equals</name></name><argument_list>(<argument><expr><name>returnType</name></expr></argument>)</argument_list></call>
+                    &amp;&amp; ("add".<call><name>equals</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> || "addConfigured".<call><name>equals</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>insertAddTypeMethod</name><argument_list>(<argument><expr><name>m</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <continue>continue;</continue>
+            }</block></then></if>
+            <comment type="line">// not really user settable properties on tasks/project components</comment>
+            <if>if <condition>(<expr><name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>ProjectComponent</name>.<name><name/></name></name>class.<call><name>isAssignableFrom</name><argument_list>(<argument><expr><name>bean</name></expr></argument>)</argument_list></call>
+                    &amp;&amp; <name><name>args</name>.<name>length</name></name> == 1 &amp;&amp; <call><name>isHiddenSetMethod</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+            <comment type="line">// hide addTask for TaskContainers</comment>
+            <if>if <condition>(<expr><call><name>isContainer</name><argument_list>()</argument_list></call> &amp;&amp; <name><name>args</name>.<name>length</name></name> == 1 &amp;&amp; "addTask".<call><name>equals</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call>
+                    &amp;&amp; <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+            <if>if <condition>(<expr>"addText".<call><name>equals</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> &amp;&amp; <call><name><name>java</name>.<name>lang</name>.<name>Void</name>.<name>TYPE</name>.<name>equals</name></name><argument_list>(<argument><expr><name>returnType</name></expr></argument>)</argument_list></call>
+                    &amp;&amp; <name><name>args</name>.<name>length</name></name> == 1 &amp;&amp; <name><name>java</name>.<name>lang</name>.<name>String</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>addTextMethod</name> = <name><name>methods</name><index>[<expr><name>i</name></expr>]</index></name></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>name</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"set"</expr></argument>)</argument_list></call> &amp;&amp; <call><name><name>java</name>.<name>lang</name>.<name>Void</name>.<name>TYPE</name>.<name>equals</name></name><argument_list>(<argument><expr><name>returnType</name></expr></argument>)</argument_list></call>
+                    &amp;&amp; <name><name>args</name>.<name>length</name></name> == 1 &amp;&amp; !<name><name>args</name><index>[<expr>0</expr>]</index></name>.<call><name>isArray</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>propName</name> =<init> <expr><call><name>getPropertyName</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>"set"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>AttributeSetter</name></type> <name>as</name> =<init> <expr>(<name>AttributeSetter</name>) <call><name><name>attributeSetters</name>.<name>get</name></name><argument_list>(<argument><expr><name>propName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>as</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr><name><name>java</name>.<name>lang</name>.<name>String</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="block">/*
+                            Ignore method m, as there is an overloaded
+                            form of this method that takes in a
+                            non-string argument, which gains higher
+                            priority.
+                        */</comment>
+                        <continue>continue;</continue>
+                    }</block></then></if>
+                    <if>if <condition>(<expr><name><name>java</name>.<name>io</name>.<name>File</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// Ant Resources/FileProviders override java.io.File</comment>
+                        <if>if <condition>(<expr><name><name>Resource</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name><name>as</name>.<name>type</name></name></expr></argument>)</argument_list></call> || <name><name>FileProvider</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name><name>as</name>.<name>type</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <continue>continue;</continue>
+                        }</block></then></if>
+                    }</block></then></if>
+                    <comment type="block">/*
+                        In cases other than those just explicitly covered,
+                        we just override that with the new one.
+                        This mechanism does not guarantee any specific order
+                        in which the methods will be selected: so any code
+                        that depends on the order in which "set" methods have
+                        been defined, is not guaranteed to be selected in any
+                        particular order.
+                    */</comment>
+                }</block></then></if>
+                <expr_stmt><expr><name>as</name> = <call><name>createAttributeSetter</name><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>, <argument><expr><name>propName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>as</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>attributeTypes</name>.<name>put</name></name><argument_list>(<argument><expr><name>propName</name></expr></argument>, <argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>attributeSetters</name>.<name>put</name></name><argument_list>(<argument><expr><name>propName</name></expr></argument>, <argument><expr><name>as</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>name</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"create"</expr></argument>)</argument_list></call> &amp;&amp; !<call><name><name>returnType</name>.<name>isArray</name></name><argument_list>()</argument_list></call>
+                    &amp;&amp; !<call><name><name>returnType</name>.<name>isPrimitive</name></name><argument_list>()</argument_list></call> &amp;&amp; <name><name>args</name>.<name>length</name></name> == 0</expr>)</condition><then> <block>{
+
+                <decl_stmt><decl><type><name>String</name></type> <name>propName</name> =<init> <expr><call><name>getPropertyName</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>"create"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <comment type="line">// Check if a create of this property is already present</comment>
+                <comment type="line">// add takes preference over create for CB purposes</comment>
+                <if>if <condition>(<expr><call><name><name>nestedCreators</name>.<name>get</name></name><argument_list>(<argument><expr><name>propName</name></expr></argument>)</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>nestedTypes</name>.<name>put</name></name><argument_list>(<argument><expr><name>propName</name></expr></argument>, <argument><expr><name>returnType</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>nestedCreators</name>.<name>put</name></name><argument_list>(<argument><expr><name>propName</name></expr></argument>, <argument><expr>new <call><name>CreateNestedCreator</name><argument_list>(<argument><expr><name>m</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>name</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"addConfigured"</expr></argument>)</argument_list></call>
+                    &amp;&amp; <call><name><name>java</name>.<name>lang</name>.<name>Void</name>.<name>TYPE</name>.<name>equals</name></name><argument_list>(<argument><expr><name>returnType</name></expr></argument>)</argument_list></call> &amp;&amp; <name><name>args</name>.<name>length</name></name> == 1
+                    &amp;&amp; !<name><name>java</name>.<name>lang</name>.<name>String</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call>
+                    &amp;&amp; !<name><name>args</name><index>[<expr>0</expr>]</index></name>.<call><name>isArray</name><argument_list>()</argument_list></call> &amp;&amp; !<name><name>args</name><index>[<expr>0</expr>]</index></name>.<call><name>isPrimitive</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <decl_stmt><decl><type><name><name>Constructor</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>constructor</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                    <try>try <block>{
+                        <expr_stmt><expr><name>constructor</name> = <name><name>args</name><index>[<expr>0</expr>]</index></name>.<call><name>getConstructor</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>NoSuchMethodException</name></type> <name>ex</name></decl></param>) <block>{
+                        <expr_stmt><expr><name>constructor</name> = <name><name>args</name><index>[<expr>0</expr>]</index></name>.<call><name>getConstructor</name><argument_list>(<argument><expr><name><name>Project</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></catch></try>
+                    <decl_stmt><decl><type><name>String</name></type> <name>propName</name> =<init> <expr><call><name>getPropertyName</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>"addConfigured"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>nestedTypes</name>.<name>put</name></name><argument_list>(<argument><expr><name>propName</name></expr></argument>, <argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>nestedCreators</name>.<name>put</name></name><argument_list>(<argument><expr><name>propName</name></expr></argument>, <argument><expr>new <call><name>AddNestedCreator</name><argument_list>(<argument><expr><name>m</name></expr></argument>,
+                        <argument><expr><name>constructor</name></expr></argument>, <argument><expr><name><name>AddNestedCreator</name>.<name>ADD_CONFIGURED</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>NoSuchMethodException</name></type> <name>nse</name></decl></param>) <block>{
+                    <comment type="line">// ignore</comment>
+                }</block></catch></try>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>name</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"add"</expr></argument>)</argument_list></call>
+                    &amp;&amp; <call><name><name>java</name>.<name>lang</name>.<name>Void</name>.<name>TYPE</name>.<name>equals</name></name><argument_list>(<argument><expr><name>returnType</name></expr></argument>)</argument_list></call> &amp;&amp; <name><name>args</name>.<name>length</name></name> == 1
+                    &amp;&amp; !<name><name>java</name>.<name>lang</name>.<name>String</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call>
+                    &amp;&amp; !<name><name>args</name><index>[<expr>0</expr>]</index></name>.<call><name>isArray</name><argument_list>()</argument_list></call> &amp;&amp; !<name><name>args</name><index>[<expr>0</expr>]</index></name>.<call><name>isPrimitive</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <decl_stmt><decl><type><name><name>Constructor</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>constructor</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                    <try>try <block>{
+                        <expr_stmt><expr><name>constructor</name> = <name><name>args</name><index>[<expr>0</expr>]</index></name>.<call><name>getConstructor</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>NoSuchMethodException</name></type> <name>ex</name></decl></param>) <block>{
+                        <expr_stmt><expr><name>constructor</name> = <name><name>args</name><index>[<expr>0</expr>]</index></name>.<call><name>getConstructor</name><argument_list>(<argument><expr><name><name>Project</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></catch></try>
+                    <decl_stmt><decl><type><name>String</name></type> <name>propName</name> =<init> <expr><call><name>getPropertyName</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>"add"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><call><name><name>nestedTypes</name>.<name>get</name></name><argument_list>(<argument><expr><name>propName</name></expr></argument>)</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                        <comment type="block">/*
+                         *  Ignore this method as there is an addConfigured
+                         *  form of this method that has a higher
+                         *  priority
+                         */</comment>
+                        <continue>continue;</continue>
+                    }</block></then></if>
+                    <expr_stmt><expr><call><name><name>nestedTypes</name>.<name>put</name></name><argument_list>(<argument><expr><name>propName</name></expr></argument>, <argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>nestedCreators</name>.<name>put</name></name><argument_list>(<argument><expr><name>propName</name></expr></argument>, <argument><expr>new <call><name>AddNestedCreator</name><argument_list>(<argument><expr><name>m</name></expr></argument>,
+                            <argument><expr><name>constructor</name></expr></argument>, <argument><expr><name><name>AddNestedCreator</name>.<name>ADD</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>NoSuchMethodException</name></type> <name>nse</name></decl></param>) <block>{
+                    <comment type="line">// ignore</comment>
+                }</block></catch></try>
+            }</block></then></if></else></if></else></if></else></if></else></if>
+        }</block></for>
+        <expr_stmt><expr><name>addText</name> = <name>addTextMethod</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Certain set methods are part of the Ant core interface to tasks and
+     * therefore not to be considered for introspection
+     *
+     * @param name the name of the set method
+     * @param type the type of the set method's parameter
+     * @return true if the given set method is to be hidden.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isHiddenSetMethod</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>type</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>"setLocation".<call><name>equals</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> &amp;&amp; <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Location</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr>"setTaskType".<call><name>equals</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> &amp;&amp; <name><name>java</name>.<name>lang</name>.<name>String</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a helper for the given class, either from the cache
+     * or by creating a new instance.
+     *
+     * @param c The class for which a helper is required.
+     *          Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return a helper for the specified class
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <specifier>synchronized</specifier> <name>IntrospectionHelper</name></type> <name>getHelper</name><parameter_list>(<param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>getHelper</name><argument_list>(<argument><expr><name>null</name></expr></argument>, <argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a helper for the given class, either from the cache
+     * or by creating a new instance.
+     *
+     * The method will make sure the helper will be cleaned up at the end of
+     * the project, and only one instance will be created for each class.
+     *
+     * @param p the project instance. Can be null, in which case the helper is not cached.
+     * @param c The class for which a helper is required.
+     *          Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return a helper for the specified class
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>IntrospectionHelper</name></type> <name>getHelper</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>IntrospectionHelper</name></type> <name>ih</name> =<init> <expr><call><name><name>HELPERS</name>.<name>get</name></name><argument_list>(<argument><expr><call><name><name>c</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// If a helper cannot be found, or if the helper is for another</comment>
+        <comment type="line">// classloader, create a new IH</comment>
+        <if>if <condition>(<expr><name>ih</name> == <name>null</name> || <name><name>ih</name>.<name>bean</name></name> != <name>c</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>ih</name> = new <call><name>IntrospectionHelper</name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>p</name> != <name>null</name></expr>)</condition><then> <block>{
+                <comment type="line">// #30162: do *not* cache this if there is no project, as we</comment>
+                <comment type="line">// cannot guarantee that the cache will be cleared.</comment>
+                <expr_stmt><expr><call><name><name>HELPERS</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>c</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>ih</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+        <return>return <expr><name>ih</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the named attribute in the given element, which is part of the
+     * given project.
+     *
+     * @param p The project containing the element. This is used when files
+     *          need to be resolved. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param element The element to set the attribute in. Must not be
+     *                &lt;code&gt;null&lt;/code&gt;.
+     * @param attributeName The name of the attribute to set. Must not be
+     *                      &lt;code&gt;null&lt;/code&gt;.
+     * @param value The value to set the attribute to. This may be interpreted
+     *              or converted to the necessary type if the setter method
+     *              doesn't accept an object of the supplied type.
+     *
+     * @exception BuildException if the introspected class doesn't support
+     *                           the given attribute, or if the setting
+     *                           method fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAttribute</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>element</name></decl></param>, <param><decl><type><name>String</name></type> <name>attributeName</name></decl></param>,
+            <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>AttributeSetter</name></type> <name>as</name> =<init> <expr>(<name>AttributeSetter</name>) <call><name><name>attributeSetters</name>.<name>get</name></name><argument_list>(
+                <argument><expr><call><name><name>attributeName</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>as</name> == <name>null</name> &amp;&amp; <name>value</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>element</name> <name>instanceof</name> <name>DynamicAttributeNS</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>DynamicAttributeNS</name></type> <name>dc</name> =<init> <expr>(<name>DynamicAttributeNS</name>) <name>element</name></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>uriPlusPrefix</name> =<init> <expr><call><name><name>ProjectHelper</name>.<name>extractUriFromComponentName</name></name><argument_list>(<argument><expr><name>attributeName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>uri</name> =<init> <expr><call><name><name>ProjectHelper</name>.<name>extractUriFromComponentName</name></name><argument_list>(<argument><expr><name>uriPlusPrefix</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>localName</name> =<init> <expr><call><name><name>ProjectHelper</name>.<name>extractNameFromComponentName</name></name><argument_list>(<argument><expr><name>attributeName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>qName</name> =<init> <expr>"".<call><name>equals</name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call> ? <name>localName</name> : <name>uri</name> + ":" + <name>localName</name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>dc</name>.<name>setDynamicAttribute</name></name><argument_list>(<argument><expr><name>uri</name></expr></argument>, <argument><expr><name>localName</name></expr></argument>, <argument><expr><name>qName</name></expr></argument>, <argument><expr><call><name><name>value</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>element</name> <name>instanceof</name> <name>DynamicObjectAttribute</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>DynamicObjectAttribute</name></type> <name>dc</name> =<init> <expr>(<name>DynamicObjectAttribute</name>) <name>element</name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>dc</name>.<name>setDynamicAttribute</name></name><argument_list>(<argument><expr><call><name><name>attributeName</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>element</name> <name>instanceof</name> <name>DynamicAttribute</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>DynamicAttribute</name></type> <name>dc</name> =<init> <expr>(<name>DynamicAttribute</name>) <name>element</name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>dc</name>.<name>setDynamicAttribute</name></name><argument_list>(<argument><expr><call><name><name>attributeName</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><call><name><name>value</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>attributeName</name>.<name>indexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call> &gt;= 0</expr>)</condition><then> <block>{
+                <return>return;</return> <comment type="line">// Ignore attribute from unknown uri's</comment>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr><call><name>getElementName</name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr><name>element</name></expr></argument>)</argument_list></call>
+                    + " doesn't support the \"" + <name>attributeName</name> + "\" attribute."</expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>UnsupportedAttributeException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>attributeName</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>as</name>.<name>setObject</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr><name>element</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>ie</name></decl></param>) <block>{
+            <comment type="line">// impossible as getMethods should only return public methods</comment>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ie</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>ite</name></decl></param>) <block>{
+            <throw>throw <expr><call><name>extractBuildException</name><argument_list>(<argument><expr><name>ite</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the named attribute in the given element, which is part of the
+     * given project.
+     *
+     * @param p The project containing the element. This is used when files
+     *          need to be resolved. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param element The element to set the attribute in. Must not be
+     *                &lt;code&gt;null&lt;/code&gt;.
+     * @param attributeName The name of the attribute to set. Must not be
+     *                      &lt;code&gt;null&lt;/code&gt;.
+     * @param value The value to set the attribute to. This may be interpreted
+     *              or converted to the necessary type if the setter method
+     *              doesn't just take a string. Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @exception BuildException if the introspected class doesn't support
+     *                           the given attribute, or if the setting
+     *                           method fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAttribute</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>element</name></decl></param>, <param><decl><type><name>String</name></type> <name>attributeName</name></decl></param>,
+                             <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>setAttribute</name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr><name>element</name></expr></argument>, <argument><expr><name>attributeName</name></expr></argument>, <argument><expr>(<name>Object</name>) <name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds PCDATA to an element, using the element's
+     * &lt;code&gt;void addText(String)&lt;/code&gt; method, if it has one. If no
+     * such method is present, a BuildException is thrown if the
+     * given text contains non-whitespace.
+     *
+     * @param project The project which the element is part of.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param element The element to add the text to.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param text    The text to add.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @exception BuildException if non-whitespace text is provided and no
+     *                           method is available to handle it, or if
+     *                           the handling method fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addText</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>element</name></decl></param>, <param><decl><type><name>String</name></type> <name>text</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>addText</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>text</name> = <call><name><name>text</name>.<name>trim</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// Element doesn't handle text content</comment>
+            <if>if <condition>(<expr><call><name><name>text</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                <comment type="line">// Only whitespace - ignore</comment>
+                <return>return;</return>
+            }</block></then></if>
+            <comment type="line">// Not whitespace - fail</comment>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name><name>project</name>.<name>getElementName</name></name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call>
+                    + " doesn't support nested text data (\"" + <call><name>condenseText</name><argument_list>(<argument><expr><name>text</name></expr></argument>)</argument_list></call> + "\")."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>addText</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>element</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>text</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>ie</name></decl></param>) <block>{
+            <comment type="line">// impossible as getMethods should only return public methods</comment>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ie</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>ite</name></decl></param>) <block>{
+            <throw>throw <expr><call><name>extractBuildException</name><argument_list>(<argument><expr><name>ite</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * part of the error message created by {@link #throwNotSupported
+     * throwNotSupported}.
+     * @since Ant 1.8.0
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>NOT_SUPPORTED_CHILD_PREFIX</name> =<init>
+        <expr>" doesn't support the nested \""</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * part of the error message created by {@link #throwNotSupported
+     * throwNotSupported}.
+     * @since Ant 1.8.0
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>NOT_SUPPORTED_CHILD_POSTFIX</name> =<init> <expr>"\" element."</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Utility method to throw a NotSupported exception
+     *
+     * @param project the Project instance.
+     * @param parent the object which doesn't support a requested element
+     * @param elementName the name of the Element which is trying to be created.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>throwNotSupported</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>elementName</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr><call><name><name>project</name>.<name>getElementName</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>)</argument_list></call>
+            + <name>NOT_SUPPORTED_CHILD_PREFIX</name> + <name>elementName</name>
+            + <name>NOT_SUPPORTED_CHILD_POSTFIX</name></expr></init></decl>;</decl_stmt>
+        <throw>throw <expr>new <call><name>UnsupportedElementException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr>;</throw>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the specific NestedCreator for a given project/parent/element combination
+     * @param project ant project
+     * @param parentUri URI of the parent.
+     * @param parent the parent class
+     * @param elementName element to work with. This can contain
+     *  a URI,localname tuple of of the form uri:localname
+     * @param child the bit of XML to work with
+     * @return a nested creator that can handle the child elements.
+     * @throws BuildException if the parent does not support child elements of that name
+     */</comment>
+    <function><type><specifier>private</specifier> <name>NestedCreator</name></type> <name>getNestedCreator</name><parameter_list>(
+        <param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>String</name></type> <name>parentUri</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>,
+        <param><decl><type><name>String</name></type> <name>elementName</name></decl></param>, <param><decl><type><name>UnknownElement</name></type> <name>child</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <decl_stmt><decl><type><name>String</name></type> <name>uri</name> =<init> <expr><call><name><name>ProjectHelper</name>.<name>extractUriFromComponentName</name></name><argument_list>(<argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>ProjectHelper</name>.<name>extractNameFromComponentName</name></name><argument_list>(<argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name><name>uri</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>ProjectHelper</name>.<name>ANT_CORE_URI</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>uri</name> = ""</expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>parentUri</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>ProjectHelper</name>.<name>ANT_CORE_URI</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parentUri</name> = ""</expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>NestedCreator</name></type> <name>nc</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>uri</name>.<name>equals</name></name><argument_list>(<argument><expr><name>parentUri</name></expr></argument>)</argument_list></call> || <call><name><name>uri</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>nc</name> = (<name>NestedCreator</name>) <call><name><name>nestedCreators</name>.<name>get</name></name><argument_list>(<argument><expr><call><name><name>name</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>nc</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>nc</name> = <call><name>createAddTypeCreator</name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><name>parent</name></expr></argument>, <argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>nc</name> == <name>null</name> &amp;&amp;
+            (<name>parent</name> <name>instanceof</name> <name>DynamicElementNS</name>
+             || <name>parent</name> <name>instanceof</name> <name>DynamicElement</name>)</expr>
+            )</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>qName</name> =<init> <expr><name>child</name> == <name>null</name> ? <name>name</name> : <call><name><name>child</name>.<name>getQName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>Object</name></type> <name>nestedElement</name> =<init>
+                <expr><call><name>createDynamicElement</name><argument_list>(<argument><expr><name>parent</name></expr></argument>,
+                                     <argument><expr><name>child</name> == <name>null</name> ? "" : <call><name><name>child</name>.<name>getNamespace</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                     <argument><expr><name>name</name></expr></argument>, <argument><expr><name>qName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>nestedElement</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>nc</name> = new <class><super><name>NestedCreator</name></super><argument_list>(<argument><expr><name>null</name></expr></argument>)</argument_list> <block>{
+                    <function><type><name>Object</name></type> <name>create</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Object</name></type> <name>ignore</name></decl></param>)</parameter_list> <block>{
+                        <return>return <expr><name>nestedElement</name></expr>;</return>
+                    }</block></function>
+                }</block></class></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>nc</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>throwNotSupported</name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><name>parent</name></expr></argument>, <argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>nc</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Invokes the "correct" createDynamicElement method on parent in
+     * order to obtain a child element by name.
+     *
+     * @since Ant 1.8.0.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Object</name></type> <name>createDynamicElement</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>ns</name></decl></param>,
+                                        <param><decl><type><name>String</name></type> <name>localName</name></decl></param>, <param><decl><type><name>String</name></type> <name>qName</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Object</name></type> <name>nestedElement</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>parent</name> <name>instanceof</name> <name>DynamicElementNS</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>DynamicElementNS</name></type> <name>dc</name> =<init> <expr>(<name>DynamicElementNS</name>) <name>parent</name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>nestedElement</name> = <call><name><name>dc</name>.<name>createDynamicElement</name></name><argument_list>(<argument><expr><name>ns</name></expr></argument>, <argument><expr><name>localName</name></expr></argument>, <argument><expr><name>qName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>nestedElement</name> == <name>null</name> &amp;&amp; <name>parent</name> <name>instanceof</name> <name>DynamicElement</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>DynamicElement</name></type> <name>dc</name> =<init> <expr>(<name>DynamicElement</name>) <name>parent</name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>nestedElement</name> =
+                <call><name><name>dc</name>.<name>createDynamicElement</name></name><argument_list>(<argument><expr><call><name><name>localName</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>nestedElement</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates a named nested element. Depending on the results of the
+     * initial introspection, either a method in the given parent instance
+     * or a simple no-arg constructor is used to create an instance of the
+     * specified element type.
+     *
+     * @param project Project to which the parent object belongs.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;. If the resulting
+     *                object is an instance of ProjectComponent, its
+     *                Project reference is set to this parameter value.
+     * @param parent  Parent object used to create the instance.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param elementName Name of the element to create an instance of.
+     *                    Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return an instance of the specified element type
+     * @deprecated since 1.6.x.
+     *             This is not a namespace aware method.
+     *
+     * @exception BuildException if no method is available to create the
+     *                           element instance, or if the creating method fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>createElement</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>elementName</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>NestedCreator</name></type> <name>nc</name> =<init> <expr><call><name>getNestedCreator</name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr>""</expr></argument>, <argument><expr><name>parent</name></expr></argument>, <argument><expr><name>elementName</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Object</name></type> <name>nestedElement</name> =<init> <expr><call><name><name>nc</name>.<name>create</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><name>parent</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>project</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>project</name>.<name>setProjectReference</name></name><argument_list>(<argument><expr><name>nestedElement</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return <expr><name>nestedElement</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>ie</name></decl></param>) <block>{
+            <comment type="line">// impossible as getMethods should only return public methods</comment>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ie</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>InstantiationException</name></type> <name>ine</name></decl></param>) <block>{
+            <comment type="line">// impossible as getMethods should only return public methods</comment>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ine</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>ite</name></decl></param>) <block>{
+            <throw>throw <expr><call><name>extractBuildException</name><argument_list>(<argument><expr><name>ite</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * returns an object that creates and stores an object
+     * for an element of a parent.
+     *
+     * @param project      Project to which the parent object belongs.
+     * @param parentUri    The namespace uri of the parent object.
+     * @param parent       Parent object used to create the creator object to
+     *                     create and store and instance of a subelement.
+     * @param elementName  Name of the element to create an instance of.
+     * @param ue           The unknown element associated with the element.
+     * @return a creator object to create and store the element instance.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Creator</name></type> <name>getElementCreator</name><parameter_list>(
+        <param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>String</name></type> <name>parentUri</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>elementName</name></decl></param>, <param><decl><type><name>UnknownElement</name></type> <name>ue</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>NestedCreator</name></type> <name>nc</name> =<init> <expr><call><name>getNestedCreator</name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><name>parentUri</name></expr></argument>, <argument><expr><name>parent</name></expr></argument>, <argument><expr><name>elementName</name></expr></argument>, <argument><expr><name>ue</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr>new <call><name>Creator</name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><name>parent</name></expr></argument>, <argument><expr><name>nc</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicates whether the introspected class is a dynamic one,
+     * supporting arbitrary nested elements and/or attributes.
+     *
+     * @return &lt;code&gt;true&lt;code&gt; if the introspected class is dynamic;
+     *         &lt;code&gt;false&lt;code&gt; otherwise.
+     * @since Ant 1.6.3
+     *
+     * @see DynamicElement
+     * @see DynamicElementNS
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isDynamic</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>DynamicElement</name>.<name><name/></name></name>class.<call><name>isAssignableFrom</name><argument_list>(<argument><expr><name>bean</name></expr></argument>)</argument_list></call>
+                || <name><name>DynamicElementNS</name>.<name><name/></name></name>class.<call><name>isAssignableFrom</name><argument_list>(<argument><expr><name>bean</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicates whether the introspected class is a task container,
+     * supporting arbitrary nested tasks/types.
+     *
+     * @return &lt;code&gt;true&lt;code&gt; if the introspected class is a container;
+     *         &lt;code&gt;false&lt;code&gt; otherwise.
+     * @since Ant 1.6.3
+     *
+     * @see TaskContainer
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isContainer</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>TaskContainer</name>.<name><name/></name></name>class.<call><name>isAssignableFrom</name><argument_list>(<argument><expr><name>bean</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicates if this element supports a nested element of the
+     * given name.
+     *
+     * @param elementName the name of the nested element being checked
+     *
+     * @return true if the given nested element is supported
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>supportsNestedElement</name><parameter_list>(<param><decl><type><name>String</name></type> <name>elementName</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>supportsNestedElement</name><argument_list>(<argument><expr>""</expr></argument>, <argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicate if this element supports a nested element of the
+     * given name.
+     *
+     * &lt;p&gt;Note that this method will always return true if the
+     * introspected class is {@link #isDynamic dynamic} or contains a
+     * method named "add" with void return type and a single argument.
+     * To ge a more thorough answer, use the four-arg version of this
+     * method instead.&lt;/p&gt;
+     *
+     * @param parentUri   the uri of the parent
+     * @param elementName the name of the nested element being checked
+     *
+     * @return true if the given nested element is supported
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>supportsNestedElement</name><parameter_list>(<param><decl><type><name>String</name></type> <name>parentUri</name></decl></param>, <param><decl><type><name>String</name></type> <name>elementName</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isDynamic</name><argument_list>()</argument_list></call> || <call><name><name>addTypeMethods</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name>supportsReflectElement</name><argument_list>(<argument><expr><name>parentUri</name></expr></argument>, <argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicate if this element supports a nested element of the
+     * given name.
+     *
+     * &lt;p&gt;Note that this method will always return true if the
+     * introspected class is {@link #isDynamic dynamic}, so be
+     * prepared to catch an exception about unsupported children when
+     * calling {@link #getElementCreator getElementCreator}.&lt;/p&gt;
+     *
+     * @param parentUri   the uri of the parent
+     * @param elementName the name of the nested element being checked
+     * @param project currently executing project instance
+     * @param parent the parent element
+     *
+     * @return true if the given nested element is supported
+     * @since Ant 1.8.0.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>supportsNestedElement</name><parameter_list>(<param><decl><type><name>String</name></type> <name>parentUri</name></decl></param>, <param><decl><type><name>String</name></type> <name>elementName</name></decl></param>,
+                                         <param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>addTypeMethods</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0
+            &amp;&amp; <call><name>createAddTypeCreator</name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><name>parent</name></expr></argument>, <argument><expr><name>elementName</name></expr></argument>)</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name>isDynamic</name><argument_list>()</argument_list></call> || <call><name>supportsReflectElement</name><argument_list>(<argument><expr><name>parentUri</name></expr></argument>, <argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if this element supports a nested element from reflection.
+     *
+     * @param parentUri   the uri of the parent
+     * @param elementName the name of the nested element being checked
+     *
+     * @return true if the given nested element is supported
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>supportsReflectElement</name><parameter_list>(
+        <param><decl><type><name>String</name></type> <name>parentUri</name></decl></param>, <param><decl><type><name>String</name></type> <name>elementName</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>ProjectHelper</name>.<name>extractNameFromComponentName</name></name><argument_list>(<argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<call><name><name>nestedCreators</name>.<name>containsKey</name></name><argument_list>(<argument><expr><call><name><name>name</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>uri</name> =<init> <expr><call><name><name>ProjectHelper</name>.<name>extractUriFromComponentName</name></name><argument_list>(<argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>uri</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>ProjectHelper</name>.<name>ANT_CORE_URI</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>uri</name> = ""</expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr>"".<call><name>equals</name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>parentUri</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>ProjectHelper</name>.<name>ANT_CORE_URI</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parentUri</name> = ""</expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>uri</name>.<name>equals</name></name><argument_list>(<argument><expr><name>parentUri</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Stores a named nested element using a storage method determined
+     * by the initial introspection. If no appropriate storage method
+     * is available, this method returns immediately.
+     *
+     * @param project Ignored in this implementation.
+     *                May be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param parent  Parent instance to store the child in.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param child   Child instance to store in the parent.
+     *                Should not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param elementName  Name of the child element to store.
+     *                     May be &lt;code&gt;null&lt;/code&gt;, in which case
+     *                     this method returns immediately.
+     *
+     * @exception BuildException if the storage method fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>storeElement</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Object</name></type> <name>child</name></decl></param>,
+        <param><decl><type><name>String</name></type> <name>elementName</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>elementName</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>NestedCreator</name></type> <name>ns</name> =<init> <expr>(<name>NestedCreator</name>) <call><name><name>nestedCreators</name>.<name>get</name></name><argument_list>(<argument><expr><call><name><name>elementName</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>ns</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>ns</name>.<name>store</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>child</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>ie</name></decl></param>) <block>{
+            <comment type="line">// impossible as getMethods should only return public methods</comment>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ie</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>InstantiationException</name></type> <name>ine</name></decl></param>) <block>{
+            <comment type="line">// impossible as getMethods should only return public methods</comment>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ine</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>ite</name></decl></param>) <block>{
+            <throw>throw <expr><call><name>extractBuildException</name><argument_list>(<argument><expr><name>ite</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Helper method to extract the inner fault from an {@link InvocationTargetException}, and turn
+     * it into a BuildException. If it is already a BuildException, it is type cast and returned; if
+     * not a new BuildException is created containing the child as nested text.
+     * @param ite
+     * @return the nested exception
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>BuildException</name></type> <name>extractBuildException</name><parameter_list>(<param><decl><type><name>InvocationTargetException</name></type> <name>ite</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Throwable</name></type> <name>t</name> =<init> <expr><call><name><name>ite</name>.<name>getTargetException</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>t</name> <name>instanceof</name> <name>BuildException</name></expr>)</condition><then> <block>{
+            <return>return <expr>(<name>BuildException</name>) <name>t</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>t</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the type of a named nested element.
+     *
+     * @param elementName The name of the element to find the type of.
+     *                    Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return the type of the nested element with the specified name.
+     *         This will never be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @exception BuildException if the introspected class does not
+     *                           support the named nested element.
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>getElementType</name><parameter_list>(<param><decl><type><name>String</name></type> <name>elementName</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>nt</name> =<init> <expr><call><name><name>nestedTypes</name>.<name>get</name></name><argument_list>(<argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>nt</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>UnsupportedElementException</name><argument_list>(<argument><expr>"Class "
+                    + <call><name><name>bean</name>.<name>getName</name></name><argument_list>()</argument_list></call> + " doesn't support the nested \""
+                    + <name>elementName</name> + "\" element."</expr></argument>, <argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><name>nt</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the type of a named attribute.
+     *
+     * @param attributeName The name of the attribute to find the type of.
+     *                      Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return the type of the attribute with the specified name.
+     *         This will never be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @exception BuildException if the introspected class does not
+     *                           support the named attribute.
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>getAttributeType</name><parameter_list>(<param><decl><type><name>String</name></type> <name>attributeName</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>at</name> =<init> <expr><call><name><name>attributeTypes</name>.<name>get</name></name><argument_list>(<argument><expr><name>attributeName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>at</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>UnsupportedAttributeException</name><argument_list>(<argument><expr>"Class "
+                    + <call><name><name>bean</name>.<name>getName</name></name><argument_list>()</argument_list></call> + " doesn't support the \""
+                    + <name>attributeName</name> + "\" attribute."</expr></argument>, <argument><expr><name>attributeName</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><name>at</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the addText method when the introspected
+     * class supports nested text.
+     *
+     * @return the method on this introspected class that adds nested text.
+     *         Cannot be &lt;code&gt;null&lt;/code&gt;.
+     * @throws BuildException if the introspected class does not
+     *         support the nested text.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Method</name></type> <name>getAddTextMethod</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr>!<call><name>supportsCharacters</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Class " + <call><name><name>bean</name>.<name>getName</name></name><argument_list>()</argument_list></call>
+                    + " doesn't support nested text data."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><name>addText</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the adder or creator method of a named nested element.
+     *
+     * @param  elementName The name of the attribute to find the setter
+     *         method of. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @return the method on this introspected class that adds or creates this
+     *         nested element. Can be &lt;code&gt;null&lt;/code&gt; when the introspected
+     *         class is a dynamic configurator!
+     * @throws BuildException if the introspected class does not
+     *         support the named nested element.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Method</name></type> <name>getElementMethod</name><parameter_list>(<param><decl><type><name>String</name></type> <name>elementName</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Object</name></type> <name>creator</name> =<init> <expr><call><name><name>nestedCreators</name>.<name>get</name></name><argument_list>(<argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>creator</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>UnsupportedElementException</name><argument_list>(<argument><expr>"Class "
+                    + <call><name><name>bean</name>.<name>getName</name></name><argument_list>()</argument_list></call> + " doesn't support the nested \""
+                    + <name>elementName</name> + "\" element."</expr></argument>, <argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr>((<name>NestedCreator</name>) <name>creator</name>).<name>method</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the setter method of a named attribute.
+     *
+     * @param  attributeName The name of the attribute to find the setter
+     *         method of. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @return the method on this introspected class that sets this attribute.
+     *         This will never be &lt;code&gt;null&lt;/code&gt;.
+     * @throws BuildException if the introspected class does not
+     *         support the named attribute.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Method</name></type> <name>getAttributeMethod</name><parameter_list>(<param><decl><type><name>String</name></type> <name>attributeName</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Object</name></type> <name>setter</name> =<init> <expr><call><name><name>attributeSetters</name>.<name>get</name></name><argument_list>(<argument><expr><name>attributeName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>setter</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>UnsupportedAttributeException</name><argument_list>(<argument><expr>"Class "
+                    + <call><name><name>bean</name>.<name>getName</name></name><argument_list>()</argument_list></call> + " doesn't support the \""
+                    + <name>attributeName</name> + "\" attribute."</expr></argument>, <argument><expr><name>attributeName</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr>((<name>AttributeSetter</name>) <name>setter</name>).<name>method</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns whether or not the introspected class supports PCDATA.
+     *
+     * @return whether or not the introspected class supports PCDATA.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>supportsCharacters</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>addText</name> != <name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns an enumeration of the names of the attributes supported by the introspected class.
+     *
+     * @return an enumeration of the names of the attributes supported by the introspected class.
+     * @see #getAttributeMap
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>getAttributes</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>attributeSetters</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a read-only map of attributes supported by the introspected class.
+     *
+     * @return an attribute name to attribute &lt;code&gt;Class&lt;/code&gt;
+     *         unmodifiable map. Can be empty, but never &lt;code&gt;null&lt;/code&gt;.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name></type> <name>getAttributeMap</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>attributeTypes</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call>
+            ? <name><name>Collections</name>.<name><name/></name></name>&lt;<name>String</name></expr>, <expr><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name>&gt; <call><name>emptyMap</name><argument_list>()</argument_list></call> : <call><name><name>Collections</name>.<name>unmodifiableMap</name></name><argument_list>(<argument><expr><name>attributeTypes</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns an enumeration of the names of the nested elements supported
+     * by the introspected class.
+     *
+     * @return an enumeration of the names of the nested elements supported
+     *         by the introspected class.
+     * @see #getNestedElementMap
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>getNestedElements</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>nestedTypes</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a read-only map of nested elements supported
+     * by the introspected class.
+     *
+     * @return a nested-element name to nested-element &lt;code&gt;Class&lt;/code&gt;
+     *         unmodifiable map. Can be empty, but never &lt;code&gt;null&lt;/code&gt;.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name></type> <name>getNestedElementMap</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>nestedTypes</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call>
+            ? <name><name>Collections</name>.<name><name/></name></name>&lt;<name>String</name></expr>, <expr><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name>&gt; <call><name>emptyMap</name><argument_list>()</argument_list></call> : <call><name><name>Collections</name>.<name>unmodifiableMap</name></name><argument_list>(<argument><expr><name>nestedTypes</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a read-only list of extension points supported
+     * by the introspected class.
+     * &lt;p&gt;
+     * A task/type or nested element with void methods named &lt;code&gt;add()&lt;code&gt;
+     * or &lt;code&gt;addConfigured()&lt;/code&gt;, taking a single class or interface
+     * argument, supports extensions point. This method returns the list of
+     * all these &lt;em&gt;void add[Configured](type)&lt;/em&gt; methods.
+     *
+     * @return a list of void, single argument add() or addConfigured()
+     *         &lt;code&gt;Method&lt;code&gt;s of all supported extension points.
+     *         These methods are sorted such that if the argument type of a
+     *         method derives from another type also an argument of a method
+     *         of this list, the method with the most derived argument will
+     *         always appear first. Can be empty, but never &lt;code&gt;null&lt;/code&gt;.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>List</name><argument_list>&lt;<argument><name>Method</name></argument>&gt;</argument_list></name></type> <name>getExtensionPoints</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>addTypeMethods</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call>
+                ? <name><name>Collections</name>.<name><name/></name></name>&lt;<name>Method</name>&gt; <call><name>emptyList</name><argument_list>()</argument_list></call> : <call><name><name>Collections</name>.<name>unmodifiableList</name></name><argument_list>(<argument><expr><name>addTypeMethods</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates an implementation of AttributeSetter for the given
+     * attribute type. Conversions (where necessary) are automatically
+     * made for the following types:
+     * &lt;ul&gt;
+     * &lt;li&gt;String (left as it is)
+     * &lt;li&gt;Character/char (first character is used)
+     * &lt;li&gt;Boolean/boolean
+     * ({@link Project#toBoolean(String) Project.toBoolean(String)} is used)
+     * &lt;li&gt;Class (Class.forName is used)
+     * &lt;li&gt;File (resolved relative to the appropriate project)
+     * &lt;li&gt;Path (resolve relative to the appropriate project)
+     * &lt;li&gt;Resource (resolved as a FileResource relative to the appropriate project)
+     * &lt;li&gt;FileProvider (resolved as a FileResource relative to the appropriate project)
+     * &lt;li&gt;EnumeratedAttribute (uses its own
+     * {@link EnumeratedAttribute#setValue(String) setValue} method)
+     * &lt;li&gt;Other primitive types (wrapper classes are used with constructors
+     * taking String)
+     * &lt;/ul&gt;
+     *
+     * If none of the above covers the given parameters, a constructor for the
+     * appropriate class taking a String parameter is used if it is available.
+     *
+     * @param m The method to invoke on the bean when the setter is invoked.
+     *          Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param arg The type of the single argument of the bean's method.
+     *            Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param attrName the name of the attribute for which the setter is being
+     *                 created.
+     *
+     * @return an appropriate AttributeSetter instance, or &lt;code&gt;null&lt;/code&gt;
+     *         if no appropriate conversion is available.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>AttributeSetter</name></type> <name>createAttributeSetter</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Method</name></type> <name>m</name></decl></param>,
+                                                  <param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>arg</name></decl></param>,
+                                                  <param><decl><type><specifier>final</specifier> <name>String</name></type> <name>attrName</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// use wrappers for primitive classes, e.g. int and</comment>
+        <comment type="line">// Integer are treated identically</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>reflectedArg</name> =<init> <expr><call><name><name>PRIMITIVE_TYPE_MAP</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>arg</name></expr></argument>)</argument_list></call>
+            ? <call><name><name>PRIMITIVE_TYPE_MAP</name>.<name>get</name></name><argument_list>(<argument><expr><name>arg</name></expr></argument>)</argument_list></call> : <name>arg</name></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// Object.class - it gets handled differently by AttributeSetter</comment>
+        <if>if <condition>(<expr><name><name>java</name>.<name>lang</name>.<name>Object</name>.<name><name/></name></name>class == <name>reflectedArg</name></expr>)</condition><then> <block>{
+            <return>return <expr>new <class><super><name>AttributeSetter</name></super><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list> <block>{
+                <function><type><specifier>public</specifier> <name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+                        <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>,
+                    <argument><expr><name>IllegalAccessException</name></expr></argument></throws> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                        <argument><expr>"Internal ant problem - this should not get called"</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></function>
+            }</block></class></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// simplest case - setAttribute expects String</comment>
+        <if>if <condition>(<expr><name><name>java</name>.<name>lang</name>.<name>String</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name>reflectedArg</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <class><super><name>AttributeSetter</name></super><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list> <block>{
+                <function><type><specifier>public</specifier> <name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+                        <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument></throws> <block>{
+                    <expr_stmt><expr><call><name><name>m</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>(<name><name>Object</name><index>[]</index></name>) new <name><name>String</name><index>[]</index></name> <block>{<expr><name>value</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></function>
+            }</block></class></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// char and Character get special treatment - take the first character</comment>
+        <if>if <condition>(<expr><name><name>java</name>.<name>lang</name>.<name>Character</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name>reflectedArg</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <class><super><name>AttributeSetter</name></super><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list> <block>{
+                <function><type><specifier>public</specifier> <name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+                        <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument></throws> <block>{
+                    <if>if <condition>(<expr><call><name><name>value</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The value \"\" is not a "
+                                + "legal value for attribute \"" + <name>attrName</name> + "\""</expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then></if>
+                    <expr_stmt><expr><call><name><name>m</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>(<name><name>Object</name><index>[]</index></name>) new <name><name>Character</name><index>[]</index></name> <block>{<expr>new <call><name>Character</name><argument_list>(<argument><expr><call><name><name>value</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></function>
+            }</block></class></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// boolean and Boolean get special treatment because we have a nice method in Project</comment>
+        <if>if <condition>(<expr><name><name>java</name>.<name>lang</name>.<name>Boolean</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name>reflectedArg</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <class><super><name>AttributeSetter</name></super><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list> <block>{
+                <function><type><specifier>public</specifier> <name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+                        <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument></throws> <block>{
+                    <expr_stmt><expr><call><name><name>m</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>(<name><name>Object</name><index>[]</index></name>) new <name><name>Boolean</name><index>[]</index></name> <block>{
+                            <expr><call><name><name>Project</name>.<name>toBoolean</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call> ? <name><name>Boolean</name>.<name>TRUE</name></name> : <name><name>Boolean</name>.<name>FALSE</name></name></expr> }</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></function>
+            }</block></class></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// Class doesn't have a String constructor but a decent factory method</comment>
+        <if>if <condition>(<expr><name><name>java</name>.<name>lang</name>.<name>Class</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name>reflectedArg</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <class><super><name>AttributeSetter</name></super><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list> <block>{
+                <function><type><specifier>public</specifier> <name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+                        <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name><name>m</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>ce</name></decl></param>) <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ce</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch></try>
+                }</block></function>
+            }</block></class></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// resolve relative paths through Project</comment>
+        <if>if <condition>(<expr><name><name>java</name>.<name>io</name>.<name>File</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name>reflectedArg</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <class><super><name>AttributeSetter</name></super><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list> <block>{
+                <function><type><specifier>public</specifier> <name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+                        <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument></throws> <block>{
+                    <expr_stmt><expr><call><name><name>m</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><call><name><name>p</name>.<name>resolveFile</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></function>
+            }</block></class></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// resolve Resources/FileProviders as FileResources relative to Project:</comment>
+        <if>if <condition>(<expr><name><name>Resource</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name>reflectedArg</name></expr></argument>)</argument_list></call> || <name><name>FileProvider</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name>reflectedArg</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <class><super><name>AttributeSetter</name></super><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list> <block>{
+                <function><type><name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>,
+                        <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+                    <expr_stmt><expr><call><name><name>m</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{ <expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr><call><name><name>p</name>.<name>resolveFile</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr> }</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></function><empty_stmt>;</empty_stmt>
+            }</block></class></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// EnumeratedAttributes have their own helper class</comment>
+        <if>if <condition>(<expr><name><name>EnumeratedAttribute</name>.<name><name/></name></name>class.<call><name>isAssignableFrom</name><argument_list>(<argument><expr><name>reflectedArg</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <class><super><name>AttributeSetter</name></super><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list> <block>{
+                <function><type><specifier>public</specifier> <name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+                        <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+                    <try>try <block>{
+                        <decl_stmt><decl><type><name>EnumeratedAttribute</name></type> <name>ea</name> =<init> <expr>(<name>EnumeratedAttribute</name>) <call><name><name>reflectedArg</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>ea</name>.<name>setValue</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>m</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>ea</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>InstantiationException</name></type> <name>ie</name></decl></param>) <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ie</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch></try>
+                }</block></function>
+            }</block></class></expr>;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>AttributeSetter</name></type> <name>setter</name> =<init> <expr><call><name>getEnumSetter</name><argument_list>(<argument><expr><name>reflectedArg</name></expr></argument>, <argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>setter</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>setter</name></expr>;</return>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name><name>java</name>.<name>lang</name>.<name>Long</name>.<name><name/></name></name>class.<call><name>equals</name><argument_list>(<argument><expr><name>reflectedArg</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <class><super><name>AttributeSetter</name></super><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list> <block>{
+                <function><type><specifier>public</specifier> <name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+                        <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name><name>m</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{
+                                <expr>new <call><name>Long</name><argument_list>(<argument><expr><call><name><name>StringUtils</name>.<name>parseHumanSizes</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr> }</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>NumberFormatException</name></type> <name>e</name></decl></param>) <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Can't assign non-numeric"
+                                                 + " value '" + <name>value</name> + "' to"
+                                                 + " attribute " + <name>attrName</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>e</name></decl></param>) <block>{
+                        <throw>throw <expr><name>e</name></expr>;</throw>
+                    }</block></catch> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>e</name></decl></param>) <block>{
+                        <throw>throw <expr><name>e</name></expr>;</throw>
+                    }</block></catch> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch></try>
+                }</block></function>
+            }</block></class></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// worst case. look for a public String constructor and use it</comment>
+        <comment type="line">// also supports new Whatever(Project, String) as for Path or Reference</comment>
+        <comment type="line">// This is used (deliberately) for all primitives/wrappers other than</comment>
+        <comment type="line">// char, boolean, and long.</comment>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>includeProject</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Constructor</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>c</name></decl>;</decl_stmt>
+        <try>try <block>{
+            <comment type="line">// First try with Project.</comment>
+            <expr_stmt><expr><name>c</name> = <call><name><name>reflectedArg</name>.<name>getConstructor</name></name><argument_list>(<argument><expr><name><name>Project</name>.<name><name/></name></name>class</expr></argument>, <argument><expr><name><name>String</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>includeProject</name> = true</expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>NoSuchMethodException</name></type> <name>nme</name></decl></param>) <block>{
+            <comment type="line">// OK, try without.</comment>
+            <try>try <block>{
+                <expr_stmt><expr><name>c</name> = <call><name><name>reflectedArg</name>.<name>getConstructor</name></name><argument_list>(<argument><expr><name><name>String</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>includeProject</name> = false</expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>NoSuchMethodException</name></type> <name>nme2</name></decl></param>) <block>{
+                <comment type="line">// Well, no matching constructor.</comment>
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></catch></try>
+        }</block></catch></try>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>finalIncludeProject</name> =<init> <expr><name>includeProject</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name><name>Constructor</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>finalConstructor</name> =<init> <expr><name>c</name></expr></init></decl>;</decl_stmt>
+
+        <return>return <expr>new <class><super><name>AttributeSetter</name></super><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list> <block>{
+            <function><type><specifier>public</specifier> <name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+                    <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+                <try>try <block>{
+                    <decl_stmt><decl><type><name>Object</name><index>[]</index></type> <name>args</name> =<init> <expr><name>finalIncludeProject</name>
+                            ? new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>p</name></expr>, <expr><name>value</name></expr>}</block> : new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>value</name></expr>}</block></expr></init></decl>;</decl_stmt>
+
+                    <decl_stmt><decl><type><name>Object</name></type> <name>attribute</name> =<init> <expr><call><name><name>finalConstructor</name>.<name>newInstance</name></name><argument_list>(<argument><expr><name>args</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>p</name> != <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>p</name>.<name>setProjectReference</name></name><argument_list>(<argument><expr><name>attribute</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <expr_stmt><expr><call><name><name>m</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>attribute</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>e</name></decl></param>) <block>{
+                    <decl_stmt><decl><type><name>Throwable</name></type> <name>cause</name> =<init> <expr><call><name><name>e</name>.<name>getCause</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>cause</name> <name>instanceof</name> <name>IllegalArgumentException</name></expr>)</condition><then> <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Can't assign value '" + <name>value</name>
+                                                 + "' to attribute " + <name>attrName</name>
+                                                 + ", reason: "
+                                                 + <call><name><name>cause</name>.<name>getClass</name></name><argument_list>()</argument_list></call>
+                                                 + " with message '"
+                                                 + <call><name><name>cause</name>.<name>getMessage</name></name><argument_list>()</argument_list></call> + "'"</expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then></if>
+                    <throw>throw <expr><name>e</name></expr>;</throw>
+                }</block></catch> <catch>catch (<param><decl><type><name>InstantiationException</name></type> <name>ie</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ie</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></function>
+        }</block></class></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>AttributeSetter</name></type> <name>getEnumSetter</name><parameter_list>(
+        <param><decl><type><specifier>final</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>reflectedArg</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>Method</name></type> <name>m</name></decl></param>, <param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>arg</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>reflectedArg</name>.<name>isEnum</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <class><super><name>AttributeSetter</name></super><argument_list>(<argument><expr><name>m</name></expr></argument>, <argument><expr><name>arg</name></expr></argument>)</argument_list> <block>{
+                <function><type><specifier>public</specifier> <name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+                    <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>,
+                    <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+                    <decl_stmt><decl><type><name><name>Enum</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>setValue</name></decl>;</decl_stmt>
+                    <try>try <block>{
+                        <decl_stmt><decl><type><annotation>@<name>SuppressWarnings</name><argument_list>({ "unchecked", "rawtypes" })</argument_list></annotation>
+                        <name><name>Enum</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>enumValue</name> =<init> <expr><call><name><name>Enum</name>.<name>valueOf</name></name><argument_list>(<argument><expr>(<name><name>Class</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>Enum</name></extends></argument>&gt;</argument_list></name>) <name>reflectedArg</name></expr></argument>,
+                                <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><name>setValue</name> = <name>enumValue</name></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>IllegalArgumentException</name></type> <name>e</name></decl></param>) <block>{
+                        <comment type="line">//there is specific logic here for the value</comment>
+                        <comment type="line">// being out of the allowed set of enumerations.</comment>
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"'" + <name>value</name> + "' is not a permitted value for "
+                                + <call><name><name>reflectedArg</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch></try>
+                    <expr_stmt><expr><call><name><name>m</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>setValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></function>
+            }</block></class></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a description of the type of the given element in
+     * relation to a given project. This is used for logging purposes
+     * when the element is asked to cope with some data it has no way of handling.
+     *
+     * @param project The project the element is defined in. Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param element The element to describe. Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return a description of the element type
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>getElementName</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>element</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>project</name>.<name>getElementName</name></name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Extracts the name of a property from a method name by subtracting
+     * a given prefix and converting into lower case. It is up to calling
+     * code to make sure the method name does actually begin with the
+     * specified prefix - no checking is done in this method.
+     *
+     * @param methodName The name of the method in question. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param prefix     The prefix to remove. Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return the lower-cased method name with the prefix removed.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>getPropertyName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>methodName</name></decl></param>, <param><decl><type><name>String</name></type> <name>prefix</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>methodName</name>.<name>substring</name></name><argument_list>(<argument><expr><call><name><name>prefix</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>toLowerCase</name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * creator - allows use of create/store external
+     * to IntrospectionHelper.
+     * The class is final as it has a private constructor.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> class <name>Creator</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>NestedCreator</name></type> <name>nestedCreator</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>parent</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Project</name></type> <name>project</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>nestedObject</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>polyType</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Creates a new Creator instance.
+         * This object is given to the UnknownElement to create
+         * objects for sub-elements. UnknownElement calls
+         * create to create an object, the object then gets
+         * configured and then UnknownElement calls store.
+         * SetPolyType may be used to override the type used
+         * to create the object with. SetPolyType gets called before create.
+         *
+         * @param project the current project
+         * @param parent  the parent object to create the object in
+         * @param nestedCreator the nested creator object to use
+         */</comment>
+        <constructor><specifier>private</specifier> <name>Creator</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>NestedCreator</name></type> <name>nestedCreator</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>project</name></name> = <name>project</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>parent</name></name> = <name>parent</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>nestedCreator</name></name> = <name>nestedCreator</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Used to override the class used to create the object.
+         *
+         * @param polyType a ant component type name
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setPolyType</name><parameter_list>(<param><decl><type><name>String</name></type> <name>polyType</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>polyType</name></name> = <name>polyType</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Create an object using this creator, which is determined by introspection.
+         *
+         * @return the created object
+         */</comment>
+        <function><type><specifier>public</specifier> <name>Object</name></type> <name>create</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>polyType</name> != <name>null</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr>!<call><name><name>nestedCreator</name>.<name>isPolyMorphic</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                            <argument><expr>"Not allowed to use the polymorphic form for this element"</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>ComponentHelper</name></type> <name>helper</name> =<init> <expr><call><name><name>ComponentHelper</name>.<name>getComponentHelper</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>nestedObject</name> = <call><name><name>helper</name>.<name>createComponent</name></name><argument_list>(<argument><expr><name>polyType</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>nestedObject</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Unable to create object of type " + <name>polyType</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+            }</block></then></if>
+            <try>try <block>{
+                <expr_stmt><expr><name>nestedObject</name> = <call><name><name>nestedCreator</name>.<name>create</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><name>parent</name></expr></argument>, <argument><expr><name>nestedObject</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>project</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>project</name>.<name>setProjectReference</name></name><argument_list>(<argument><expr><name>nestedObject</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <return>return <expr><name>nestedObject</name></expr>;</return>
+            }</block> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>InstantiationException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>IllegalArgumentException</name></type> <name>ex</name></decl></param>) <block>{
+                <if>if <condition>(<expr><name>polyType</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr><name>ex</name></expr>;</throw>
+                }</block></then></if>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Invalid type used " + <name>polyType</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr><call><name>extractBuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @return the real object (used currently only for presetdef).
+         */</comment>
+        <function><type><specifier>public</specifier> <name>Object</name></type> <name>getRealObject</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>nestedCreator</name>.<name>getRealObject</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Stores the nested element object using a storage method determined by introspection.
+         *
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>store</name><parameter_list>()</parameter_list> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>nestedCreator</name>.<name>store</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>nestedObject</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>InstantiationException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>IllegalArgumentException</name></type> <name>ex</name></decl></param>) <block>{
+                <if>if <condition>(<expr><name>polyType</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr><name>ex</name></expr>;</throw>
+                }</block></then></if>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Invalid type used " + <name>polyType</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>ex</name></decl></param>) <block>{
+                <throw>throw <expr><call><name>extractBuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Internal interface used to create nested elements. Not documented
+     * in detail for reasons of source code readability.
+     */</comment>
+    <class><specifier>private</specifier> <specifier>abstract</specifier> <specifier>static</specifier> class <name>NestedCreator</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Method</name></type> <name>method</name></decl>;</decl_stmt> <comment type="line">// the method called to add/create the nested element</comment>
+
+        <constructor><specifier>protected</specifier> <name>NestedCreator</name><parameter_list>(<param><decl><type><name>Method</name></type> <name>m</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>method</name> = <name>m</name></expr>;</expr_stmt>
+        }</block></constructor>
+        <function><type><name>Method</name></type> <name>getMethod</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>method</name></expr>;</return>
+        }</block></function>
+        <function><type><name>boolean</name></type> <name>isPolyMorphic</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></function>
+        <function><type><name>Object</name></type> <name>getRealObject</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></function>
+        <function_decl><type><specifier>abstract</specifier> <name>Object</name></type> <name>create</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Object</name></type> <name>child</name></decl></param>)</parameter_list>
+                <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>InstantiationException</name></expr></argument></throws>;</function_decl>
+
+        <function><type><name>void</name></type> <name>store</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Object</name></type> <name>child</name></decl></param>)</parameter_list>
+                 <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>InstantiationException</name></expr></argument></throws> <block>{
+            <comment type="line">// DO NOTHING</comment>
+        }</block></function>
+    }</block></class>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>CreateNestedCreator</name> <super><extends>extends <name>NestedCreator</name></extends></super> <block>{
+        <constructor><name>CreateNestedCreator</name><parameter_list>(<param><decl><type><name>Method</name></type> <name>m</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>m</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><name>Object</name></type> <name>create</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Object</name></type> <name>ignore</name></decl></param>)</parameter_list>
+                <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument></throws> <block>{
+            <return>return <expr><call><name>getMethod</name><argument_list>()</argument_list></call>.<call><name>invoke</name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{}</block></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/** Version to use for addXXX and addConfiguredXXX */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>AddNestedCreator</name> <super><extends>extends <name>NestedCreator</name></extends></super> <block>{
+
+        <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>ADD</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>ADD_CONFIGURED</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name><name>Constructor</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>constructor</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>behavior</name></decl>;</decl_stmt> <comment type="line">// ADD or ADD_CONFIGURED</comment>
+
+        <constructor><name>AddNestedCreator</name><parameter_list>(<param><decl><type><name>Method</name></type> <name>m</name></decl></param>, <param><decl><type><name><name>Constructor</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>c</name></decl></param>, <param><decl><type><name>int</name></type> <name>behavior</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>m</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>constructor</name></name> = <name>c</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>behavior</name></name> = <name>behavior</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><name>boolean</name></type> <name>isPolyMorphic</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></function>
+
+        <function><type><name>Object</name></type> <name>create</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Object</name></type> <name>child</name></decl></param>)</parameter_list>
+                <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>InstantiationException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><name>child</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>child</name> = <call><name><name>constructor</name>.<name>newInstance</name></name><argument_list>(
+                        <argument><expr><call><name><name>constructor</name>.<name>getParameterTypes</name></name><argument_list>()</argument_list></call>.<name>length</name> == 0
+                                ? new <name><name>Object</name><index>[]</index></name> <block>{}</block> : new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>project</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>child</name> <name>instanceof</name> <name><name>PreSetDef</name>.<name>PreSetDefinition</name></name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>child</name> = ((<name><name>PreSetDef</name>.<name>PreSetDefinition</name></name>) <name>child</name>).<call><name>createObject</name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>behavior</name> == <name>ADD</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>istore</name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>child</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return <expr><name>child</name></expr>;</return>
+        }</block></function>
+
+        <function><type><name>void</name></type> <name>store</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Object</name></type> <name>child</name></decl></param>)</parameter_list>
+                <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>InstantiationException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><name>behavior</name> == <name>ADD_CONFIGURED</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>istore</name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>child</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></function>
+
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>istore</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Object</name></type> <name>child</name></decl></param>)</parameter_list>
+                <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>InstantiationException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name>getMethod</name><argument_list>()</argument_list></call>.<call><name>invoke</name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>child</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Internal interface used to setting element attributes. Not documented
+     * in detail for reasons of source code readability.
+     */</comment>
+    <class><specifier>private</specifier> <specifier>abstract</specifier> <specifier>static</specifier> class <name>AttributeSetter</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Method</name></type> <name>method</name></decl>;</decl_stmt> <comment type="line">// the method called to set the attribute</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>type</name></decl>;</decl_stmt>
+        <constructor><specifier>protected</specifier> <name>AttributeSetter</name><parameter_list>(<param><decl><type><name>Method</name></type> <name>m</name></decl></param>, <param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>type</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>method</name> = <name>m</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>type</name></name> = <name>type</name></expr>;</expr_stmt>
+        }</block></constructor>
+        <function><type><name>void</name></type> <name>setObject</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list>
+                <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><name>type</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>useType</name> =<init> <expr><name>type</name></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>type</name>.<name>isPrimitive</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr><name>value</name> == <name>null</name></expr>)</condition><then> <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                            <argument><expr>"Attempt to set primitive "
+                            + <call><name>getPropertyName</name><argument_list>(<argument><expr><call><name><name>method</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr>"set"</expr></argument>)</argument_list></call>
+                            + " to null on " + <name>parent</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then></if>
+                    <expr_stmt><expr><name>useType</name> = <call><name><name>PRIMITIVE_TYPE_MAP</name>.<name>get</name></name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <if>if <condition>(<expr><name>value</name> == <name>null</name> || <call><name><name>useType</name>.<name>isInstance</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>method</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>value</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <return>return;</return>
+                }</block></then></if>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>set</name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr><name>parent</name></expr></argument>, <argument><expr><call><name><name>value</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+        <function_decl><type><specifier>abstract</specifier> <name>void</name></type> <name>set</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+                <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>BuildException</name></expr></argument></throws>;</function_decl>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Clears the static cache of on build finished.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>clearCache</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>HELPERS</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a NestedCreator for the given element.
+     * @param project owning project
+     * @param parent Parent object used to create the instance.
+     * @param elementName name of the element
+     * @return a nested creator, or null if there is no component of the given name, or it
+     *        has no matching add type methods
+     * @throws BuildException
+     */</comment>
+    <function><type><specifier>private</specifier> <name>NestedCreator</name></type> <name>createAddTypeCreator</name><parameter_list>(
+            <param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>elementName</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name><name>addTypeMethods</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>ComponentHelper</name></type> <name>helper</name> =<init> <expr><call><name><name>ComponentHelper</name>.<name>getComponentHelper</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>MethodAndObject</name></type> <name>restricted</name> =<init>  <expr><call><name>createRestricted</name><argument_list>(
+            <argument><expr><name>helper</name></expr></argument>, <argument><expr><name>elementName</name></expr></argument>, <argument><expr><name>addTypeMethods</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>MethodAndObject</name></type> <name>topLevel</name> =<init> <expr><call><name>createTopLevel</name><argument_list>(
+            <argument><expr><name>helper</name></expr></argument>, <argument><expr><name>elementName</name></expr></argument>, <argument><expr><name>addTypeMethods</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>restricted</name> == <name>null</name> &amp;&amp; <name>topLevel</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>restricted</name> != <name>null</name> &amp;&amp; <name>topLevel</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                <argument><expr>"ambiguous: type and component definitions for "
+                + <name>elementName</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>MethodAndObject</name></type> <name>methodAndObject</name>
+            =<init> <expr><name>restricted</name> != <name>null</name> ? <name>restricted</name> : <name>topLevel</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>Object</name></type> <name>rObject</name> =<init> <expr><name><name>methodAndObject</name>.<name>object</name></name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name><name>methodAndObject</name>.<name>object</name></name> <name>instanceof</name> <name><name>PreSetDef</name>.<name>PreSetDefinition</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>rObject</name> = ((<name><name>PreSetDef</name>.<name>PreSetDefinition</name></name>) <name><name>methodAndObject</name>.<name>object</name></name>)
+                .<call><name>createObject</name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Object</name></type> <name>nestedObject</name> =<init> <expr><name><name>methodAndObject</name>.<name>object</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Object</name></type> <name>realObject</name> =<init> <expr><name>rObject</name></expr></init></decl>;</decl_stmt>
+
+        <return>return <expr>new <class><super><name>NestedCreator</name></super><argument_list>(<argument><expr><name><name>methodAndObject</name>.<name>method</name></name></expr></argument>)</argument_list> <block>{
+            <function><type><name>Object</name></type> <name>create</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Object</name></type> <name>ignore</name></decl></param>)</parameter_list>
+                    <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>, <argument><expr><name>IllegalAccessException</name></expr></argument></throws> <block>{
+                <if>if <condition>(<expr>!<call><name>getMethod</name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call>.<call><name>endsWith</name><argument_list>(<argument><expr>"Configured"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>getMethod</name><argument_list>()</argument_list></call>.<call><name>invoke</name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>realObject</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <return>return <expr><name>nestedObject</name></expr>;</return>
+            }</block></function>
+
+            <function><type><name>Object</name></type> <name>getRealObject</name><parameter_list>()</parameter_list> <block>{
+                <return>return <expr><name>realObject</name></expr>;</return>
+            }</block></function>
+
+            <function><type><name>void</name></type> <name>store</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Object</name></type> <name>child</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>InvocationTargetException</name></expr></argument>,
+                    <argument><expr><name>IllegalAccessException</name></expr></argument>, <argument><expr><name>InstantiationException</name></expr></argument></throws> <block>{
+                <if>if <condition>(<expr><call><name>getMethod</name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call>.<call><name>endsWith</name><argument_list>(<argument><expr>"Configured"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>getMethod</name><argument_list>()</argument_list></call>.<call><name>invoke</name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>realObject</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></function>
+        }</block></class></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Inserts an add or addConfigured method into
+     * the addTypeMethods array. The array is
+     * ordered so that the more derived classes are first.
+     * If both add and addConfigured are present, the addConfigured will take priority.
+     * @param method the &lt;code&gt;Method&lt;/code&gt; to insert.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>insertAddTypeMethod</name><parameter_list>(<param><decl><type><name>Method</name></type> <name>method</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>argClass</name> =<init> <expr><call><name><name>method</name>.<name>getParameterTypes</name></name><argument_list>()</argument_list></call><index>[<expr>0</expr>]</index></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>addTypeMethods</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>c</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>c</name> &lt; <name>size</name></expr>;</condition> <incr><expr>++<name>c</name></expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Method</name></type> <name>current</name> =<init> <expr>(<name>Method</name>) <call><name><name>addTypeMethods</name>.<name>get</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>current</name>.<name>getParameterTypes</name></name><argument_list>()</argument_list></call><index>[<expr>0</expr>]</index>.<call><name>equals</name><argument_list>(<argument><expr><name>argClass</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name><name>method</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>"addConfigured"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <comment type="line">// add configured replaces the add method</comment>
+                    <expr_stmt><expr><call><name><name>addTypeMethods</name>.<name>set</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>, <argument><expr><name>method</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <return>return;</return> <comment type="line">// Already present</comment>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>current</name>.<name>getParameterTypes</name></name><argument_list>()</argument_list></call><index>[<expr>0</expr>]</index>.<call><name>isAssignableFrom</name><argument_list>(<argument><expr><name>argClass</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>addTypeMethods</name>.<name>add</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>, <argument><expr><name>method</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return> <comment type="line">// higher derived</comment>
+            }</block></then></if>
+        }</block></for>
+        <expr_stmt><expr><call><name><name>addTypeMethods</name>.<name>add</name></name><argument_list>(<argument><expr><name>method</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Search the list of methods to find the first method
+     * that has a parameter that accepts the nested element object.
+     * @param paramClass the &lt;code&gt;Class&lt;/code&gt; type to search for.
+     * @param methods the &lt;code&gt;List&lt;/code&gt; of methods to search.
+     * @return a matching &lt;code&gt;Method&lt;/code&gt;; null if none found.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Method</name></type> <name>findMatchingMethod</name><parameter_list>(<param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>paramClass</name></decl></param>, <param><decl><type><name><name>List</name><argument_list>&lt;<argument><name>Method</name></argument>&gt;</argument_list></name></type> <name>methods</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>paramClass</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>matchedClass</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Method</name></type> <name>matchedMethod</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>methods</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Method</name></type> <name>method</name> =<init> <expr><call><name><name>methods</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>methodClass</name> =<init> <expr><call><name><name>method</name>.<name>getParameterTypes</name></name><argument_list>()</argument_list></call><index>[<expr>0</expr>]</index></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>methodClass</name>.<name>isAssignableFrom</name></name><argument_list>(<argument><expr><name>paramClass</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>matchedClass</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>matchedClass</name> = <name>methodClass</name></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>matchedMethod</name> = <name>method</name></expr>;</expr_stmt>
+                }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>methodClass</name>.<name>isAssignableFrom</name></name><argument_list>(<argument><expr><name>matchedClass</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"ambiguous: types " + <call><name><name>matchedClass</name>.<name>getName</name></name><argument_list>()</argument_list></call> + " and "
+                            + <call><name><name>methodClass</name>.<name>getName</name></name><argument_list>()</argument_list></call> + " match " + <call><name><name>paramClass</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if></else></if>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr><name>matchedMethod</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>condenseText</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>text</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>text</name>.<name>length</name></name><argument_list>()</argument_list></call> &lt;= <name>MAX_REPORT_NESTED_TEXT</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>text</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>int</name></type> <name>ends</name> =<init> <expr>(<name>MAX_REPORT_NESTED_TEXT</name> - <call><name><name>ELLIPSIS</name>.<name>length</name></name><argument_list>()</argument_list></call>) / 2</expr></init></decl>;</decl_stmt>
+        <return>return <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><name>text</name></expr></argument>)</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr><name>ends</name></expr></argument>, <argument><expr><call><name><name>text</name>.<name>length</name></name><argument_list>()</argument_list></call> - <name>ends</name></expr></argument>, <argument><expr><name>ELLIPSIS</name></expr></argument>)</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>MethodAndObject</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Method</name></type> <name>method</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>object</name></decl>;</decl_stmt>
+        <constructor><specifier>public</specifier> <name>MethodAndObject</name><parameter_list>(<param><decl><type><name>Method</name></type> <name>method</name></decl></param>, <param><decl><type><name>Object</name></type> <name>object</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>method</name></name> = <name>method</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>object</name></name> = <name>object</name></expr>;</expr_stmt>
+        }</block></constructor>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     *
+     */</comment>
+    <function><type><specifier>private</specifier> <name>AntTypeDefinition</name></type> <name>findRestrictedDefinition</name><parameter_list>(
+        <param><decl><type><name>ComponentHelper</name></type> <name>helper</name></decl></param>, <param><decl><type><name>String</name></type> <name>componentName</name></decl></param>, <param><decl><type><name><name>List</name><argument_list>&lt;<argument><name>Method</name></argument>&gt;</argument_list></name></type> <name>methods</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>AntTypeDefinition</name></type> <name>definition</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>matchedDefinitionClass</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name><name>List</name><argument_list>&lt;<argument><name>AntTypeDefinition</name></argument>&gt;</argument_list></name></type> <name>definitions</name> =<init> <expr><call><name><name>helper</name>.<name>getRestrictedDefinitions</name></name><argument_list>(<argument><expr><name>componentName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>definitions</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <synchronized>synchronized (<expr><name>definitions</name></expr>) <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>definitions</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                <decl_stmt><decl><type><name>AntTypeDefinition</name></type> <name>d</name> =<init> <expr><call><name><name>definitions</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>exposedClass</name> =<init> <expr><call><name><name>d</name>.<name>getExposedClass</name></name><argument_list>(<argument><expr><call><name><name>helper</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>exposedClass</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <continue>continue;</continue>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>Method</name></type> <name>method</name>  =<init> <expr><call><name>findMatchingMethod</name><argument_list>(<argument><expr><name>exposedClass</name></expr></argument>, <argument><expr><name>methods</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>method</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <continue>continue;</continue>
+                }</block></then></if>
+                <if>if <condition>(<expr><name>matchedDefinitionClass</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                        <argument><expr>"ambiguous: restricted definitions for "
+                        + <name>componentName</name> + " "
+                        + <name>matchedDefinitionClass</name> + " and " + <name>exposedClass</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><name>matchedDefinitionClass</name> = <name>exposedClass</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>definition</name> = <name>d</name></expr>;</expr_stmt>
+            }</block></for>
+        }</block></synchronized>
+        <return>return <expr><name>definition</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>MethodAndObject</name></type> <name>createRestricted</name><parameter_list>(
+        <param><decl><type><name>ComponentHelper</name></type> <name>helper</name></decl></param>, <param><decl><type><name>String</name></type> <name>elementName</name></decl></param>, <param><decl><type><name><name>List</name><argument_list>&lt;<argument><name>Method</name></argument>&gt;</argument_list></name></type> <name>addTypeMethods</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>Project</name></type> <name>project</name> =<init> <expr><call><name><name>helper</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>AntTypeDefinition</name></type> <name>restrictedDefinition</name> =<init>
+            <expr><call><name>findRestrictedDefinition</name><argument_list>(<argument><expr><name>helper</name></expr></argument>, <argument><expr><name>elementName</name></expr></argument>, <argument><expr><name>addTypeMethods</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>restrictedDefinition</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>Method</name></type> <name>addMethod</name> =<init> <expr><call><name>findMatchingMethod</name><argument_list>(
+            <argument><expr><call><name><name>restrictedDefinition</name>.<name>getExposedClass</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>addTypeMethods</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>addMethod</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                <argument><expr>"Ant Internal Error - contract mismatch for "
+                + <name>elementName</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Object</name></type> <name>addedObject</name> =<init> <expr><call><name><name>restrictedDefinition</name>.<name>create</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>addedObject</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                <argument><expr>"Failed to create object " + <name>elementName</name>
+                + " of type " + <call><name><name>restrictedDefinition</name>.<name>getTypeClass</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr>new <call><name>MethodAndObject</name><argument_list>(<argument><expr><name>addMethod</name></expr></argument>, <argument><expr><name>addedObject</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>MethodAndObject</name></type> <name>createTopLevel</name><parameter_list>(
+        <param><decl><type><name>ComponentHelper</name></type> <name>helper</name></decl></param>, <param><decl><type><name>String</name></type> <name>elementName</name></decl></param>, <param><decl><type><name><name>List</name><argument_list>&lt;<argument><name>Method</name></argument>&gt;</argument_list></name></type> <name>methods</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>clazz</name> =<init> <expr><call><name><name>helper</name>.<name>getComponentClass</name></name><argument_list>(<argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>clazz</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Method</name></type> <name>addMethod</name> =<init> <expr><call><name>findMatchingMethod</name><argument_list>(<argument><expr><name>clazz</name></expr></argument>, <argument><expr><name>addTypeMethods</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>addMethod</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Object</name></type> <name>addedObject</name> =<init> <expr><call><name><name>helper</name>.<name>createComponent</name></name><argument_list>(<argument><expr><name>elementName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr>new <call><name>MethodAndObject</name><argument_list>(<argument><expr><name>addMethod</name></expr></argument>, <argument><expr><name>addedObject</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+}</block></class>
+</unit>

@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\cvslib\ChangeLogParser.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>cvslib</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>text</name>.<name>ParseException</name></name>;</import>
+<import>import <name><name>java</name>.<name>text</name>.<name>SimpleDateFormat</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Date</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Locale</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>StringTokenizer</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>TimeZone</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>AbstractCvsTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>CollectionUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * A class used to parse the output of the CVS log command.
+ *
+ */</comment>
+<class>class <name>ChangeLogParser</name> <block>{
+    <comment type="line">//private static final int GET_ENTRY = 0;</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>GET_FILE</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>GET_DATE</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>GET_COMMENT</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>GET_REVISION</name> =<init> <expr>4</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>GET_PREVIOUS_REV</name> =<init> <expr>5</expr></init></decl>;</decl_stmt>
+
+<comment type="line">// FIXME formatters are not thread-safe</comment>
+
+    <comment type="javadoc">/** input format for dates read in from cvs log */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>SimpleDateFormat</name></type> <name>INPUT_DATE</name>
+        =<init> <expr>new <call><name>SimpleDateFormat</name><argument_list>(<argument><expr>"yyyy/MM/dd HH:mm:ss"</expr></argument>, <argument><expr><name><name>Locale</name>.<name>US</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * New formatter used to parse CVS date/timestamp.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>SimpleDateFormat</name></type> <name>CVS1129_INPUT_DATE</name> =<init>
+        <expr>new <call><name>SimpleDateFormat</name><argument_list>(<argument><expr>"yyyy-MM-dd HH:mm:ss Z"</expr></argument>, <argument><expr><name><name>Locale</name>.<name>US</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    static <block>{
+        <decl_stmt><decl><type><name>TimeZone</name></type> <name>utc</name> =<init> <expr><call><name><name>TimeZone</name>.<name>getTimeZone</name></name><argument_list>(<argument><expr>"UTC"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <constructor_decl><name><name>INPUT_DATE</name>.<name>setTimeZone</name></name><parameter_list>(<param><decl><type><name>utc</name></type></decl></param>)</parameter_list>;</constructor_decl>
+        <constructor_decl><name><name>CVS1129_INPUT_DATE</name>.<name>setTimeZone</name></name><parameter_list>(<param><decl><type><name>utc</name></type></decl></param>)</parameter_list>;</constructor_decl>
+    }</block>
+
+    <comment type="line">//The following is data used while processing stdout of CVS command</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>file</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>date</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>author</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>comment</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>revision</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>previousRevision</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>status</name> =<init> <expr><name>GET_FILE</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** rcs entries */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>Hashtable</name></type> <name>entries</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>boolean</name></type> <name>remote</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>String</name><index>[]</index></type> <name>moduleNames</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>int</name><index>[]</index></type> <name>moduleNameLengths</name></decl>;</decl_stmt>
+
+    <constructor><specifier>public</specifier> <name>ChangeLogParser</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr>false</expr></argument>, <argument><expr>""</expr></argument>, <argument><expr><name><name>CollectionUtils</name>.<name>EMPTY_LIST</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <constructor><specifier>public</specifier> <name>ChangeLogParser</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>remote</name></decl></param>, <param><decl><type><name>String</name></type> <name>packageName</name></decl></param>, <param><decl><type><name>List</name></type> <name>modules</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>remote</name></name> = <name>remote</name></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>ArrayList</name></type> <name>names</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>packageName</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>StringTokenizer</name></type> <name>tok</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><name>packageName</name></expr></argument>)</argument_list></call></expr></init></decl>;</init>
+                 <condition><expr><call><name><name>tok</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr/>) <block>{
+                <expr_stmt><expr><call><name><name>names</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>tok</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>Iterator</name></type> <name>iter</name> =<init> <expr><call><name><name>modules</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>iter</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr/>) <block>{
+            <decl_stmt><decl><type><name><name>AbstractCvsTask</name>.<name>Module</name></name></type> <name>m</name> =<init> <expr>(<name><name>AbstractCvsTask</name>.<name>Module</name></name>) <call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>names</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>m</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <expr_stmt><expr><name>moduleNames</name> = (<name><name>String</name><index>[]</index></name>) <call><name><name>names</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>names</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>moduleNameLengths</name> = new <name><name>int</name><index>[<expr><name><name>moduleNames</name>.<name>length</name></name></expr>]</index></name></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>moduleNames</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name><name>moduleNameLengths</name><index>[<expr><name>i</name></expr>]</index></name> = <name><name>moduleNames</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>length</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Get a list of rcs entries as an array.
+     *
+     * @return a list of rcs entries as an array
+     */</comment>
+    <function><type><specifier>public</specifier> <name>CVSEntry</name><index>[]</index></type> <name>getEntrySetAsArray</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>CVSEntry</name><index>[]</index></type> <name>array</name> =<init> <expr>new <name><name>CVSEntry</name><index>[ <expr><call><name><name>entries</name>.<name>size</name></name><argument_list>()</argument_list></call></expr> ]</index></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>entries</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <expr_stmt><expr><name><name>array</name><index>[<expr><name>i</name>++</expr>]</index></name> = (<name>CVSEntry</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>array</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Receive notification about the process writing
+     * to standard output.
+     * @param line the line to process
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>stdout</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <switch>switch<condition>(<expr><name>status</name></expr>)</condition> <block>{
+            <case>case <expr><name>GET_FILE</name></expr>:
+                <comment type="line">// make sure attributes are reset when</comment>
+                <comment type="line">// working on a 'new' file.</comment>
+                <expr_stmt><expr><call><name>reset</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>processFile</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+            </case><case>case <expr><name>GET_REVISION</name></expr>:
+                <expr_stmt><expr><call><name>processRevision</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+
+            </case><case>case <expr><name>GET_DATE</name></expr>:
+                <expr_stmt><expr><call><name>processDate</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+
+            </case><case>case <expr><name>GET_COMMENT</name></expr>:
+                <expr_stmt><expr><call><name>processComment</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+
+            </case><case>case <expr><name>GET_PREVIOUS_REV</name></expr>:
+                <expr_stmt><expr><call><name>processGetPreviousRevision</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+
+            </case><default>default:
+                <comment type="line">// Do nothing</comment>
+                <break>break;</break>
+        </default>}</block></switch>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process a line while in "GET_COMMENT" state.
+     *
+     * @param line the line
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>processComment</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>lineSeparator</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"line.separator"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>line</name>.<name>equals</name></name><argument_list>(
+                <argument><expr>"============================================================================="</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">//We have ended changelog for that particular file</comment>
+            <comment type="line">//so we can save it</comment>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>end</name>
+                =<init> <expr><call><name><name>comment</name>.<name>length</name></name><argument_list>()</argument_list></call> - <call><name><name>lineSeparator</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt> <comment type="line">//was -1</comment>
+            <expr_stmt><expr><name>comment</name> = <call><name><name>comment</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>end</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>saveEntry</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>status</name> = <name>GET_FILE</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>line</name>.<name>equals</name></name><argument_list>(<argument><expr>"----------------------------"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>end</name>
+                =<init> <expr><call><name><name>comment</name>.<name>length</name></name><argument_list>()</argument_list></call> - <call><name><name>lineSeparator</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt> <comment type="line">//was -1</comment>
+            <expr_stmt><expr><name>comment</name> = <call><name><name>comment</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>end</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>status</name> = <name>GET_PREVIOUS_REV</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>comment</name> += <name>line</name> + <name>lineSeparator</name></expr>;</expr_stmt>
+        }</block></else></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process a line while in "GET_FILE" state.
+     *
+     * @param line the line to process
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>processFile</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<name>remote</name> &amp;&amp; <call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"Working file:"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+            <expr_stmt><expr><name>file</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>14</expr></argument>, <argument><expr><call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// CheckStyle:MagicNumber ON</comment>
+            <expr_stmt><expr><name>status</name> = <name>GET_REVISION</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>remote</name> &amp;&amp; <call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"RCS file:"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// exclude the part of the RCS filename up to and</comment>
+            <comment type="line">// including the module name (and the path separator)</comment>
+            <decl_stmt><decl><type><name>int</name></type> <name>startOfFileName</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>moduleNames</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name><name>moduleNames</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>index</name> &gt;= 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>startOfFileName</name> = <name>index</name> + <name><name>moduleNameLengths</name><index>[<expr><name>i</name></expr>]</index></name> + 1</expr>;</expr_stmt>
+                    <break>break;</break>
+                }</block></then></if>
+            }</block></for>
+            <decl_stmt><decl><type><name>int</name></type> <name>endOfFileName</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr>",v"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>endOfFileName</name> == -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>file</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>startOfFileName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>file</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>startOfFileName</name></expr></argument>, <argument><expr><name>endOfFileName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <expr_stmt><expr><name>status</name> = <name>GET_REVISION</name></expr>;</expr_stmt>
+        }</block></then></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process a line while in "REVISION" state.
+     *
+     * @param line the line to process
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>processRevision</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"revision"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+            <expr_stmt><expr><name>revision</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>9</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// CheckStyle:MagicNumber ON</comment>
+            <expr_stmt><expr><name>status</name> = <name>GET_DATE</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"======"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">//There were no revisions in this changelog</comment>
+            <comment type="line">//entry so lets move onto next file</comment>
+            <expr_stmt><expr><name>status</name> = <name>GET_FILE</name></expr>;</expr_stmt>
+        }</block></then></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process a line while in "DATE" state.
+     *
+     * @param line the line to process
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>processDate</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"date:"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// The date format is using a - format since 1.12.9 so we have:</comment>
+            <comment type="line">// 1.12.9-: 'date: YYYY/mm/dd HH:mm:ss;  author: name;'</comment>
+            <comment type="line">// 1.12.9+: 'date: YYYY-mm-dd HH:mm:ss Z;  author: name'</comment>
+            <decl_stmt><decl><type><name>int</name></type> <name>endOfDateIndex</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr>';'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>date</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>"date: ".<call><name>length</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>endOfDateIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>int</name></type> <name>startOfAuthorIndex</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"author: "</expr></argument>, <argument><expr><name>endOfDateIndex</name> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>endOfAuthorIndex</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr>';'</expr></argument>, <argument><expr><name>startOfAuthorIndex</name> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>author</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>"author: ".<call><name>length</name><argument_list>()</argument_list></call> + <name>startOfAuthorIndex</name></expr></argument>, <argument><expr><name>endOfAuthorIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><name>status</name> = <name>GET_COMMENT</name></expr>;</expr_stmt>
+
+            <comment type="line">//Reset comment to empty here as we can accumulate multiple lines</comment>
+            <comment type="line">//in the processComment method</comment>
+            <expr_stmt><expr><name>comment</name> = ""</expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process a line while in "GET_PREVIOUS_REVISION" state.
+     *
+     * @param line the line to process
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>processGetPreviousRevision</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"revision "</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>(<argument><expr>"Unexpected line from CVS: "
+                + <name>line</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>previousRevision</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>"revision ".<call><name>length</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>saveEntry</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>revision</name> = <name>previousRevision</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>status</name> = <name>GET_DATE</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Utility method that saves the current entry.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>saveEntry</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>entryKey</name> =<init> <expr><name>date</name> + <name>author</name> + <name>comment</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>CVSEntry</name></type> <name>entry</name></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<call><name><name>entries</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>entryKey</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Date</name></type> <name>dateObject</name> =<init> <expr><call><name>parseDate</name><argument_list>(<argument><expr><name>date</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>entry</name> = new <call><name>CVSEntry</name><argument_list>(<argument><expr><name>dateObject</name></expr></argument>, <argument><expr><name>author</name></expr></argument>, <argument><expr><name>comment</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>entries</name>.<name>put</name></name><argument_list>(<argument><expr><name>entryKey</name></expr></argument>, <argument><expr><name>entry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>entry</name> = (<name>CVSEntry</name>) <call><name><name>entries</name>.<name>get</name></name><argument_list>(<argument><expr><name>entryKey</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <expr_stmt><expr><call><name><name>entry</name>.<name>addFile</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>revision</name></expr></argument>, <argument><expr><name>previousRevision</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parse date out from expected format.
+     *
+     * @param date the string holding date
+     * @return the date object or null if unknown date format
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Date</name></type> <name>parseDate</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>date</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <return>return <expr><call><name><name>INPUT_DATE</name>.<name>parse</name></name><argument_list>(<argument><expr><name>date</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>ParseException</name></type> <name>e</name></decl></param>) <block>{
+            <try>try <block>{
+                <return>return <expr><call><name><name>CVS1129_INPUT_DATE</name>.<name>parse</name></name><argument_list>(<argument><expr><name>date</name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block> <catch>catch (<param><decl><type><name>ParseException</name></type> <name>e2</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>(<argument><expr>"Invalid date format: " + <name>date</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Reset all internal attributes except status.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>reset</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>file</name></name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>date</name></name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>author</name></name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>comment</name></name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>revision</name></name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>previousRevision</name></name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+}</block></class>
+</unit>

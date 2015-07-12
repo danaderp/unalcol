@@ -1,0 +1,716 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\Diagnostics.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name></name>;</package>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>JAXPUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>ProxySetup</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>JavaEnvUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>launch</name>.<name>Launcher</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>XMLReader</name></name>;</import>
+
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>SAXParserFactory</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>SAXParser</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>transform</name>.<name>TransformerFactory</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>transform</name>.<name>Transformer</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FilenameFilter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>URL</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Properties</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Calendar</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>TimeZone</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Method</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>InvocationTargetException</name></name>;</import>
+
+<comment type="javadoc">/**
+ * A little diagnostic helper that output some information that may help
+ * in support. It should quickly give correct information about the
+ * jar existing in ant.home/lib and the jar versions...
+ *
+ * @since Ant 1.5
+ */</comment>
+<class><specifier>public</specifier> <specifier>final</specifier> class <name>Diagnostics</name> <block>{
+
+    <comment type="javadoc">/** the version number for java 1.5 returned from JavaEnvUtils */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>JAVA_1_5_NUMBER</name> =<init> <expr>15</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * value for which a difference between clock and temp file time triggers
+     * a warning.
+     * {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BIG_DRIFT_LIMIT</name> =<init> <expr>10000</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * How big a test file to write.
+     * {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>TEST_FILE_SIZE</name> =<init> <expr>32</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>KILOBYTE</name> =<init> <expr>1024</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>SECONDS_PER_MILLISECOND</name> =<init> <expr>1000</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>SECONDS_PER_MINUTE</name> =<init> <expr>60</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MINUTES_PER_HOUR</name> =<init> <expr>60</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The error text when a security manager blocks access to a property.
+     * {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_PROPERTY_ACCESS_BLOCKED</name>
+            =<init> <expr>"Access to this property blocked by a security manager"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** utility class */</comment>
+    <constructor><specifier>private</specifier> <name>Diagnostics</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">// hidden constructor</comment>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Doesn't do anything.
+     * @deprecated Obsolete since Ant 1.8.2
+     * @return &lt;tt&gt;true&lt;/tt&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>isOptionalAvailable</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Doesn't do anything.
+     * @deprecated Obsolete since Ant 1.8.2
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>validateVersion</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * return the list of jar files existing in ANT_HOME/lib
+     * and that must have been picked up by Ant script.
+     * @return the list of jar files existing in ant.home/lib or
+     * &lt;tt&gt;null&lt;/tt&gt; if an error occurs.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>File</name><index>[]</index></type> <name>listLibraries</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>home</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_HOME</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>home</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>File</name></type> <name>libDir</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>home</name></expr></argument>, <argument><expr>"lib"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name>listJarFiles</name><argument_list>(<argument><expr><name>libDir</name></expr></argument>)</argument_list></call></expr>;</return>
+
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get a list of all JAR files in a directory
+     * @param libDir directory
+     * @return array of files (or null for no such directory)
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>File</name><index>[]</index></type> <name>listJarFiles</name><parameter_list>(<param><decl><type><name>File</name></type> <name>libDir</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>FilenameFilter</name></type> <name>filter</name> =<init> <expr>new <class><super><name>FilenameFilter</name></super><argument_list>()</argument_list> <block>{
+            <function><type><specifier>public</specifier> <name>boolean</name></type> <name>accept</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dir</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+                <return>return <expr><call><name><name>name</name>.<name>endsWith</name></name><argument_list>(<argument><expr>".jar"</expr></argument>)</argument_list></call></expr>;</return>
+            }</block></function>
+        }</block></class></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>files</name>  =<init> <expr><call><name><name>libDir</name>.<name>listFiles</name></name><argument_list>(<argument><expr><name>filter</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>files</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * main entry point for command line
+     * @param args command line arguments.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>main</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>args</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>doReport</name><argument_list>(<argument><expr><name><name>System</name>.<name>out</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Helper method to get the implementation version.
+     * @param clazz the class to get the information from.
+     * @return null if there is no package or implementation version.
+     * '?.?' for JDK 1.0 or 1.1.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>getImplementationVersion</name><parameter_list>(<param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>clazz</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>clazz</name>.<name>getPackage</name></name><argument_list>()</argument_list></call>.<call><name>getImplementationVersion</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Helper method to get the location.
+     * @param clazz the class to get the information from.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>URL</name></type> <name>getClassLocation</name><parameter_list>(<param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>clazz</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>clazz</name>.<name>getProtectionDomain</name></name><argument_list>()</argument_list></call>.<call><name>getCodeSource</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name><name>clazz</name>.<name>getProtectionDomain</name></name><argument_list>()</argument_list></call>.<call><name>getCodeSource</name><argument_list>()</argument_list></call>.<call><name>getLocation</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * what parser are we using.
+     * @return the classname of the parser
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>getXMLParserName</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>SAXParser</name></type> <name>saxParser</name> =<init> <expr><call><name>getSAXParser</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>saxParser</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>"Could not create an XML Parser"</expr>;</return>
+        }</block></then></if>
+        <comment type="line">// check to what is in the classname</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>saxParserName</name> =<init> <expr><call><name><name>saxParser</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>saxParserName</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * what parser are we using.
+     * @return the classname of the parser
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>getXSLTProcessorName</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Transformer</name></type> <name>transformer</name> =<init> <expr><call><name>getXSLTProcessor</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>transformer</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>"Could not create an XSLT Processor"</expr>;</return>
+        }</block></then></if>
+        <comment type="line">// check to what is in the classname</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>processorName</name> =<init> <expr><call><name><name>transformer</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>processorName</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a JAXP SAXParser
+     * @return parser or null for trouble
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>SAXParser</name></type> <name>getSAXParser</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>SAXParserFactory</name></type> <name>saxParserFactory</name> =<init> <expr><call><name><name>SAXParserFactory</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>saxParserFactory</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>SAXParser</name></type> <name>saxParser</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>saxParser</name> = <call><name><name>saxParserFactory</name>.<name>newSAXParser</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// ignore</comment>
+            <expr_stmt><expr><call><name>ignoreThrowable</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+        <return>return <expr><name>saxParser</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a JAXP XSLT Transformer
+     * @return parser or null for trouble
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>Transformer</name></type> <name>getXSLTProcessor</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>TransformerFactory</name></type> <name>transformerFactory</name> =<init> <expr><call><name><name>TransformerFactory</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>transformerFactory</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Transformer</name></type> <name>transformer</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>transformer</name> = <call><name><name>transformerFactory</name>.<name>newTransformer</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// ignore</comment>
+            <expr_stmt><expr><call><name>ignoreThrowable</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+        <return>return <expr><name>transformer</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get the location of the parser
+     * @return path or null for trouble in tracking it down
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>getXMLParserLocation</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>SAXParser</name></type> <name>saxParser</name> =<init> <expr><call><name>getSAXParser</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>saxParser</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>URL</name></type> <name>location</name> =<init> <expr><call><name>getClassLocation</name><argument_list>(<argument><expr><call><name><name>saxParser</name>.<name>getClass</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>location</name> != <name>null</name> ? <call><name><name>location</name>.<name>toString</name></name><argument_list>()</argument_list></call> : <name>null</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>getNamespaceParserName</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>XMLReader</name></type> <name>reader</name> =<init> <expr><call><name><name>JAXPUtils</name>.<name>getNamespaceXMLReader</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr><call><name><name>reader</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//ignore</comment>
+            <expr_stmt><expr><call><name>ignoreThrowable</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></catch></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>getNamespaceParserLocation</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>XMLReader</name></type> <name>reader</name> =<init> <expr><call><name><name>JAXPUtils</name>.<name>getNamespaceXMLReader</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>URL</name></type> <name>location</name> =<init> <expr><call><name>getClassLocation</name><argument_list>(<argument><expr><call><name><name>reader</name>.<name>getClass</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr><name>location</name> != <name>null</name> ? <call><name><name>location</name>.<name>toString</name></name><argument_list>()</argument_list></call> : <name>null</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//ignore</comment>
+            <expr_stmt><expr><call><name>ignoreThrowable</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get the location of the parser
+     * @return path or null for trouble in tracking it down
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>getXSLTProcessorLocation</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Transformer</name></type> <name>transformer</name> =<init> <expr><call><name>getXSLTProcessor</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>transformer</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>URL</name></type> <name>location</name> =<init> <expr><call><name>getClassLocation</name><argument_list>(<argument><expr><call><name><name>transformer</name>.<name>getClass</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>location</name> != <name>null</name> ? <call><name><name>location</name>.<name>toString</name></name><argument_list>()</argument_list></call> : <name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * ignore exceptions. This is to allow future
+     * implementations to log at a verbose level
+     * @param thrown
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>ignoreThrowable</name><parameter_list>(<param><decl><type><name>Throwable</name></type> <name>thrown</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Print a report to the given stream.
+     * @param out the stream to print the report to.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReport</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>doReport</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Print a report to the given stream.
+     * @param out the stream to print the report to.
+     * @param logLevel denotes the level of detail requested as one of
+     * Project's MSG_* constants.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReport</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>, <param><decl><type><name>int</name></type> <name>logLevel</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"------- Ant diagnostics report -------"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><call><name><name>Main</name>.<name>getAntVersion</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"Implementation Version"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"core tasks     : " + <call><name>getImplementationVersion</name><argument_list>(<argument><expr><name><name>Main</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call>
+                    + " in " + <call><name>getClassLocation</name><argument_list>(<argument><expr><name><name>Main</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"ANT PROPERTIES"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>doReportAntProperties</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"ANT_HOME/lib jar listing"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>doReportAntHomeLibraries</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"USER_HOME/.ant/lib jar listing"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>doReportUserHomeLibraries</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"Tasks availability"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>doReportTasksAvailability</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"org.apache.env.Which diagnostics"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>doReportWhich</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"XML Parser information"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>doReportParserInfo</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"XSLT Processor information"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>doReportXSLTProcessorInfo</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"System properties"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>doReportSystemProperties</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"Temp dir"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>doReportTempDir</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"Locale information"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>doReportLocale</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>header</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"Proxy information"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>doReportProxy</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>header</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>, <param><decl><type><name>String</name></type> <name>section</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"-------------------------------------------"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>print</name></name><argument_list>(<argument><expr>" "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name>section</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"-------------------------------------------"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Report a listing of system properties existing in the current vm.
+     * @param out the stream to print the properties to.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReportSystemProperties</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Properties</name></type> <name>sysprops</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>sysprops</name> = <call><name><name>System</name>.<name>getProperties</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>SecurityException</name></type>  <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>ignoreThrowable</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Access to System.getProperties() blocked " + "by a security manager"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></catch></try>
+        <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>keys</name> =<init> <expr><call><name><name>sysprops</name>.<name>propertyNames</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init>
+            <condition><expr><call><name><name>keys</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr>(<name>String</name>) <call><name><name>keys</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name>getProperty</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name>key</name> + " : " + <name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the value of a system property. If a security manager
+     * blocks access to a property it fills the result in with an error
+     * @param key
+     * @return the system property's value or error text
+     * @see #ERROR_PROPERTY_ACCESS_BLOCKED
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>getProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>key</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>value</name></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>value</name> = <call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>SecurityException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><name>value</name> = <name>ERROR_PROPERTY_ACCESS_BLOCKED</name></expr>;</expr_stmt>
+        }</block></catch></try>
+        <return>return <expr><name>value</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Report the content of ANT_HOME/lib directory
+     * @param out the stream to print the content to
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReportAntProperties</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Project</name></type> <name>p</name> =<init> <expr>new <call><name>Project</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>p</name>.<name>initProperties</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_VERSION</name></name> + ": " + <call><name><name>p</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_VERSION</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_JAVA_VERSION</name></name> + ": "
+                + <call><name><name>p</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_JAVA_VERSION</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Is this the Apache Harmony VM? "
+                    + (<call><name><name>JavaEnvUtils</name>.<name>isApacheHarmony</name></name><argument_list>()</argument_list></call> ? "yes" : "no")</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Is this the Kaffe VM? "
+                    + (<call><name><name>JavaEnvUtils</name>.<name>isKaffe</name></name><argument_list>()</argument_list></call> ? "yes" : "no")</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Is this gij/gcj? "
+                    + (<call><name><name>JavaEnvUtils</name>.<name>isGij</name></name><argument_list>()</argument_list></call> ? "yes" : "no")</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_LIB</name></name> + ": " + <call><name><name>p</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_LIB</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_HOME</name></name> + ": " + <call><name><name>p</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_HOME</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Report the content of ANT_HOME/lib directory
+     * @param out the stream to print the content to
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReportAntHomeLibraries</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_HOME</name></name> + ": " + <call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>ANT_HOME</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>libs</name> =<init> <expr><call><name>listLibraries</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>printLibraries</name><argument_list>(<argument><expr><name>libs</name></expr></argument>, <argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Report the content of ~/.ant/lib directory
+     *
+     * @param out the stream to print the content to
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReportUserHomeLibraries</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>home</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name><name>Launcher</name>.<name>USER_HOMEDIR</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"user.home: " + <name>home</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>libDir</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>home</name></expr></argument>, <argument><expr><name><name>Launcher</name>.<name>USER_LIBDIR</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>libs</name> =<init> <expr><call><name>listJarFiles</name><argument_list>(<argument><expr><name>libDir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>printLibraries</name><argument_list>(<argument><expr><name>libs</name></expr></argument>, <argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * list the libraries
+     * @param libs array of libraries (can be null)
+     * @param out output stream
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>printLibraries</name><parameter_list>(<param><decl><type><name><name>File</name><index>[]</index></name></type> <name>libs</name></decl></param>, <param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>libs</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"No such directory."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>libs</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name><name>libs</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getName</name><argument_list>()</argument_list></call> + " (" + <name><name>libs</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>length</name><argument_list>()</argument_list></call> + " bytes)"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Call org.apache.env.Which if available
+     * @param out the stream to print the content to.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReportWhich</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Throwable</name></type> <name>error</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>which</name> =<init> <expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr>"org.apache.env.Which"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Method</name></type> <name>method</name> =<init> <expr><call><name><name>which</name>.<name>getMethod</name></name><argument_list>(
+                <argument><expr>"main"</expr></argument>, <argument><expr>new <name><name>Class</name><index>[]</index></name> <block>{<expr><name><name>String</name><index>[]</index></name>.class</expr>}</block></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>method</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>null</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name><block>{<expr>new <name><name>String</name><index>[]</index></name><block>{}</block></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Not available."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Download it at http://xml.apache.org/commons/"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>InvocationTargetException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><name>error</name> = <call><name><name>e</name>.<name>getTargetException</name></name><argument_list>()</argument_list></call> == <name>null</name> ? <name>e</name> : <call><name><name>e</name>.<name>getTargetException</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>Throwable</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><name>error</name> = <name>e</name></expr>;</expr_stmt>
+        }</block></catch></try>
+        <comment type="line">// report error if something weird happens...this is diagnostic.</comment>
+        <if>if <condition>(<expr><name>error</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Error while running org.apache.env.Which"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>error</name>.<name>printStackTrace</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a report about non-available tasks that are defined in the
+     * mapping but could not be found via lookup. It might generally happen
+     * because Ant requires multiple libraries to compile and one of them
+     * was missing when compiling Ant.
+     * @param out the stream to print the tasks report to
+     * &lt;tt&gt;null&lt;/tt&gt; for a missing stream (ie mapping).
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReportTasksAvailability</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>InputStream</name></type> <name>is</name> =<init> <expr><name><name>Main</name>.<name><name/></name></name>class.<call><name>getResourceAsStream</name><argument_list>(
+                <argument><expr><name><name>MagicNames</name>.<name>TASKDEF_PROPERTIES_RESOURCE</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>is</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"None available"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>Properties</name></type> <name>props</name> =<init> <expr>new <call><name>Properties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>props</name>.<name>load</name></name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>keys</name> =<init> <expr><call><name><name>props</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>keys</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr>(<name>String</name>) <call><name><name>keys</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>classname</name> =<init> <expr><call><name><name>props</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>props</name>.<name>remove</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>e</name></decl></param>) <block>{
+                        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name>key</name> + " : Not Available "
+                                + "(the implementation class is not present)"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></catch> <catch>catch (<param><decl><type><name>NoClassDefFoundError</name></type> <name>e</name></decl></param>) <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>pkg</name> =<init> <expr><call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr>'.'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name>key</name> + " : Missing dependency " + <name>pkg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></catch> <catch>catch (<param><decl><type><name>LinkageError</name></type> <name>e</name></decl></param>) <block>{
+                        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name>key</name> + " : Initialization error"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></catch></try>
+                }</block></for>
+                <if>if <condition>(<expr><call><name><name>props</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"All defined tasks are available"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"A task being missing/unavailable should only "
+                            + "matter if you are trying to use it"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * tell the user about the XML parser
+     * @param out
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReportParserInfo</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>parserName</name> =<init> <expr><call><name>getXMLParserName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>parserLocation</name> =<init> <expr><call><name>getXMLParserLocation</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>printParserInfo</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"XML Parser"</expr></argument>, <argument><expr><name>parserName</name></expr></argument>, <argument><expr><name>parserLocation</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printParserInfo</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"Namespace-aware parser"</expr></argument>, <argument><expr><call><name>getNamespaceParserName</name><argument_list>()</argument_list></call></expr></argument>,
+                <argument><expr><call><name>getNamespaceParserLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * tell the user about the XSLT processor
+     * @param out
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReportXSLTProcessorInfo</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>processorName</name> =<init> <expr><call><name>getXSLTProcessorName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>processorLocation</name> =<init> <expr><call><name>getXSLTProcessorLocation</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>printParserInfo</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr>"XSLT Processor"</expr></argument>, <argument><expr><name>processorName</name></expr></argument>, <argument><expr><name>processorLocation</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>printParserInfo</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>, <param><decl><type><name>String</name></type> <name>parserType</name></decl></param>, <param><decl><type><name>String</name></type> <name>parserName</name></decl></param>,
+            <param><decl><type><name>String</name></type> <name>parserLocation</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>parserName</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parserName</name> = "unknown"</expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>parserLocation</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>parserLocation</name> = "unknown"</expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name>parserType</name> + " : " + <name>parserName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name>parserType</name> + " Location: " + <name>parserLocation</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * try and create a temp file in our temp dir; this
+     * checks that it has space and access.
+     * We also do some clock reporting.
+     * @param out
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReportTempDir</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>tempdir</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.io.tmpdir"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>tempdir</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Warning: java.io.tmpdir is undefined"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Temp dir is " + <name>tempdir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>tempDirectory</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>tempdir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<call><name><name>tempDirectory</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Warning, java.io.tmpdir directory does not exist: " + <name>tempdir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></then></if>
+        <comment type="line">//create the file</comment>
+        <decl_stmt><decl><type><name>long</name></type> <name>now</name> =<init> <expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>tempFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>FileOutputStream</name></type> <name>fileout</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>FileInputStream</name></type> <name>filein</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>tempFile</name> = <call><name><name>File</name>.<name>createTempFile</name></name><argument_list>(<argument><expr>"diag"</expr></argument>, <argument><expr>"txt"</expr></argument>, <argument><expr><name>tempDirectory</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//do some writing to it</comment>
+            <expr_stmt><expr><name>fileout</name> = new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>tempFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>buffer</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>KILOBYTE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>TEST_FILE_SIZE</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>fileout</name>.<name>write</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <expr_stmt><expr><call><name><name>fileout</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>fileout</name> = <name>null</name></expr>;</expr_stmt>
+
+            <comment type="line">// read to make sure the file has been written completely</comment>
+            <expr_stmt><expr><call><name><name>Thread</name>.<name>sleep</name></name><argument_list>(<argument><expr>1000</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>filein</name> = new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>tempFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>total</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>read</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr>(<name>read</name> = <call><name><name>filein</name>.<name>read</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>KILOBYTE</name></expr></argument>)</argument_list></call>) &gt; 0</expr>)</condition> <block>{
+                <expr_stmt><expr><name>total</name> += <name>read</name></expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><call><name><name>filein</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>filein</name> = <name>null</name></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>long</name></type> <name>filetime</name> =<init> <expr><call><name><name>tempFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>long</name></type> <name>drift</name> =<init> <expr><name>filetime</name> - <name>now</name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>tempFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><call><name><name>out</name>.<name>print</name></name><argument_list>(<argument><expr>"Temp dir is writeable"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>total</name> != <name>TEST_FILE_SIZE</name> * <name>KILOBYTE</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>", but seems to be full.  Wrote "
+                            + (<name>TEST_FILE_SIZE</name> * <name>KILOBYTE</name>)
+                            + "but could only read " + <name>total</name> + " bytes."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Temp dir alignment with system clock is " + <name>drift</name> + " ms"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>Math</name>.<name>abs</name></name><argument_list>(<argument><expr><name>drift</name></expr></argument>)</argument_list></call> &gt; <name>BIG_DRIFT_LIMIT</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Warning: big clock drift -maybe a network filesystem"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>ignoreThrowable</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Failed to create a temporary file in the temp dir " + <name>tempdir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"File  " + <name>tempFile</name> + " could not be created/written to"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>ignoreThrowable</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Failed to check whether tempdir is writable"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>fileout</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>filein</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>tempFile</name> != <name>null</name> &amp;&amp; <call><name><name>tempFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>tempFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Report locale information
+     * @param out stream to print to
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReportLocale</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">//calendar stuff.</comment>
+        <decl_stmt><decl><type><name>Calendar</name></type> <name>cal</name> =<init> <expr><call><name><name>Calendar</name>.<name>getInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>TimeZone</name></type> <name>tz</name> =<init> <expr><call><name><name>cal</name>.<name>getTimeZone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Timezone "
+                + <call><name><name>tz</name>.<name>getDisplayName</name></name><argument_list>()</argument_list></call>
+                + " offset="
+                + <call><name><name>tz</name>.<name>getOffset</name></name><argument_list>(<argument><expr><call><name><name>cal</name>.<name>get</name></name><argument_list>(<argument><expr><name><name>Calendar</name>.<name>ERA</name></name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><call><name><name>cal</name>.<name>get</name></name><argument_list>(<argument><expr><name><name>Calendar</name>.<name>YEAR</name></name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><call><name><name>cal</name>
+                        .<name>get</name></name><argument_list>(<argument><expr><name><name>Calendar</name>.<name>MONTH</name></name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><call><name><name>cal</name>.<name>get</name></name><argument_list>(<argument><expr><name><name>Calendar</name>.<name>DAY_OF_MONTH</name></name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><call><name><name>cal</name>
+                        .<name>get</name></name><argument_list>(<argument><expr><name><name>Calendar</name>.<name>DAY_OF_WEEK</name></name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>((<call><name><name>cal</name>.<name>get</name></name><argument_list>(<argument><expr><name><name>Calendar</name>.<name>HOUR_OF_DAY</name></name></expr></argument>)</argument_list></call>
+                        * <name>MINUTES_PER_HOUR</name> + <call><name><name>cal</name>.<name>get</name></name><argument_list>(<argument><expr><name><name>Calendar</name>.<name>MINUTE</name></name></expr></argument>)</argument_list></call>)
+                        * <name>SECONDS_PER_MINUTE</name> + <call><name><name>cal</name>.<name>get</name></name><argument_list>(<argument><expr><name><name>Calendar</name>.<name>SECOND</name></name></expr></argument>)</argument_list></call>)
+                        * <name>SECONDS_PER_MILLISECOND</name> + <call><name><name>cal</name>.<name>get</name></name><argument_list>(<argument><expr><name><name>Calendar</name>.<name>MILLISECOND</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * print a property name="value" pair if the property is set;
+     * print nothing if it is null
+     * @param out stream to print on
+     * @param key property name
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>printProperty</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>, <param><decl><type><name>String</name></type> <name>key</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name>getProperty</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>value</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>out</name>.<name>print</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>print</name></name><argument_list>(<argument><expr>" = "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>print</name></name><argument_list>(<argument><expr>'"'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>print</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>'"'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Report proxy information
+     *
+     * @param out stream to print to
+     * @since Ant1.7
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>doReportProxy</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>HTTP_PROXY_HOST</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>HTTP_PROXY_PORT</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>HTTP_PROXY_USERNAME</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>HTTP_PROXY_PASSWORD</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>HTTP_NON_PROXY_HOSTS</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>HTTPS_PROXY_HOST</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>HTTPS_PROXY_PORT</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>HTTPS_NON_PROXY_HOSTS</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>FTP_PROXY_HOST</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>FTP_PROXY_PORT</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>FTP_NON_PROXY_HOSTS</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>SOCKS_PROXY_HOST</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>SOCKS_PROXY_PORT</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>SOCKS_PROXY_USERNAME</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>SOCKS_PROXY_PASSWORD</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name><name>JavaEnvUtils</name>.<name>getJavaVersionNumber</name></name><argument_list>()</argument_list></call> &lt; <name>JAVA_1_5_NUMBER</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>printProperty</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ProxySetup</name>.<name>USE_SYSTEM_PROXIES</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>proxyDiagClassname</name> =<init> <expr>"org.apache.tools.ant.util.java15.ProxyDiagnostics"</expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>proxyDiagClass</name> =<init> <expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>proxyDiagClassname</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Object</name></type> <name>instance</name> =<init> <expr><call><name><name>proxyDiagClass</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Java1.5+ proxy settings:"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr><call><name><name>instance</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//not included, do nothing</comment>
+        }</block></catch> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//not included, do nothing</comment>
+        }</block></catch> <catch>catch (<param><decl><type><name>InstantiationException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//not included, do nothing</comment>
+        }</block></catch> <catch>catch (<param><decl><type><name>NoClassDefFoundError</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// not included, to nothing</comment>
+        }</block></catch></try>
+    }</block></function>
+
+}</block></class>
+</unit>

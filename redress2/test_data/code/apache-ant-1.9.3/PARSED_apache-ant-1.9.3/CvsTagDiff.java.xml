@@ -1,0 +1,577 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\cvslib\CvsTagDiff.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>cvslib</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStreamWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>UnsupportedEncodingException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>StringTokenizer</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>AbstractCvsTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>DOMElementWriter</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>DOMUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>CollectionUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Document</name></name>;</import>
+<import>import <name><name>org</name>.<name>w3c</name>.<name>dom</name>.<name>Element</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Examines the output of cvs rdiff between two tags.
+ *
+ * It produces an XML output representing the list of changes.
+ * &lt;PRE&gt;
+ * &amp;lt;!-- Root element --&amp;gt;
+ * &amp;lt;!ELEMENT tagdiff ( entry+ ) &amp;gt;
+ * &amp;lt;!-- Start tag of the report --&amp;gt;
+ * &amp;lt;!ATTLIST tagdiff startTag NMTOKEN #IMPLIED &amp;gt;
+ * &amp;lt;!-- End tag of the report --&amp;gt;
+ * &amp;lt;!ATTLIST tagdiff endTag NMTOKEN #IMPLIED &amp;gt;
+ * &amp;lt;!-- Start date of the report --&amp;gt;
+ * &amp;lt;!ATTLIST tagdiff startDate NMTOKEN #IMPLIED &amp;gt;
+ * &amp;lt;!-- End date of the report --&amp;gt;
+ * &amp;lt;!ATTLIST tagdiff endDate NMTOKEN #IMPLIED &amp;gt;
+ *
+ * &amp;lt;!-- CVS tag entry --&amp;gt;
+ * &amp;lt;!ELEMENT entry ( file ) &amp;gt;
+ * &amp;lt;!-- File added, changed or removed --&amp;gt;
+ * &amp;lt;!ELEMENT file ( name, revision?, prevrevision? ) &amp;gt;
+ * &amp;lt;!-- Name of the file --&amp;gt;
+ * &amp;lt;!ELEMENT name ( #PCDATA ) &amp;gt;
+ * &amp;lt;!-- Revision number --&amp;gt;
+ * &amp;lt;!ELEMENT revision ( #PCDATA ) &amp;gt;
+ * &amp;lt;!-- Previous revision number --&amp;gt;
+ * &amp;lt;!ELEMENT prevrevision ( #PCDATA ) &amp;gt;
+ * &lt;/PRE&gt;
+ *
+ * @since Ant 1.5
+ * @ant.task name="cvstagdiff"
+ */</comment>
+<class><specifier>public</specifier> class <name>CvsTagDiff</name> <super><extends>extends <name>AbstractCvsTask</name></extends></super> <block>{
+
+    <comment type="javadoc">/**
+     * Used to create the temp file for cvs log
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** stateless helper for writing the XML document */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>DOMElementWriter</name></type> <name>DOM_WRITER</name> =<init> <expr>new <call><name>DOMElementWriter</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Token to identify the word file in the rdiff log
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>FILE_STRING</name> =<init> <expr>"File "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Length of token to identify the word file in the rdiff log
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>FILE_STRING_LENGTH</name> =<init> <expr><call><name><name>FILE_STRING</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Token to identify the word file in the rdiff log
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>TO_STRING</name> =<init> <expr>" to "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Token to identify a new file in the rdiff log
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>FILE_IS_NEW</name> =<init> <expr>" is new;"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Token to identify the revision
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>REVISION</name> =<init> <expr>"revision "</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Token to identify a modified file in the rdiff log
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>FILE_HAS_CHANGED</name> =<init> <expr>" changed from revision "</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Token to identify a removed file in the rdiff log
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>FILE_WAS_REMOVED</name> =<init> <expr>" is removed"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The cvs package/module to analyse
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>mypackage</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The earliest tag from which diffs are to be included in the report.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>mystartTag</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The latest tag from which diffs are to be included in the report.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>myendTag</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The earliest date from which diffs are to be included in the report.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>mystartDate</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The latest date from which diffs are to be included in the report.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>myendDate</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The file in which to write the diff report.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>mydestfile</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Used to skip over removed files 
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>ignoreRemoved</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * temporary list of package names.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>List</name></type> <name>packageNames</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * temporary list of "File:" + package name + "/" for all packages.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>packageNamePrefixes</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * temporary list of length values for prefixes.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name><index>[]</index></type> <name>packageNamePrefixLengths</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The package/module to analyze.
+     * @param p the name of the package to analyse
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPackage</name><parameter_list>(<param><decl><type><name>String</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>mypackage</name> = <name>p</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the start tag.
+     *
+     * @param s the start tag.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setStartTag</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>mystartTag</name> = <name>s</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the start date.
+     *
+     * @param s the start date.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setStartDate</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>mystartDate</name> = <name>s</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the end tag.
+     *
+     * @param s the end tag.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEndTag</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>myendTag</name> = <name>s</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the end date.
+     *
+     * @param s the end date.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEndDate</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>myendDate</name> = <name>s</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the output file for the diff.
+     *
+     * @param f the output file for the diff.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>mydestfile</name> = <name>f</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the ignore removed indicator.
+     *
+     * @param b the ignore removed indicator.
+     *
+     * @since Ant 1.8.0
+     */</comment> 
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIgnoreRemoved</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>ignoreRemoved</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Execute task.
+     *
+     * @exception BuildException if an error occurs
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="line">// validate the input parameters</comment>
+        <expr_stmt><expr><call><name>validate</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// build the rdiff command</comment>
+        <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"rdiff"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-s"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>mystartTag</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-r"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr><name>mystartTag</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-D"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr><name>mystartDate</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <if>if <condition>(<expr><name>myendTag</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-r"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr><name>myendTag</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr>"-D"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr><name>myendDate</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <comment type="line">// force command not to be null</comment>
+        <expr_stmt><expr><call><name>setCommand</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>tmpFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><call><name>handlePackageNames</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><name>tmpFile</name> = <call><name><name>FILE_UTILS</name>.<name>createTempFile</name></name><argument_list>(<argument><expr>"cvstagdiff"</expr></argument>, <argument><expr>".log"</expr></argument>, <argument><expr><name>null</name></expr></argument>,
+                                                <argument><expr>true</expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setOutput</name><argument_list>(<argument><expr><name>tmpFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// run the cvs command</comment>
+            <expr_stmt><expr><call><name><name>super</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// parse the rdiff</comment>
+            <decl_stmt><decl><type><name>CvsTagEntry</name><index>[]</index></type> <name>entries</name> =<init> <expr><call><name>parseRDiff</name><argument_list>(<argument><expr><name>tmpFile</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// write the tag diff</comment>
+            <expr_stmt><expr><call><name>writeTagDiff</name><argument_list>(<argument><expr><name>entries</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><name>packageNamePrefixes</name> = <name>null</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>packageNamePrefixLengths</name> = <name>null</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>packageNames</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>tmpFile</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>tmpFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parse the tmpFile and return and array of CvsTagEntry to be
+     * written in the output.
+     *
+     * @param tmpFile the File containing the output of the cvs rdiff command
+     * @return the entries in the output
+     * @exception BuildException if an error occurs
+     */</comment>
+    <function><type><specifier>private</specifier> <name>CvsTagEntry</name><index>[]</index></type> <name>parseRDiff</name><parameter_list>(<param><decl><type><name>File</name></type> <name>tmpFile</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="line">// parse the output of the command</comment>
+        <decl_stmt><decl><type><name>BufferedReader</name></type> <name>reader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <try>try <block>{
+            <expr_stmt><expr><name>reader</name> = new <call><name>BufferedReader</name><argument_list>(<argument><expr>new <call><name>FileReader</name><argument_list>(<argument><expr><name>tmpFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// entries are of the form:</comment>
+            <comment type="line">//CVS 1.11</comment>
+            <comment type="line">// File module/filename is new; current revision 1.1</comment>
+            <comment type="line">//CVS 1.11.9</comment>
+            <comment type="line">// File module/filename is new; cvstag_2003_11_03_2  revision 1.1</comment>
+            <comment type="line">// or</comment>
+            <comment type="line">// File module/filename changed from revision 1.4 to 1.6</comment>
+            <comment type="line">// or</comment>
+            <comment type="line">// File module/filename is removed; not included in</comment>
+            <comment type="line">// release tag SKINLF_12</comment>
+            <comment type="line">//CVS 1.11.9</comment>
+            <comment type="line">// File testantoine/antoine.bat is removed; TESTANTOINE_1 revision 1.1.1.1</comment>
+            <comment type="line">//</comment>
+            <comment type="line">// get rid of 'File module/"</comment>
+            <decl_stmt><decl><type><name>Vector</name></type> <name>entries</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><call><name><name>reader</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <while>while <condition>(<expr><name>null</name> != <name>line</name></expr>)</condition> <block>{
+                <expr_stmt><expr><name>line</name> = <call><name>removePackageName</name><argument_list>(<argument><expr><name>line</name></expr></argument>, <argument><expr><name>packageNamePrefixes</name></expr></argument>,
+                                         <argument><expr><name>packageNamePrefixLengths</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>line</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <comment type="line">// use || in a perl like fashion</comment>
+                    <decl_stmt><decl><type><name>boolean</name></type> <name>processed</name>
+                        =<init>  <expr><call><name>doFileIsNew</name><argument_list>(<argument><expr><name>entries</name></expr></argument>, <argument><expr><name>line</name></expr></argument>)</argument_list></call>
+                        || <call><name>doFileHasChanged</name><argument_list>(<argument><expr><name>entries</name></expr></argument>, <argument><expr><name>line</name></expr></argument>)</argument_list></call>
+                        || <call><name>doFileWasRemoved</name><argument_list>(<argument><expr><name>entries</name></expr></argument>, <argument><expr><name>line</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><name>line</name> = <call><name><name>reader</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+
+            <decl_stmt><decl><type><name>CvsTagEntry</name><index>[]</index></type> <name>array</name> =<init> <expr>new <name><name>CvsTagEntry</name><index>[<expr><call><name><name>entries</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>entries</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>array</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <return>return <expr><name>array</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Error in parsing"</expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <if>if <condition>(<expr><name>reader</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>reader</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>doFileIsNew</name><parameter_list>(<param><decl><type><name>Vector</name></type> <name>entries</name></decl></param>, <param><decl><type><name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>FILE_IS_NEW</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>index</name> == -1</expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <comment type="line">// it is a new file</comment>
+        <comment type="line">// set the revision but not the prevrevision</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>filename</name> =<init> <expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>index</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>rev</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>indexrev</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>REVISION</name></expr></argument>, <argument><expr><name>index</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>indexrev</name> != -1</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>rev</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>indexrev</name> + <call><name><name>REVISION</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>CvsTagEntry</name></type> <name>entry</name> =<init> <expr>new <call><name>CvsTagEntry</name><argument_list>(<argument><expr><name>filename</name></expr></argument>, <argument><expr><name>rev</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>entries</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>entry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>doFileHasChanged</name><parameter_list>(<param><decl><type><name>Vector</name></type> <name>entries</name></decl></param>, <param><decl><type><name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>FILE_HAS_CHANGED</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>index</name> == -1</expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <comment type="line">// it is a modified file</comment>
+        <comment type="line">// set the revision and the prevrevision</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>filename</name> =<init> <expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>index</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>revSeparator</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr>" to "</expr></argument>, <argument><expr><name>index</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>prevRevision</name> =<init>
+            <expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>index</name> + <call><name><name>FILE_HAS_CHANGED</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>,
+                           <argument><expr><name>revSeparator</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>revision</name> =<init> <expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>revSeparator</name> + <call><name><name>TO_STRING</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>CvsTagEntry</name></type> <name>entry</name> =<init> <expr>new <call><name>CvsTagEntry</name><argument_list>(<argument><expr><name>filename</name></expr></argument>,
+                                            <argument><expr><name>revision</name></expr></argument>,
+                                            <argument><expr><name>prevRevision</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>entries</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>entry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>doFileWasRemoved</name><parameter_list>(<param><decl><type><name>Vector</name></type> <name>entries</name></decl></param>, <param><decl><type><name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>ignoreRemoved</name></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>FILE_WAS_REMOVED</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>index</name> == -1</expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <comment type="line">// it is a removed file</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>filename</name> =<init> <expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>index</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>rev</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>indexrev</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>REVISION</name></expr></argument>, <argument><expr><name>index</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>indexrev</name> != -1</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>rev</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>indexrev</name> + <call><name><name>REVISION</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>CvsTagEntry</name></type> <name>entry</name> =<init> <expr>new <call><name>CvsTagEntry</name><argument_list>(<argument><expr><name>filename</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>rev</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>entries</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>entry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Write the rdiff log.
+     *
+     * @param entries a &lt;code&gt;CvsTagEntry[]&lt;/code&gt; value
+     * @exception BuildException if an error occurs
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>writeTagDiff</name><parameter_list>(<param><decl><type><name><name>CvsTagEntry</name><index>[]</index></name></type> <name>entries</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>FileOutputStream</name></type> <name>output</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>output</name> = new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>mydestfile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>PrintWriter</name></type> <name>writer</name> =<init> <expr>new <call><name>PrintWriter</name><argument_list>(
+                                     <argument><expr>new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr><name>output</name></expr></argument>, <argument><expr>"UTF-8"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>writer</name>.<name>println</name></name><argument_list>(<argument><expr>"&lt;?xml version=\"1.0\" encoding=\"UTF-8\"?&gt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>Document</name></type> <name>doc</name> =<init> <expr><call><name><name>DOMUtils</name>.<name>newDocument</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Element</name></type> <name>root</name> =<init> <expr><call><name><name>doc</name>.<name>createElement</name></name><argument_list>(<argument><expr>"tagdiff"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>mystartTag</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>root</name>.<name>setAttribute</name></name><argument_list>(<argument><expr>"startTag"</expr></argument>, <argument><expr><name>mystartTag</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>root</name>.<name>setAttribute</name></name><argument_list>(<argument><expr>"startDate"</expr></argument>, <argument><expr><name>mystartDate</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <if>if <condition>(<expr><name>myendTag</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>root</name>.<name>setAttribute</name></name><argument_list>(<argument><expr>"endTag"</expr></argument>, <argument><expr><name>myendTag</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>root</name>.<name>setAttribute</name></name><argument_list>(<argument><expr>"endDate"</expr></argument>, <argument><expr><name>myendDate</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <expr_stmt><expr><call><name><name>root</name>.<name>setAttribute</name></name><argument_list>(<argument><expr>"cvsroot"</expr></argument>, <argument><expr><call><name>getCvsRoot</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>root</name>.<name>setAttribute</name></name><argument_list>(<argument><expr>"package"</expr></argument>,
+                              <argument><expr><call><name><name>CollectionUtils</name>.<name>flattenToString</name></name><argument_list>(<argument><expr><name>packageNames</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>DOM_WRITER</name>.<name>openElement</name></name><argument_list>(<argument><expr><name>root</name></expr></argument>, <argument><expr><name>writer</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr>"\t"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>writer</name>.<name>println</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init>, <name>c</name> =<init> <expr><name><name>entries</name>.<name>length</name></name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>c</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name>writeTagEntry</name><argument_list>(<argument><expr><name>doc</name></expr></argument>, <argument><expr><name>writer</name></expr></argument>, <argument><expr><name><name>entries</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <expr_stmt><expr><call><name><name>DOM_WRITER</name>.<name>closeElement</name></name><argument_list>(<argument><expr><name>root</name></expr></argument>, <argument><expr><name>writer</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr>"\t"</expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>writer</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>writer</name>.<name>checkError</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Encountered an error writing tagdiff"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>writer</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>UnsupportedEncodingException</name></type> <name>uee</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>uee</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name><name>ioe</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>ioe</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <if>if <condition>(<expr><name>null</name> != <name>output</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>output</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>ioe</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Write a single entry to the given writer.
+     *
+     * @param doc Document used to create elements.
+     * @param writer a &lt;code&gt;PrintWriter&lt;/code&gt; value
+     * @param entry a &lt;code&gt;CvsTagEntry&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>writeTagEntry</name><parameter_list>(<param><decl><type><name>Document</name></type> <name>doc</name></decl></param>, <param><decl><type><name>PrintWriter</name></type> <name>writer</name></decl></param>,
+                               <param><decl><type><name>CvsTagEntry</name></type> <name>entry</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Element</name></type> <name>ent</name> =<init> <expr><call><name><name>doc</name>.<name>createElement</name></name><argument_list>(<argument><expr>"entry"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Element</name></type> <name>f</name> =<init> <expr><call><name><name>DOMUtils</name>.<name>createChildElement</name></name><argument_list>(<argument><expr><name>ent</name></expr></argument>, <argument><expr>"file"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>DOMUtils</name>.<name>appendCDATAElement</name></name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr>"name"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name><name>entry</name>.<name>getRevision</name></name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>DOMUtils</name>.<name>appendTextElement</name></name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr>"revision"</expr></argument>, <argument><expr><call><name><name>entry</name>.<name>getRevision</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>entry</name>.<name>getPreviousRevision</name></name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>DOMUtils</name>.<name>appendTextElement</name></name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr>"prevrevision"</expr></argument>,
+                                       <argument><expr><call><name><name>entry</name>.<name>getPreviousRevision</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>DOM_WRITER</name>.<name>write</name></name><argument_list>(<argument><expr><name>ent</name></expr></argument>, <argument><expr><name>writer</name></expr></argument>, <argument><expr>1</expr></argument>, <argument><expr>"\t"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Validate the parameters specified for task.
+     *
+     * @exception BuildException if a parameter is not correctly set
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>validate</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>null</name> == <name>mypackage</name> &amp;&amp; <call><name>getModules</name><argument_list>()</argument_list></call>.<call><name>size</name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Package/module must be set."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>null</name> == <name>mydestfile</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Destfile must be set."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>null</name> == <name>mystartTag</name> &amp;&amp; <name>null</name> == <name>mystartDate</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Start tag or start date must be set."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>null</name> != <name>mystartTag</name> &amp;&amp; <name>null</name> != <name>mystartDate</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one of start tag and start date "
+                                     + "must be set."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>null</name> == <name>myendTag</name> &amp;&amp; <name>null</name> == <name>myendDate</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"End tag or end date must be set."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>null</name> != <name>myendTag</name> &amp;&amp; <name>null</name> != <name>myendDate</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one of end tag and end date must "
+                                     + "be set."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * collects package names from the package attribute and nested
+     * module elements.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>handlePackageNames</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>mypackage</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// support multiple packages</comment>
+            <decl_stmt><decl><type><name>StringTokenizer</name></type> <name>myTokenizer</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><name>mypackage</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>myTokenizer</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>pack</name> =<init> <expr><call><name><name>myTokenizer</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>packageNames</name>.<name>add</name></name><argument_list>(<argument><expr><name>pack</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>addCommandArgument</name><argument_list>(<argument><expr><name>pack</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>Iterator</name></type> <name>iter</name> =<init> <expr><call><name>getModules</name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>iter</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name><name>AbstractCvsTask</name>.<name>Module</name></name></type> <name>m</name> =<init> <expr>(<name><name>AbstractCvsTask</name>.<name>Module</name></name>) <call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>packageNames</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>m</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// will be added to command line in super.execute()</comment>
+        }</block></for>
+        <expr_stmt><expr><name>packageNamePrefixes</name> = new <name><name>String</name><index>[<expr><call><name><name>packageNames</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>packageNamePrefixLengths</name> = new <name><name>int</name><index>[<expr><call><name><name>packageNames</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>packageNamePrefixes</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name><name>packageNamePrefixes</name><index>[<expr><name>i</name></expr>]</index></name> = <name>FILE_STRING</name> + <call><name><name>packageNames</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call> + "/"</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>packageNamePrefixLengths</name><index>[<expr><name>i</name></expr>]</index></name> = <name><name>packageNamePrefixes</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>length</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * removes a "File: module/" prefix if present.
+     *
+     * @return null if the line was shorter than expected.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>removePackageName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>line</name></decl></param>,
+                                            <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>packagePrefixes</name></decl></param>,
+                                            <param><decl><type><name><name>int</name><index>[]</index></name></type> <name>prefixLengths</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call> &lt; <name>FILE_STRING_LENGTH</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>matched</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>packagePrefixes</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name><name>packagePrefixes</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>matched</name> = true</expr>;</expr_stmt>
+                <expr_stmt><expr><name>line</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name><name>prefixLengths</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+            }</block></then></if>
+        }</block></for>
+        <if>if <condition>(<expr>!<name>matched</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>line</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>FILE_STRING_LENGTH</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>line</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

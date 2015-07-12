@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\zip\ZipEncodingHelper.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>nio</name>.<name>ByteBuffer</name></name>;</import>
+<import>import <name><name>java</name>.<name>nio</name>.<name>charset</name>.<name>Charset</name></name>;</import>
+<import>import <name><name>java</name>.<name>nio</name>.<name>charset</name>.<name>UnsupportedCharsetException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Collections</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Static helper functions for robustly encoding filenames in zip files. 
+ */</comment>
+<class><specifier>public</specifier> <specifier>abstract</specifier> class <name>ZipEncodingHelper</name> <block>{
+
+    <comment type="javadoc">/**
+     * A class, which holds the high characters of a simple encoding
+     * and lazily instantiates a Simple8BitZipEncoding instance in a
+     * thread-safe manner.
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>SimpleEncodingHolder</name> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>char</name> <index>[]</index></type> <name>highChars</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Simple8BitZipEncoding</name></type> <name>encoding</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Instantiate a simple encoding holder.
+         * 
+         * @param highChars The characters for byte codes 128 to 255.
+         * 
+         * @see Simple8BitZipEncoding#Simple8BitZipEncoding(char[])
+         */</comment>
+        <constructor><name>SimpleEncodingHolder</name><parameter_list>(<param><decl><type><name><name>char</name> <index>[]</index></name></type> <name>highChars</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>highChars</name></name> = <name>highChars</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * @return The associated {@link Simple8BitZipEncoding}, which
+         *         is instantiated if not done so far.
+         */</comment>
+        <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>Simple8BitZipEncoding</name></type> <name>getEncoding</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name><name>this</name>.<name>encoding</name></name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>encoding</name></name> = new <call><name>Simple8BitZipEncoding</name><argument_list>(<argument><expr><name><name>this</name>.<name>highChars</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return <expr><name><name>this</name>.<name>encoding</name></name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>SimpleEncodingHolder</name></argument>&gt;</argument_list></name></type> <name>simpleEncodings</name></decl>;</decl_stmt>
+
+    static <block>{
+        <decl_stmt><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>SimpleEncodingHolder</name></argument>&gt;</argument_list></name></type> <name>se</name> =<init>
+            <expr>new <call><name><name>HashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>SimpleEncodingHolder</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>char</name><index>[]</index></type> <name>cp437_high_chars</name> =<init>
+            <expr>new <name><name>char</name><index>[]</index></name> <block>{ <expr>0x00c7</expr>, <expr>0x00fc</expr>, <expr>0x00e9</expr>, <expr>0x00e2</expr>, <expr>0x00e4</expr>, <expr>0x00e0</expr>,
+                         <expr>0x00e5</expr>, <expr>0x00e7</expr>, <expr>0x00ea</expr>, <expr>0x00eb</expr>, <expr>0x00e8</expr>, <expr>0x00ef</expr>,
+                         <expr>0x00ee</expr>, <expr>0x00ec</expr>, <expr>0x00c4</expr>, <expr>0x00c5</expr>, <expr>0x00c9</expr>, <expr>0x00e6</expr>,
+                         <expr>0x00c6</expr>, <expr>0x00f4</expr>, <expr>0x00f6</expr>, <expr>0x00f2</expr>, <expr>0x00fb</expr>, <expr>0x00f9</expr>,
+                         <expr>0x00ff</expr>, <expr>0x00d6</expr>, <expr>0x00dc</expr>, <expr>0x00a2</expr>, <expr>0x00a3</expr>, <expr>0x00a5</expr>,
+                         <expr>0x20a7</expr>, <expr>0x0192</expr>, <expr>0x00e1</expr>, <expr>0x00ed</expr>, <expr>0x00f3</expr>, <expr>0x00fa</expr>,
+                         <expr>0x00f1</expr>, <expr>0x00d1</expr>, <expr>0x00aa</expr>, <expr>0x00ba</expr>, <expr>0x00bf</expr>, <expr>0x2310</expr>,
+                         <expr>0x00ac</expr>, <expr>0x00bd</expr>, <expr>0x00bc</expr>, <expr>0x00a1</expr>, <expr>0x00ab</expr>, <expr>0x00bb</expr>,
+                         <expr>0x2591</expr>, <expr>0x2592</expr>, <expr>0x2593</expr>, <expr>0x2502</expr>, <expr>0x2524</expr>, <expr>0x2561</expr>,
+                         <expr>0x2562</expr>, <expr>0x2556</expr>, <expr>0x2555</expr>, <expr>0x2563</expr>, <expr>0x2551</expr>, <expr>0x2557</expr>,
+                         <expr>0x255d</expr>, <expr>0x255c</expr>, <expr>0x255b</expr>, <expr>0x2510</expr>, <expr>0x2514</expr>, <expr>0x2534</expr>,
+                         <expr>0x252c</expr>, <expr>0x251c</expr>, <expr>0x2500</expr>, <expr>0x253c</expr>, <expr>0x255e</expr>, <expr>0x255f</expr>,
+                         <expr>0x255a</expr>, <expr>0x2554</expr>, <expr>0x2569</expr>, <expr>0x2566</expr>, <expr>0x2560</expr>, <expr>0x2550</expr>,
+                         <expr>0x256c</expr>, <expr>0x2567</expr>, <expr>0x2568</expr>, <expr>0x2564</expr>, <expr>0x2565</expr>, <expr>0x2559</expr>,
+                         <expr>0x2558</expr>, <expr>0x2552</expr>, <expr>0x2553</expr>, <expr>0x256b</expr>, <expr>0x256a</expr>, <expr>0x2518</expr>,
+                         <expr>0x250c</expr>, <expr>0x2588</expr>, <expr>0x2584</expr>, <expr>0x258c</expr>, <expr>0x2590</expr>, <expr>0x2580</expr>,
+                         <expr>0x03b1</expr>, <expr>0x00df</expr>, <expr>0x0393</expr>, <expr>0x03c0</expr>, <expr>0x03a3</expr>, <expr>0x03c3</expr>,
+                         <expr>0x00b5</expr>, <expr>0x03c4</expr>, <expr>0x03a6</expr>, <expr>0x0398</expr>, <expr>0x03a9</expr>, <expr>0x03b4</expr>,
+                         <expr>0x221e</expr>, <expr>0x03c6</expr>, <expr>0x03b5</expr>, <expr>0x2229</expr>, <expr>0x2261</expr>, <expr>0x00b1</expr>,
+                         <expr>0x2265</expr>, <expr>0x2264</expr>, <expr>0x2320</expr>, <expr>0x2321</expr>, <expr>0x00f7</expr>, <expr>0x2248</expr>,
+                         <expr>0x00b0</expr>, <expr>0x2219</expr>, <expr>0x00b7</expr>, <expr>0x221a</expr>, <expr>0x207f</expr>, <expr>0x00b2</expr>,
+                         <expr>0x25a0</expr>, <expr>0x00a0</expr> }</block></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>SimpleEncodingHolder</name></type> <name>cp437</name> =<init> <expr>new <call><name>SimpleEncodingHolder</name><argument_list>(<argument><expr><name>cp437_high_chars</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name><name>se</name>.<name>put</name></name><argument_list>(<argument><expr>"CP437"</expr></argument>, <argument><expr><name>cp437</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>se</name>.<name>put</name></name><argument_list>(<argument><expr>"Cp437"</expr></argument>, <argument><expr><name>cp437</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>se</name>.<name>put</name></name><argument_list>(<argument><expr>"cp437"</expr></argument>, <argument><expr><name>cp437</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>se</name>.<name>put</name></name><argument_list>(<argument><expr>"IBM437"</expr></argument>, <argument><expr><name>cp437</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>se</name>.<name>put</name></name><argument_list>(<argument><expr>"ibm437"</expr></argument>, <argument><expr><name>cp437</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>char</name><index>[]</index></type> <name>cp850_high_chars</name> =<init>
+            <expr>new <name><name>char</name><index>[]</index></name> <block>{ <expr>0x00c7</expr>, <expr>0x00fc</expr>, <expr>0x00e9</expr>, <expr>0x00e2</expr>, <expr>0x00e4</expr>, <expr>0x00e0</expr>,
+                         <expr>0x00e5</expr>, <expr>0x00e7</expr>, <expr>0x00ea</expr>, <expr>0x00eb</expr>, <expr>0x00e8</expr>, <expr>0x00ef</expr>,
+                         <expr>0x00ee</expr>, <expr>0x00ec</expr>, <expr>0x00c4</expr>, <expr>0x00c5</expr>, <expr>0x00c9</expr>, <expr>0x00e6</expr>,
+                         <expr>0x00c6</expr>, <expr>0x00f4</expr>, <expr>0x00f6</expr>, <expr>0x00f2</expr>, <expr>0x00fb</expr>, <expr>0x00f9</expr>,
+                         <expr>0x00ff</expr>, <expr>0x00d6</expr>, <expr>0x00dc</expr>, <expr>0x00f8</expr>, <expr>0x00a3</expr>, <expr>0x00d8</expr>,
+                         <expr>0x00d7</expr>, <expr>0x0192</expr>, <expr>0x00e1</expr>, <expr>0x00ed</expr>, <expr>0x00f3</expr>, <expr>0x00fa</expr>,
+                         <expr>0x00f1</expr>, <expr>0x00d1</expr>, <expr>0x00aa</expr>, <expr>0x00ba</expr>, <expr>0x00bf</expr>, <expr>0x00ae</expr>,
+                         <expr>0x00ac</expr>, <expr>0x00bd</expr>, <expr>0x00bc</expr>, <expr>0x00a1</expr>, <expr>0x00ab</expr>, <expr>0x00bb</expr>,
+                         <expr>0x2591</expr>, <expr>0x2592</expr>, <expr>0x2593</expr>, <expr>0x2502</expr>, <expr>0x2524</expr>, <expr>0x00c1</expr>,
+                         <expr>0x00c2</expr>, <expr>0x00c0</expr>, <expr>0x00a9</expr>, <expr>0x2563</expr>, <expr>0x2551</expr>, <expr>0x2557</expr>,
+                         <expr>0x255d</expr>, <expr>0x00a2</expr>, <expr>0x00a5</expr>, <expr>0x2510</expr>, <expr>0x2514</expr>, <expr>0x2534</expr>,
+                         <expr>0x252c</expr>, <expr>0x251c</expr>, <expr>0x2500</expr>, <expr>0x253c</expr>, <expr>0x00e3</expr>, <expr>0x00c3</expr>,
+                         <expr>0x255a</expr>, <expr>0x2554</expr>, <expr>0x2569</expr>, <expr>0x2566</expr>, <expr>0x2560</expr>, <expr>0x2550</expr>,
+                         <expr>0x256c</expr>, <expr>0x00a4</expr>, <expr>0x00f0</expr>, <expr>0x00d0</expr>, <expr>0x00ca</expr>, <expr>0x00cb</expr>,
+                         <expr>0x00c8</expr>, <expr>0x0131</expr>, <expr>0x00cd</expr>, <expr>0x00ce</expr>, <expr>0x00cf</expr>, <expr>0x2518</expr>,
+                         <expr>0x250c</expr>, <expr>0x2588</expr>, <expr>0x2584</expr>, <expr>0x00a6</expr>, <expr>0x00cc</expr>, <expr>0x2580</expr>,
+                         <expr>0x00d3</expr>, <expr>0x00df</expr>, <expr>0x00d4</expr>, <expr>0x00d2</expr>, <expr>0x00f5</expr>, <expr>0x00d5</expr>,
+                         <expr>0x00b5</expr>, <expr>0x00fe</expr>, <expr>0x00de</expr>, <expr>0x00da</expr>, <expr>0x00db</expr>, <expr>0x00d9</expr>,
+                         <expr>0x00fd</expr>, <expr>0x00dd</expr>, <expr>0x00af</expr>, <expr>0x00b4</expr>, <expr>0x00ad</expr>, <expr>0x00b1</expr>,
+                         <expr>0x2017</expr>, <expr>0x00be</expr>, <expr>0x00b6</expr>, <expr>0x00a7</expr>, <expr>0x00f7</expr>, <expr>0x00b8</expr>,
+                         <expr>0x00b0</expr>, <expr>0x00a8</expr>, <expr>0x00b7</expr>, <expr>0x00b9</expr>, <expr>0x00b3</expr>, <expr>0x00b2</expr>,
+                         <expr>0x25a0</expr>, <expr>0x00a0</expr> }</block></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>SimpleEncodingHolder</name></type> <name>cp850</name> =<init> <expr>new <call><name>SimpleEncodingHolder</name><argument_list>(<argument><expr><name>cp850_high_chars</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name><name>se</name>.<name>put</name></name><argument_list>(<argument><expr>"CP850"</expr></argument>, <argument><expr><name>cp850</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>se</name>.<name>put</name></name><argument_list>(<argument><expr>"Cp850"</expr></argument>, <argument><expr><name>cp850</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>se</name>.<name>put</name></name><argument_list>(<argument><expr>"cp850"</expr></argument>, <argument><expr><name>cp850</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>se</name>.<name>put</name></name><argument_list>(<argument><expr>"IBM850"</expr></argument>, <argument><expr><name>cp850</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>se</name>.<name>put</name></name><argument_list>(<argument><expr>"ibm850"</expr></argument>, <argument><expr><name>cp850</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>simpleEncodings</name> = <call><name><name>Collections</name>.<name>unmodifiableMap</name></name><argument_list>(<argument><expr><name>se</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block>
+
+    <comment type="javadoc">/**
+     * Grow a byte buffer, so it has a minimal capacity or at least
+     * the double capacity of the original buffer 
+     * 
+     * @param b The original buffer.
+     * @param newCapacity The minimal requested new capacity.
+     * @return A byte buffer &lt;code&gt;r&lt;/code&gt; with
+     *         &lt;code&gt;r.capacity() = max(b.capacity()*2,newCapacity)&lt;/code&gt; and
+     *         all the data contained in &lt;code&gt;b&lt;/code&gt; copied to the beginning
+     *         of &lt;code&gt;r&lt;/code&gt;.
+     *
+     */</comment>
+    <function><type><specifier>static</specifier> <name>ByteBuffer</name></type> <name>growBuffer</name><parameter_list>(<param><decl><type><name>ByteBuffer</name></type> <name>b</name></decl></param>, <param><decl><type><name>int</name></type> <name>newCapacity</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>b</name>.<name>limit</name></name><argument_list>(<argument><expr><call><name><name>b</name>.<name>position</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>b</name>.<name>rewind</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>c2</name> =<init> <expr><call><name><name>b</name>.<name>capacity</name></name><argument_list>()</argument_list></call> * 2</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>ByteBuffer</name></type> <name>on</name> =<init> <expr><call><name><name>ByteBuffer</name>.<name>allocate</name></name><argument_list>(<argument><expr><name>c2</name> &lt; <name>newCapacity</name> ? <name>newCapacity</name> : <name>c2</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name><name>on</name>.<name>put</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>on</name></expr>;</return>
+    }</block></function>
+
+ 
+    <comment type="javadoc">/**
+     * The hexadecimal digits &lt;code&gt;0,...,9,A,...,F&lt;/code&gt; encoded as
+     * ASCII bytes.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>HEX_DIGITS</name> =<init>
+        <expr>new <name><name>byte</name> <index>[]</index></name> <block>{
+        <expr>0x30</expr>, <expr>0x31</expr>, <expr>0x32</expr>, <expr>0x33</expr>, <expr>0x34</expr>, <expr>0x35</expr>, <expr>0x36</expr>, <expr>0x37</expr>, <expr>0x38</expr>, <expr>0x39</expr>, <expr>0x41</expr>,
+        <expr>0x42</expr>, <expr>0x43</expr>, <expr>0x44</expr>, <expr>0x45</expr>, <expr>0x46</expr>
+    }</block></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Append &lt;code&gt;%Uxxxx&lt;/code&gt; to the given byte buffer.
+     * The caller must assure, that &lt;code&gt;bb.remaining()&amp;gt;=6&lt;/code&gt;.
+     * 
+     * @param bb The byte buffer to write to.
+     * @param c The character to write.
+     */</comment>
+    <function><type><specifier>static</specifier> <name>void</name></type> <name>appendSurrogate</name><parameter_list>(<param><decl><type><name>ByteBuffer</name></type> <name>bb</name></decl></param>, <param><decl><type><name>char</name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+
+        <expr_stmt><expr><call><name><name>bb</name>.<name>put</name></name><argument_list>(<argument><expr>(<name>byte</name>) '%'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>bb</name>.<name>put</name></name><argument_list>(<argument><expr>(<name>byte</name>) 'U'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>bb</name>.<name>put</name></name><argument_list>(<argument><expr><name><name>HEX_DIGITS</name><index>[<expr>(<name>c</name> &gt;&gt; 12)&amp;0x0f</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>bb</name>.<name>put</name></name><argument_list>(<argument><expr><name><name>HEX_DIGITS</name><index>[<expr>(<name>c</name> &gt;&gt; 8)&amp;0x0f</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>bb</name>.<name>put</name></name><argument_list>(<argument><expr><name><name>HEX_DIGITS</name><index>[<expr>(<name>c</name> &gt;&gt; 4)&amp;0x0f</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>bb</name>.<name>put</name></name><argument_list>(<argument><expr><name><name>HEX_DIGITS</name><index>[<expr><name>c</name> &amp; 0x0f</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * name of the encoding UTF-8
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>UTF8</name> =<init> <expr>"UTF8"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * variant name of the encoding UTF-8 used for comparisions.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>UTF_DASH_8</name> =<init> <expr>"utf-8"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * name of the encoding UTF-8
+     */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>ZipEncoding</name></type> <name>UTF8_ZIP_ENCODING</name> =<init> <expr>new <call><name>FallbackZipEncoding</name><argument_list>(<argument><expr><name>UTF8</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Instantiates a zip encoding.
+     * 
+     * @param name The name of the zip encoding. Specify {@code null} for
+     *             the platform's default encoding.
+     * @return A zip encoding for the given encoding name.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>ZipEncoding</name></type> <name>getZipEncoding</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+ 
+        <comment type="line">// fallback encoding is good enough for utf-8.</comment>
+        <if>if <condition>(<expr><call><name>isUTF8</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>UTF8_ZIP_ENCODING</name></expr>;</return>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>name</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>new <call><name>FallbackZipEncoding</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>SimpleEncodingHolder</name></type> <name>h</name> =<init> <expr><call><name><name>simpleEncodings</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>h</name>!=<name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>h</name>.<name>getEncoding</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+
+        <try>try <block>{
+
+            <decl_stmt><decl><type><name>Charset</name></type> <name>cs</name> =<init> <expr><call><name><name>Charset</name>.<name>forName</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr>new <call><name>NioZipEncoding</name><argument_list>(<argument><expr><name>cs</name></expr></argument>)</argument_list></call></expr>;</return>
+
+        }</block> <catch>catch (<param><decl><type><name>UnsupportedCharsetException</name></type> <name>e</name></decl></param>) <block>{
+            <return>return <expr>new <call><name>FallbackZipEncoding</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether a given encoding - or the platform's default encoding
+     * if the parameter is null - is UTF-8.
+     */</comment>
+    <function><type><specifier>static</specifier> <name>boolean</name></type> <name>isUTF8</name><parameter_list>(<param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>encoding</name> == <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// check platform's default encoding</comment>
+            <expr_stmt><expr><name>encoding</name> = <call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"file.encoding"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>UTF8</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>encoding</name></expr></argument>)</argument_list></call>
+            || <call><name><name>UTF_DASH_8</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

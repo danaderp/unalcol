@@ -1,0 +1,532 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\launch\Locator.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>launch</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>net</name>.<name>MalformedURLException</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>URL</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FilenameFilter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>ByteArrayOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>UnsupportedEncodingException</name></name>;</import>
+<import>import <name><name>java</name>.<name>text</name>.<name>CharacterIterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>text</name>.<name>StringCharacterIterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Locale</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="line">// CheckStyle:LineLengthCheck OFF - urls are long!</comment>
+<comment type="javadoc">/**
+ * The Locator is a utility class which is used to find certain items
+ * in the environment.
+ *
+ * It is used at boot time in the launcher, and cannot make use of any of Ant's other classes.
+ *
+ * This is a surprisingly brittle piece of code, and has had lots of bugs filed against it.
+ * {@link &lt;a href="http://issues.apache.org/bugzilla/show_bug.cgi?id=42275"&gt;running ant off a network share can cause Ant to fail&lt;/a&gt;}
+ * {@link &lt;a href="http://issues.apache.org/bugzilla/show_bug.cgi?id=8031"&gt;use File.toURI().toURL().toExternalForm()&lt;/a&gt;}
+ * {@link &lt;a href="http://issues.apache.org/bugzilla/show_bug.cgi?id=42222"&gt;Locator implementation not encoding URI strings properly: spaces in paths&lt;/a&gt;}
+ * It also breaks Eclipse 3.3 Betas
+ * {@link &lt;a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=183283"&gt;Exception if installation path has spaces&lt;/a&gt;}
+ *
+ * Be very careful when making changes to this class, as a break will upset a lot of people.
+ * @since Ant 1.6
+ */</comment>
+<comment type="line">// CheckStyle:LineLengthCheck ON - urls are long!</comment>
+<class><specifier>public</specifier> <specifier>final</specifier> class <name>Locator</name> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>NIBBLE</name> =<init> <expr>4</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>NIBBLE_MASK</name>   =<init> <expr>0xF</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>ASCII_SIZE</name> =<init> <expr>128</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BYTE_SIZE</name> =<init> <expr>256</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>WORD</name> =<init> <expr>16</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>SPACE</name> =<init> <expr>0x20</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEL</name> =<init> <expr>0x7F</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * encoding used to represent URIs
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>URI_ENCODING</name> =<init> <expr>"UTF-8"</expr></init></decl>;</decl_stmt>
+    <comment type="line">// stolen from org.apache.xerces.impl.XMLEntityManager#getUserDir()</comment>
+    <comment type="line">// of the Xerces-J team</comment>
+    <comment type="line">// which ASCII characters need to be escaped</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>boolean</name><index>[]</index></type> <name>gNeedEscaping</name> =<init> <expr>new <name><name>boolean</name><index>[<expr><name>ASCII_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+    <comment type="line">// the first hex character if a character needs to be escaped</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>char</name><index>[]</index></type> <name>gAfterEscaping1</name> =<init> <expr>new <name><name>char</name><index>[<expr><name>ASCII_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+    <comment type="line">// the second hex character if a character needs to be escaped</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>char</name><index>[]</index></type> <name>gAfterEscaping2</name> =<init> <expr>new <name><name>char</name><index>[<expr><name>ASCII_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>char</name><index>[]</index></type> <name>gHexChs</name> =<init> <expr><block>{<expr>'0'</expr>, <expr>'1'</expr>, <expr>'2'</expr>, <expr>'3'</expr>, <expr>'4'</expr>, <expr>'5'</expr>, <expr>'6'</expr>, <expr>'7'</expr>,
+                                     <expr>'8'</expr>, <expr>'9'</expr>, <expr>'A'</expr>, <expr>'B'</expr>, <expr>'C'</expr>, <expr>'D'</expr>, <expr>'E'</expr>, <expr>'F'</expr>}</block></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Error string used when an invalid uri is seen */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NOT_FILE_URI</name>
+        =<init> <expr>"Can only handle valid file: URIs, not "</expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// initialize the above 3 arrays</comment>
+    static <block>{
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>SPACE</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name><name>gNeedEscaping</name><index>[<expr><name>i</name></expr>]</index></name> = true</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>gAfterEscaping1</name><index>[<expr><name>i</name></expr>]</index></name> = <name><name>gHexChs</name><index>[<expr><name>i</name> &gt;&gt; <name>NIBBLE</name></expr>]</index></name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>gAfterEscaping2</name><index>[<expr><name>i</name></expr>]</index></name> = <name><name>gHexChs</name><index>[<expr><name>i</name> &amp; <name>NIBBLE_MASK</name></expr>]</index></name></expr>;</expr_stmt>
+        }</block></for>
+        <expr_stmt><expr><name><name>gNeedEscaping</name><index>[<expr><name>DEL</name></expr>]</index></name> = true</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>gAfterEscaping1</name><index>[<expr><name>DEL</name></expr>]</index></name> = '7'</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>gAfterEscaping2</name><index>[<expr><name>DEL</name></expr>]</index></name> = 'F'</expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>char</name><index>[]</index></type> <name>escChs</name> =<init> <expr><block>{<expr>' '</expr>, <expr>'&lt;'</expr>, <expr>'&gt;'</expr>, <expr>'#'</expr>, <expr>'%'</expr>, <expr>'"'</expr>, <expr>'{'</expr>, <expr>'}'</expr>,
+                         <expr>'|'</expr>, <expr>'\\'</expr>, <expr>'^'</expr>, <expr>'~'</expr>, <expr>'['</expr>, <expr>']'</expr>, <expr>'`'</expr>}</block></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>len</name> =<init> <expr><name><name>escChs</name>.<name>length</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>char</name></type> <name>ch</name></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>len</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name>ch</name> = <name><name>escChs</name><index>[<expr><name>i</name></expr>]</index></name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>gNeedEscaping</name><index>[<expr><name>ch</name></expr>]</index></name> = true</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>gAfterEscaping1</name><index>[<expr><name>ch</name></expr>]</index></name> = <name><name>gHexChs</name><index>[<expr><name>ch</name> &gt;&gt; <name>NIBBLE</name></expr>]</index></name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>gAfterEscaping2</name><index>[<expr><name>ch</name></expr>]</index></name> = <name><name>gHexChs</name><index>[<expr><name>ch</name> &amp; <name>NIBBLE_MASK</name></expr>]</index></name></expr>;</expr_stmt>
+        }</block></for>
+    }</block>
+    <comment type="javadoc">/**
+     * Not instantiable
+     */</comment>
+    <constructor><specifier>private</specifier> <name>Locator</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Find the directory or jar file the class has been loaded from.
+     *
+     * @param c the class whose location is required.
+     * @return the file or jar with the class or null if we cannot
+     *         determine the location.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>File</name></type> <name>getClassSource</name><parameter_list>(<param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>classResource</name> =<init> <expr><call><name><name>c</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call> + ".class"</expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name>getResourceSource</name><argument_list>(<argument><expr><call><name><name>c</name>.<name>getClassLoader</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>classResource</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find the directory or jar a given resource has been loaded from.
+     *
+     * @param c the classloader to be consulted for the source.
+     * @param resource the resource whose location is required.
+     *
+     * @return the file with the resource source or null if
+     *         we cannot determine the location.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>File</name></type> <name>getResourceSource</name><parameter_list>(<param><decl><type><name>ClassLoader</name></type> <name>c</name></decl></param>, <param><decl><type><name>String</name></type> <name>resource</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>c</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>c</name> = <name><name>Locator</name>.<name><name/></name></name>class.<call><name>getClassLoader</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>URL</name></type> <name>url</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>c</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>url</name> = <call><name><name>ClassLoader</name>.<name>getSystemResource</name></name><argument_list>(<argument><expr><name>resource</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>url</name> = <call><name><name>c</name>.<name>getResource</name></name><argument_list>(<argument><expr><name>resource</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <if>if <condition>(<expr><name>url</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>u</name> =<init> <expr><call><name><name>url</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <if>if <condition>(<expr><call><name><name>u</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"jar:file:"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>fromJarURI</name><argument_list>(<argument><expr><name>u</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+                }</block></then> <else>else <if>if <condition>(<expr><call><name><name>u</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"file:"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>int</name></type> <name>tail</name> =<init> <expr><call><name><name>u</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>resource</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>dirName</name> =<init> <expr><call><name><name>u</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>tail</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>fromURI</name><argument_list>(<argument><expr><name>dirName</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+                }</block></then></if></else></if>
+            }</block> <catch>catch (<param><decl><type><name>IllegalArgumentException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">//unable to determine the URI for reasons unknown.</comment>
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></catch></try>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+
+
+    <comment type="javadoc">/**
+     * Constructs a file path from a &lt;code&gt;file:&lt;/code&gt; URI.
+     *
+     * &lt;p&gt;Will be an absolute path if the given URI is absolute.&lt;/p&gt;
+     *
+     * &lt;p&gt;Prior to Java 1.4,&lt;!-- TODO is JDK version actually relevant? --&gt;
+     * swallows '%' that are not followed by two characters.&lt;/p&gt;
+     *
+     * See &lt;a href="http://www.w3.org/TR/xml11/#dt-sysid"&gt;dt-sysid&lt;/a&gt;
+     * which makes some mention of how
+     * characters not supported by URI Reference syntax should be escaped.
+     *
+     * @param uri the URI designating a file in the local filesystem.
+     * @return the local file system path for the file.
+     * @throws IllegalArgumentException if the URI is malformed or not a legal file: URL
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>fromURI</name><parameter_list>(<param><decl><type><name>String</name></type> <name>uri</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>fromURIJava13</name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr>;</return>
+        <comment type="line">// #buzilla8031: first try Java 1.4.</comment>
+        <comment type="line">// TODO should use java.net.URI now that we can rely on 1.4...</comment>
+        <comment type="line">// but check for UNC-related regressions, e.g. #42275</comment>
+        <comment type="line">// (and remember that \\server\share\file -&gt; file:////server/share/file</comment>
+        <comment type="line">// rather than -&gt; file://server/share/file as it should;</comment>
+        <comment type="line">// fixed only in JDK 7's java.nio.file.Path.toUri)</comment>
+        <comment type="line">// return fromUriJava14(uri);</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Java1.4+ code to extract the path from the URI.
+     * @param uri
+     * @return null if a conversion was not possible
+     */</comment>
+    <comment type="block">/* currently unused:
+    private static String fromUriJava14(String uri) {
+        // Also check for properly formed URIs. Ant formerly recommended using
+        // nonsense URIs such as "file:./foo.xml" in XML includes. You shouldn't
+        // do that (just "foo.xml" is correct) but for compatibility we special-case
+        // things when the path is not absolute, and fall back to the old parsing behavior.
+        if (uri.startsWith("file:/")) {
+            try {
+                File f = new File(URI.create(encodeURI(uri)));
+                //bug #42227 forgot to decode before returning
+                return decodeUri(f.getAbsolutePath());
+            } catch (IllegalArgumentException e) {
+                // Bad URI, pass this on.
+                // no, this is downgraded to a warning after various
+                // JRE bugs surfaced. Hand off
+                // to our built in code on a failure
+                //throw new IllegalArgumentException(
+                //   "Bad URI " + uri + ":" + e.getMessage(), e);
+                e.printStackTrace();
+            } catch (Exception e) {
+                // Unexpected exception? Should not happen.
+                e.printStackTrace();
+            }
+        }
+        return null;
+    }
+     */</comment>
+
+    <comment type="javadoc">/**
+     * @param uri uri to expand
+     * @return the decoded URI
+     * @since Ant1.7.1
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>fromURIJava13</name><parameter_list>(<param><decl><type><name>String</name></type> <name>uri</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Fallback method for Java 1.3 or earlier.</comment>
+
+        <decl_stmt><decl><type><name>URL</name></type> <name>url</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>url</name> = new <call><name>URL</name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>emYouEarlEx</name></decl></param>) <block>{
+            <comment type="line">// Ignore malformed exception</comment>
+        }</block></catch></try>
+        <if>if <condition>(<expr><name>url</name> == <name>null</name> || !("file".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>url</name>.<name>getProtocol</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr><name>ERROR_NOT_FILE_URI</name> + <name>uri</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>url</name>.<name>getHost</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>buf</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>buf</name>.<name>insert</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call>.<call><name>insert</name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>file</name> =<init> <expr><call><name><name>url</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>queryPos</name> =<init> <expr><call><name><name>file</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'?'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>(<name>queryPos</name> &lt; 0) ? <name>file</name> : <call><name><name>file</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>queryPos</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>uri</name> = <call><name><name>buf</name>.<name>toString</name></name><argument_list>()</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name><name>File</name>.<name>pathSeparatorChar</name></name> == ';' &amp;&amp; <call><name><name>uri</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"\\"</expr></argument>)</argument_list></call> &amp;&amp; <call><name><name>uri</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 2
+            &amp;&amp; <call><name><name>Character</name>.<name>isLetter</name></name><argument_list>(<argument><expr><call><name><name>uri</name>.<name>charAt</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call> &amp;&amp; <call><name><name>uri</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call> &gt; -1</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>uri</name> = <call><name><name>uri</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>path</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>path</name> = <call><name>decodeUri</name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//consider adding the current directory. This is not done when</comment>
+            <comment type="line">//the path is a UNC name</comment>
+            <decl_stmt><decl><type><name>String</name></type> <name>cwd</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"user.dir"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>posi</name> =<init> <expr><call><name><name>cwd</name>.<name>indexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>boolean</name></type> <name>pathStartsWithFileSeparator</name> =<init> <expr><call><name><name>path</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>boolean</name></type> <name>pathStartsWithUNC</name> =<init> <expr><call><name><name>path</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"" + <name><name>File</name>.<name>separator</name></name> + <name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>(<name>posi</name> &gt; 0) &amp;&amp; <name>pathStartsWithFileSeparator</name> &amp;&amp; !<name>pathStartsWithUNC</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>path</name> = <call><name><name>cwd</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>posi</name> + 1</expr></argument>)</argument_list></call> + <name>path</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>UnsupportedEncodingException</name></type> <name>exc</name></decl></param>) <block>{
+            <comment type="line">// not sure whether this is clean, but this method is</comment>
+            <comment type="line">// declared not to throw exceptions.</comment>
+            <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>(
+                <argument><expr>"Could not convert URI " + <name>uri</name> + " to path: "
+                + <call><name><name>exc</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+        <return>return <expr><name>path</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Crack a JAR URI.
+     * This method is public for testing; we may delete it without any warning -it is not part of Ant's stable API.
+     * @param uri uri to expand; contains jar: somewhere in it
+     * @return the decoded URI
+     * @since Ant1.7.1
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>fromJarURI</name><parameter_list>(<param><decl><type><name>String</name></type> <name>uri</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>pling</name> =<init> <expr><call><name><name>uri</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"!/"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>jarName</name> =<init> <expr><call><name><name>uri</name>.<name>substring</name></name><argument_list>(<argument><expr>"jar:".<call><name>length</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>pling</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name>fromURI</name><argument_list>(<argument><expr><name>jarName</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Decodes an Uri with % characters.
+     * The URI is escaped
+     * @param uri String with the uri possibly containing % characters.
+     * @return The decoded Uri
+     * @throws UnsupportedEncodingException if UTF-8 is not available
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>decodeUri</name><parameter_list>(<param><decl><type><name>String</name></type> <name>uri</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>UnsupportedEncodingException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name><name>uri</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'%'</expr></argument>)</argument_list></call> == -1</expr>)</condition><then> <block>{
+            <return>return <expr><name>uri</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>ByteArrayOutputStream</name></type> <name>sb</name> =<init> <expr>new <call><name>ByteArrayOutputStream</name><argument_list>(<argument><expr><call><name><name>uri</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>CharacterIterator</name></type> <name>iter</name> =<init> <expr>new <call><name>StringCharacterIterator</name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>char</name></type> <name>c</name> =<init> <expr><call><name><name>iter</name>.<name>first</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><name>c</name> != <name><name>CharacterIterator</name>.<name>DONE</name></name></expr>;</condition>
+             <incr><expr><name>c</name> = <call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></incr>) <block>{
+            <if>if <condition>(<expr><name>c</name> == '%'</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>char</name></type> <name>c1</name> =<init> <expr><call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>c1</name> != <name><name>CharacterIterator</name>.<name>DONE</name></name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>int</name></type> <name>i1</name> =<init> <expr><call><name><name>Character</name>.<name>digit</name></name><argument_list>(<argument><expr><name>c1</name></expr></argument>, <argument><expr><name>WORD</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>char</name></type> <name>c2</name> =<init> <expr><call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>c2</name> != <name><name>CharacterIterator</name>.<name>DONE</name></name></expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>int</name></type> <name>i2</name> =<init> <expr><call><name><name>Character</name>.<name>digit</name></name><argument_list>(<argument><expr><name>c2</name></expr></argument>, <argument><expr><name>WORD</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>sb</name>.<name>write</name></name><argument_list>(<argument><expr><call>(<name>char</name>) <argument_list>(<argument><expr>(<name>i1</name> &lt;&lt; <name>NIBBLE</name>) + <name>i2</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then></if>
+            }</block></then> <else>else <if>if <condition>(<expr><name>c</name> &gt;= 0x0000 &amp;&amp; <name>c</name> &lt; 0x0080</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>sb</name>.<name>write</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{ <comment type="line">// #50543</comment>
+                <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>bytes</name> =<init> <expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call>.<call><name>getBytes</name><argument_list>(<argument><expr><name>URI_ENCODING</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>sb</name>.<name>write</name></name><argument_list>(<argument><expr><name>bytes</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>bytes</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if></else></if>
+        }</block></for>
+        <return>return <expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>(<argument><expr><name>URI_ENCODING</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Encodes an Uri with % characters.
+     * The URI is escaped
+     * @param path String to encode.
+     * @return The encoded string, according to URI norms
+     * @throws UnsupportedEncodingException if UTF-8 is not available
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>encodeURI</name><parameter_list>(<param><decl><type><name>String</name></type> <name>path</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>UnsupportedEncodingException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>len</name> =<init> <expr><call><name><name>path</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>ch</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>sb</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <for>for (<init>;</init> <condition><expr><name>i</name> &lt; <name>len</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name>ch</name> = <call><name><name>path</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// if it's not an ASCII character, break here, and use UTF-8 encoding</comment>
+            <if>if <condition>(<expr><name>ch</name> &gt;= <name>ASCII_SIZE</name></expr>)</condition><then> <block>{
+                <break>break;</break>
+            }</block></then></if>
+            <if>if <condition>(<expr><name><name>gNeedEscaping</name><index>[<expr><name>ch</name></expr>]</index></name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>sb</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>sb</name> = new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>'%'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>gAfterEscaping1</name><index>[<expr><name>ch</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>gAfterEscaping2</name><index>[<expr><name>ch</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <comment type="line">// record the fact that it's escaped</comment>
+            }</block></then> <else>else <if>if <condition>(<expr><name>sb</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>(<name>char</name>) <name>ch</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if>
+        }</block></for>
+
+        <comment type="line">// we saw some non-ascii character</comment>
+        <if>if <condition>(<expr><name>i</name> &lt; <name>len</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>sb</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>sb</name> = new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <comment type="line">// get UTF-8 bytes for the remaining sub-string</comment>
+            <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>bytes</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>byte</name></type> <name>b</name></decl>;</decl_stmt>
+            <expr_stmt><expr><name>bytes</name> = <call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call>.<call><name>getBytes</name><argument_list>(<argument><expr><name>URI_ENCODING</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>len</name> = <name><name>bytes</name>.<name>length</name></name></expr>;</expr_stmt>
+
+            <comment type="line">// for each byte</comment>
+            <for>for (<init><expr><name>i</name> = 0</expr>;</init> <condition><expr><name>i</name> &lt; <name>len</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><name>b</name> = <name><name>bytes</name><index>[<expr><name>i</name></expr>]</index></name></expr>;</expr_stmt>
+                <comment type="line">// for non-ascii character: make it positive, then escape</comment>
+                <if>if <condition>(<expr><name>b</name> &lt; 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>ch</name> = <name>b</name> + <name>BYTE_SIZE</name></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>'%'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>gHexChs</name><index>[<expr><name>ch</name> &gt;&gt; <name>NIBBLE</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>gHexChs</name><index>[<expr><name>ch</name> &amp; <name>NIBBLE_MASK</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <if>if <condition>(<expr><name><name>gNeedEscaping</name><index>[<expr><name>b</name></expr>]</index></name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>'%'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>gAfterEscaping1</name><index>[<expr><name>b</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>gAfterEscaping2</name><index>[<expr><name>b</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>(<name>char</name>) <name>b</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if></else></if>
+            }</block></for>
+        }</block></then></if>
+        <return>return <expr><name>sb</name> == <name>null</name> ? <name>path</name> : <call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convert a File to a URL.
+     * File.toURL() does not encode characters like #.
+     * File.toURI() has been introduced in java 1.4, so
+     * Ant cannot use it (except by reflection) &lt;!-- TODO no longer true --&gt;
+     * FileUtils.toURI() cannot be used by Locator.java
+     * Implemented this way.
+     * File.toURL() adds file: and changes '\' to '/' for dos OSes
+     * encodeURI converts characters like ' ' and '#' to %DD
+     * @param file the file to convert
+     * @return URL the converted File
+     * @throws MalformedURLException on error
+     * @deprecated since 1.9, use {@link FileUtils#getFileURL(File)}
+     */</comment>
+    <function><type><annotation>@<name>Deprecated</name></annotation>
+    <specifier>public</specifier> <specifier>static</specifier> <name>URL</name></type> <name>fileToURL</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>MalformedURLException</name></expr></argument></throws> <block>{
+        <return>return <expr>new <call><name>URL</name><argument_list>(<argument><expr><call><name><name>file</name>.<name>toURI</name></name><argument_list>()</argument_list></call>.<call><name>toASCIIString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the File necessary to load the Sun compiler tools. If the classes
+     * are available to this class, then no additional URL is required and
+     * null is returned. This may be because the classes are explicitly in the
+     * class path or provided by the JVM directly.
+     *
+     * @return the tools jar as a File if required, null otherwise.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>File</name></type> <name>getToolsJar</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">// firstly check if the tools jar is already in the classpath</comment>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>toolsJarAvailable</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <comment type="line">// just check whether this throws an exception</comment>
+            <expr_stmt><expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr>"com.sun.tools.javac.Main"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>toolsJarAvailable</name> = true</expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr>"sun.tools.javac.Main"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>toolsJarAvailable</name> = true</expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e2</name></decl></param>) <block>{
+                <comment type="line">// ignore</comment>
+            }</block></catch></try>
+        }</block></catch></try>
+        <if>if <condition>(<expr><name>toolsJarAvailable</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// couldn't find compiler - try to find tools.jar</comment>
+        <comment type="line">// based on java.home setting</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>libToolsJar</name>
+            =<init> <expr><name><name>File</name>.<name>separator</name></name> + "lib" + <name><name>File</name>.<name>separator</name></name> + "tools.jar"</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>javaHome</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.home"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>toolsJar</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>javaHome</name> + <name>libToolsJar</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>toolsJar</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// Found in java.home as given</comment>
+            <return>return <expr><name>toolsJar</name></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>javaHome</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call>.<call><name>endsWith</name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name> + "jre"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>javaHome</name> = <call><name><name>javaHome</name>.<name>substring</name></name><argument_list>(
+                <argument><expr>0</expr></argument>, <argument><expr><call><name><name>javaHome</name>.<name>length</name></name><argument_list>()</argument_list></call> - "/jre".<call><name>length</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>toolsJar</name> = new <call><name>File</name><argument_list>(<argument><expr><name>javaHome</name> + <name>libToolsJar</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<call><name><name>toolsJar</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Unable to locate tools.jar. "
+                 + "Expected to find it in " + <call><name><name>toolsJar</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>toolsJar</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get an array of URLs representing all of the jar files in the
+     * given location. If the location is a file, it is returned as the only
+     * element of the array. If the location is a directory, it is scanned for
+     * jar files.
+     *
+     * @param location the location to scan for Jars.
+     *
+     * @return an array of URLs for all jars in the given location.
+     *
+     * @exception MalformedURLException if the URLs for the jars cannot be
+     *            formed.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>URL</name><index>[]</index></type> <name>getLocationURLs</name><parameter_list>(<param><decl><type><name>File</name></type> <name>location</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>MalformedURLException</name></expr></argument></throws> <block>{
+        <return>return <expr><call><name>getLocationURLs</name><argument_list>(<argument><expr><name>location</name></expr></argument>, <argument><expr>new <name><name>String</name><index>[]</index></name><block>{<expr>".jar"</expr>}</block></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get an array of URLs representing all of the files of a given set of
+     * extensions in the given location. If the location is a file, it is
+     * returned as the only element of the array. If the location is a
+     * directory, it is scanned for matching files.
+     *
+     * @param location the location to scan for files.
+     * @param extensions an array of extension that are to match in the
+     *        directory search.
+     *
+     * @return an array of URLs of matching files.
+     * @exception MalformedURLException if the URLs for the files cannot be
+     *            formed.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>URL</name><index>[]</index></type> <name>getLocationURLs</name><parameter_list>(<param><decl><type><name>File</name></type> <name>location</name></decl></param>,
+                                        <param><decl><type><specifier>final</specifier> <name><name>String</name><index>[]</index></name></type> <name>extensions</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>MalformedURLException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>URL</name><index>[]</index></type> <name>urls</name> =<init> <expr>new <name><name>URL</name><index>[<expr>0</expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr>!<call><name><name>location</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>urls</name></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<call><name><name>location</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>urls</name> = new <name><name>URL</name><index>[<expr>1</expr>]</index></name></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>path</name> =<init> <expr><call><name><name>location</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>littlePath</name> =<init> <expr><call><name><name>path</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>extensions</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                <if>if <condition>(<expr><call><name><name>littlePath</name>.<name>endsWith</name></name><argument_list>(<argument><expr><name><name>extensions</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name><name>urls</name><index>[<expr>0</expr>]</index></name> = <call><name>fileToURL</name><argument_list>(<argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <break>break;</break>
+                }</block></then></if>
+            }</block></for>
+            <return>return <expr><name>urls</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>File</name><index>[]</index></type> <name>matches</name> =<init> <expr><call><name><name>location</name>.<name>listFiles</name></name><argument_list>(
+            <argument><expr>new <class><super><name>FilenameFilter</name></super><argument_list>()</argument_list> <block>{
+                <function><type><specifier>public</specifier> <name>boolean</name></type> <name>accept</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dir</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>littleName</name> =<init> <expr><call><name><name>name</name>.<name>toLowerCase</name></name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>extensions</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                        <if>if <condition>(<expr><call><name><name>littleName</name>.<name>endsWith</name></name><argument_list>(<argument><expr><name><name>extensions</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <return>return <expr>true</expr>;</return>
+                        }</block></then></if>
+                    }</block></for>
+                    <return>return <expr>false</expr>;</return>
+                }</block></function>
+            }</block></class></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>urls</name> = new <name><name>URL</name><index>[<expr><name><name>matches</name>.<name>length</name></name></expr>]</index></name></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>matches</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+            <expr_stmt><expr><name><name>urls</name><index>[<expr><name>i</name></expr>]</index></name> = <call><name>fileToURL</name><argument_list>(<argument><expr><name><name>matches</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>urls</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

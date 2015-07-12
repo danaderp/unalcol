@@ -1,0 +1,1723 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\util\FileUtils.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FilenameFilter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStreamReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Reader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Writer</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>HttpURLConnection</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>JarURLConnection</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>MalformedURLException</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>URL</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>URLConnection</name></name>;</import>
+<import>import <name><name>java</name>.<name>nio</name>.<name>channels</name>.<name>Channel</name></name>;</import>
+<import>import <name><name>java</name>.<name>text</name>.<name>DecimalFormat</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Arrays</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Random</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Stack</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>StringTokenizer</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>JarFile</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>PathTokenizer</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>launch</name>.<name>Locator</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>Os</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FilterSetCollection</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResource</name></name>;</import>
+
+<comment type="javadoc">/**
+ * This class also encapsulates methods which allow Files to be
+ * referred to using abstract path names which are translated to native
+ * system file paths at runtime as well as copying files or setting
+ * their last modification time.
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>FileUtils</name> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DELETE_RETRY_SLEEP_MILLIS</name> =<init> <expr>10</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>EXPAND_SPACE</name> =<init> <expr>50</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>PRIMARY_INSTANCE</name> =<init> <expr>new <call><name>FileUtils</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">//get some non-crypto-grade randomness from various places.</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>Random</name></type> <name>rand</name> =<init> <expr>new <call><name>Random</name><argument_list>(<argument><expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call>
+            + <call><name><name>Runtime</name>.<name>getRuntime</name></name><argument_list>()</argument_list></call>.<call><name>freeMemory</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>boolean</name></type> <name>ON_NETWARE</name> =<init> <expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"netware"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>boolean</name></type> <name>ON_DOS</name> =<init> <expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"dos"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>boolean</name></type> <name>ON_WIN9X</name> =<init> <expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"win9x"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>boolean</name></type> <name>ON_WINDOWS</name> =<init> <expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"windows"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUF_SIZE</name> =<init> <expr>8192</expr></init></decl>;</decl_stmt>
+
+
+    <comment type="javadoc">/**
+     * The granularity of timestamps under FAT.
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>long</name></type> <name>FAT_FILE_TIMESTAMP_GRANULARITY</name> =<init> <expr>2000</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The granularity of timestamps under Unix.
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>long</name></type> <name>UNIX_FILE_TIMESTAMP_GRANULARITY</name> =<init> <expr>1000</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The granularity of timestamps under the NT File System.
+     * NTFS has a granularity of 100 nanoseconds, which is less
+     * than 1 millisecond, so we round this up to 1 millisecond.
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>long</name></type> <name>NTFS_FILE_TIMESTAMP_GRANULARITY</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * A one item cache for fromUri.
+     * fromUri is called for each element when parseing ant build
+     * files. It is a costly operation. This just caches the result
+     * of the last call.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>cacheFromUriLock</name> =<init> <expr>new <call><name>Object</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>cacheFromUriRequest</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>cacheFromUriResponse</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Factory method.
+     *
+     * @return a new instance of FileUtils.
+     * @deprecated since 1.7.
+     *             Use getFileUtils instead,
+     * FileUtils do not have state.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>FileUtils</name></type> <name>newFileUtils</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>new <call><name>FileUtils</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Method to retrieve The FileUtils, which is shared by all users of this
+     * method.
+     * @return an instance of FileUtils.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>FileUtils</name></type> <name>getFileUtils</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>PRIMARY_INSTANCE</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty constructor.
+     */</comment>
+    <constructor><specifier>protected</specifier> <name>FileUtils</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Get the URL for a file taking into account # characters.
+     *
+     * @param file the file whose URL representation is required.
+     * @return The FileURL value.
+     * @throws MalformedURLException if the URL representation cannot be
+     *      formed.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>URL</name></type> <name>getFileURL</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>MalformedURLException</name></expr></argument></throws> <block>{
+        <return>return <expr>new <call><name>URL</name><argument_list>(<argument><expr><call><name><name>file</name>.<name>toURI</name></name><argument_list>()</argument_list></call>.<call><name>toASCIIString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a destination.
+     * No filtering is performed.
+     *
+     * @param sourceFile Name of file to copy from.
+     *                   Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile Name of file to copy to.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @throws IOException if the copying fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>String</name></type> <name>destFile</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr>false</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a destination
+     * specifying if token filtering must be used.
+     *
+     * @param sourceFile Name of file to copy from.
+     *                   Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile Name of file to copy to.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     *
+     * @throws IOException if the copying fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>String</name></type> <name>destFile</name></decl></param>, <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr>false</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a destination specifying if token
+     * filtering must be used and if source files may overwrite newer destination files.
+     *
+     * @param sourceFile Name of file to copy from. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile Name of file to copy to. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param overwrite Whether or not the destination file should be overwritten if it already
+     *            exists.
+     *
+     * @throws IOException if the copying fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>String</name></type> <name>destFile</name></decl></param>, <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr><name>overwrite</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a destination
+     * specifying if token
+     * filtering must be used, if source files may overwrite newer destination
+     * files and the last
+     * modified time of &lt;code&gt;destFile&lt;/code&gt; file should be made equal to
+     * the last modified time
+     * of &lt;code&gt;sourceFile&lt;/code&gt;.
+     *
+     * @param sourceFile Name of file to copy from. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile Name of file to copy to. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param overwrite Whether or not the destination file should be
+     *            overwritten if it already exists.
+     * @param preserveLastModified Whether or not the last modified time of
+     *            the resulting file
+     *            should be set to that of the source file.
+     *
+     * @throws IOException if the copying fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>String</name></type> <name>destFile</name></decl></param>,
+                         <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr><name>overwrite</name></expr></argument>,
+                 <argument><expr><name>preserveLastModified</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a destination specifying if token
+     * filtering must be used, if source files may overwrite newer destination files and the last
+     * modified time of &lt;code&gt;destFile&lt;/code&gt; file should be made equal to the last modified time
+     * of &lt;code&gt;sourceFile&lt;/code&gt;.
+     *
+     * @param sourceFile Name of file to copy from. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile Name of file to copy to. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param overwrite Whether or not the destination file should be overwritten if it already
+     *            exists.
+     * @param preserveLastModified Whether or not the last modified time of the resulting file
+     *            should be set to that of the source file.
+     * @param encoding the encoding used to read and write the files.
+     *
+     * @throws IOException if the copying fails.
+     *
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>String</name></type> <name>destFile</name></decl></param>,
+                         <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>, <param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>filters</name></expr></argument>,
+                 <argument><expr><name>overwrite</name></expr></argument>, <argument><expr><name>preserveLastModified</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="line">// CheckStyle:ParameterNumberCheck OFF - bc</comment>
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a
+     * destination specifying if token filtering must be used, if
+     * filter chains must be used, if source files may overwrite
+     * newer destination files and the last modified time of
+     * &lt;code&gt;destFile&lt;/code&gt; file should be made equal
+     * to the last modified time of &lt;code&gt;sourceFile&lt;/code&gt;.
+     *
+     * @param sourceFile Name of file to copy from.
+     *                   Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile Name of file to copy to.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param filterChains filterChains to apply during the copy.
+     * @param overwrite Whether or not the destination file should be
+     *                  overwritten if it already exists.
+     * @param preserveLastModified Whether or not the last modified time of
+     *                             the resulting file should be set to that
+     *                             of the source file.
+     * @param encoding the encoding used to read and write the files.
+     * @param project the project instance.
+     *
+     * @throws IOException if the copying fails.
+     *
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>String</name></type> <name>destFile</name></decl></param>,
+                         <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>, <param><decl><type><name>Vector</name></type> <name>filterChains</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>,
+                         <param><decl><type><name>String</name></type> <name>encoding</name></decl></param>, <param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr><name>filterChains</name></expr></argument>, <argument><expr><name>overwrite</name></expr></argument>,
+                <argument><expr><name>preserveLastModified</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>, <argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a destination specifying if token
+     * filtering must be used, if filter chains must be used, if source files may overwrite newer
+     * destination files and the last modified time of &lt;code&gt;destFile&lt;/code&gt; file should be made
+     * equal to the last modified time of &lt;code&gt;sourceFile&lt;/code&gt;.
+     *
+     * @param sourceFile Name of file to copy from. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile Name of file to copy to. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param filterChains filterChains to apply during the copy.
+     * @param overwrite Whether or not the destination file should be overwritten if it already
+     *            exists.
+     * @param preserveLastModified Whether or not the last modified time of the resulting file
+     *            should be set to that of the source file.
+     * @param inputEncoding the encoding used to read the files.
+     * @param outputEncoding the encoding used to write the files.
+     * @param project the project instance.
+     *
+     * @throws IOException if the copying fails.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>String</name></type> <name>destFile</name></decl></param>,
+                         <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>, <param><decl><type><name>Vector</name></type> <name>filterChains</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>,
+                         <param><decl><type><name>String</name></type> <name>inputEncoding</name></decl></param>, <param><decl><type><name>String</name></type> <name>outputEncoding</name></decl></param>,
+                         <param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr><name>filterChains</name></expr></argument>, <argument><expr><name>overwrite</name></expr></argument>,
+                <argument><expr><name>preserveLastModified</name></expr></argument>, <argument><expr><name>inputEncoding</name></expr></argument>, <argument><expr><name>outputEncoding</name></expr></argument>, <argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a destination. No filtering is performed.
+     *
+     * @param sourceFile the file to copy from. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile the file to copy to. Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @throws IOException if the copying fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>destFile</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr>false</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a destination
+     * specifying if token filtering must be used.
+     *
+     * @param sourceFile the file to copy from.
+     *                   Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile the file to copy to.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     *
+     * @throws IOException if the copying fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>destFile</name></decl></param>, <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr>false</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a
+     * destination specifying if token filtering must be used and if
+     * source files may overwrite newer destination files.
+     *
+     * @param sourceFile the file to copy from.
+     *                   Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile the file to copy to.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param overwrite Whether or not the destination file should be
+     *                  overwritten if it already exists.
+     *
+     * @throws IOException if the copying fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>destFile</name></decl></param>, <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr><name>overwrite</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a
+     * destination specifying if token filtering must be used, if
+     * source files may overwrite newer destination files and the
+     * last modified time of &lt;code&gt;destFile&lt;/code&gt; file should be made equal
+     * to the last modified time of &lt;code&gt;sourceFile&lt;/code&gt;.
+     *
+     * @param sourceFile the file to copy from.
+     *                   Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile the file to copy to.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param overwrite Whether or not the destination file should be
+     *                  overwritten if it already exists.
+     * @param preserveLastModified Whether or not the last modified time of
+     *                             the resulting file should be set to that
+     *                             of the source file.
+     *
+     * @throws IOException if the copying fails.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>destFile</name></decl></param>, <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr><name>overwrite</name></expr></argument>, <argument><expr><name>preserveLastModified</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a destination specifying if token
+     * filtering must be used, if source files may overwrite newer destination files, the last
+     * modified time of &lt;code&gt;destFile&lt;/code&gt; file should be made equal to the last modified time
+     * of &lt;code&gt;sourceFile&lt;/code&gt; and which character encoding to assume.
+     *
+     * @param sourceFile the file to copy from. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile the file to copy to. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param overwrite Whether or not the destination file should be overwritten if it already
+     *            exists.
+     * @param preserveLastModified Whether or not the last modified time of the resulting file
+     *            should be set to that of the source file.
+     * @param encoding the encoding used to read and write the files.
+     *
+     * @throws IOException if the copying fails.
+     *
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>destFile</name></decl></param>,
+                         <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>, <param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>overwrite</name></expr></argument>,
+                 <argument><expr><name>preserveLastModified</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a
+     * destination specifying if token filtering must be used, if
+     * filter chains must be used, if source files may overwrite
+     * newer destination files and the last modified time of
+     * &lt;code&gt;destFile&lt;/code&gt; file should be made equal
+     * to the last modified time of &lt;code&gt;sourceFile&lt;/code&gt;.
+     *
+     * @param sourceFile the file to copy from.
+     *                   Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile the file to copy to.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param filterChains filterChains to apply during the copy.
+     * @param overwrite Whether or not the destination file should be
+     *                  overwritten if it already exists.
+     * @param preserveLastModified Whether or not the last modified time of
+     *                             the resulting file should be set to that
+     *                             of the source file.
+     * @param encoding the encoding used to read and write the files.
+     * @param project the project instance.
+     *
+     * @throws IOException if the copying fails.
+     *
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>destFile</name></decl></param>,
+                         <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>, <param><decl><type><name>Vector</name></type> <name>filterChains</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>,
+                         <param><decl><type><name>String</name></type> <name>encoding</name></decl></param>, <param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr><name>filterChains</name></expr></argument>,
+                 <argument><expr><name>overwrite</name></expr></argument>, <argument><expr><name>preserveLastModified</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>, <argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a
+     * destination specifying if token filtering must be used, if
+     * filter chains must be used, if source files may overwrite
+     * newer destination files and the last modified time of
+     * &lt;code&gt;destFile&lt;/code&gt; file should be made equal
+     * to the last modified time of &lt;code&gt;sourceFile&lt;/code&gt;.
+     *
+     * @param sourceFile the file to copy from.
+     *                   Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile the file to copy to.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param filterChains filterChains to apply during the copy.
+     * @param overwrite Whether or not the destination file should be
+     *                  overwritten if it already exists.
+     * @param preserveLastModified Whether or not the last modified time of
+     *                             the resulting file should be set to that
+     *                             of the source file.
+     * @param inputEncoding the encoding used to read the files.
+     * @param outputEncoding the encoding used to write the files.
+     * @param project the project instance.
+     *
+     *
+     * @throws IOException if the copying fails.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>destFile</name></decl></param>,
+            <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>, <param><decl><type><name>Vector</name></type> <name>filterChains</name></decl></param>,
+            <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>,
+            <param><decl><type><name>String</name></type> <name>inputEncoding</name></decl></param>, <param><decl><type><name>String</name></type> <name>outputEncoding</name></decl></param>,
+            <param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr><name>filterChains</name></expr></argument>, <argument><expr><name>overwrite</name></expr></argument>, <argument><expr><name>preserveLastModified</name></expr></argument>,
+                <argument><expr>false</expr></argument>, <argument><expr><name>inputEncoding</name></expr></argument>, <argument><expr><name>outputEncoding</name></expr></argument>, <argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a
+     * destination specifying if token filtering must be used, if
+     * filter chains must be used, if source files may overwrite
+     * newer destination files and the last modified time of
+     * &lt;code&gt;destFile&lt;/code&gt; file should be made equal
+     * to the last modified time of &lt;code&gt;sourceFile&lt;/code&gt;.
+     *
+     * @param sourceFile the file to copy from.
+     *                   Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile the file to copy to.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param filterChains filterChains to apply during the copy.
+     * @param overwrite Whether or not the destination file should be
+     *                  overwritten if it already exists.
+     * @param preserveLastModified Whether or not the last modified time of
+     *                             the resulting file should be set to that
+     *                             of the source file.
+     * @param append whether to append to the destination file.
+     * @param inputEncoding the encoding used to read the files.
+     * @param outputEncoding the encoding used to write the files.
+     * @param project the project instance.
+     *
+     *
+     * @throws IOException if the copying fails.
+     *
+     * @since Ant 1.8
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>destFile</name></decl></param>,
+                         <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>, <param><decl><type><name>Vector</name></type> <name>filterChains</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>append</name></decl></param>,
+                         <param><decl><type><name>String</name></type> <name>inputEncoding</name></decl></param>, <param><decl><type><name>String</name></type> <name>outputEncoding</name></decl></param>,
+                         <param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>, <argument><expr><name>filters</name></expr></argument>, <argument><expr><name>filterChains</name></expr></argument>, <argument><expr><name>overwrite</name></expr></argument>,
+                 <argument><expr><name>preserveLastModified</name></expr></argument>, <argument><expr><name>append</name></expr></argument>, <argument><expr><name>inputEncoding</name></expr></argument>, <argument><expr><name>outputEncoding</name></expr></argument>,
+                 <argument><expr><name>project</name></expr></argument>, <comment type="block">/* force: */</comment> <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to copy a file from a source to a
+     * destination specifying if token filtering must be used, if
+     * filter chains must be used, if source files may overwrite
+     * newer destination files and the last modified time of
+     * &lt;code&gt;destFile&lt;/code&gt; file should be made equal
+     * to the last modified time of &lt;code&gt;sourceFile&lt;/code&gt;.
+     *
+     * @param sourceFile the file to copy from.
+     *                   Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param destFile the file to copy to.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param filters the collection of filters to apply to this copy.
+     * @param filterChains filterChains to apply during the copy.
+     * @param overwrite Whether or not the destination file should be
+     *                  overwritten if it already exists.
+     * @param preserveLastModified Whether or not the last modified time of
+     *                             the resulting file should be set to that
+     *                             of the source file.
+     * @param append whether to append to the destination file.
+     * @param inputEncoding the encoding used to read the files.
+     * @param outputEncoding the encoding used to write the files.
+     * @param project the project instance.
+     * @param force whether to overwrite read-only destination files.
+     *
+     * @throws IOException if the copying fails.
+     *
+     * @since Ant 1.8.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>destFile</name></decl></param>,
+                         <param><decl><type><name>FilterSetCollection</name></type> <name>filters</name></decl></param>, <param><decl><type><name>Vector</name></type> <name>filterChains</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>,
+                         <param><decl><type><name>boolean</name></type> <name>append</name></decl></param>,
+                         <param><decl><type><name>String</name></type> <name>inputEncoding</name></decl></param>, <param><decl><type><name>String</name></type> <name>outputEncoding</name></decl></param>,
+                         <param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>force</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>ResourceUtils</name>.<name>copyResource</name></name><argument_list>(<argument><expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>)</argument_list></call></expr></argument>,
+                                   <argument><expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr></argument>,
+                                   <argument><expr><name>filters</name></expr></argument>, <argument><expr><name>filterChains</name></expr></argument>, <argument><expr><name>overwrite</name></expr></argument>,
+                                   <argument><expr><name>preserveLastModified</name></expr></argument>, <argument><expr><name>append</name></expr></argument>, <argument><expr><name>inputEncoding</name></expr></argument>,
+                                   <argument><expr><name>outputEncoding</name></expr></argument>, <argument><expr><name>project</name></expr></argument>, <argument><expr><name>force</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="line">// CheckStyle:ParameterNumberCheck ON</comment>
+
+    <comment type="javadoc">/**
+     * Calls File.setLastModified(long time). Originally written to
+     * to dynamically bind to that call on Java1.2+.
+     *
+     * @param file the file whose modified time is to be set
+     * @param time the time to which the last modified time is to be set.
+     *             if this is -1, the current time is used.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFileLastModified</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>, <param><decl><type><name>long</name></type> <name>time</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>ResourceUtils</name>.<name>setLastModified</name></name><argument_list>(<argument><expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>time</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Interpret the filename as a file relative to the given file
+     * unless the filename already represents an absolute filename.
+     * Differs from &lt;code&gt;new File(file, filename)&lt;/code&gt; in that
+     * the resulting File's path will always be a normalized,
+     * absolute pathname.  Also, if it is determined that
+     * &lt;code&gt;filename&lt;/code&gt; is context-relative, &lt;code&gt;file&lt;/code&gt;
+     * will be discarded and the reference will be resolved using
+     * available context/state information about the filesystem.
+     *
+     * @param file the "reference" file for relative paths. This
+     * instance must be an absolute file and must not contain
+     * &amp;quot;./&amp;quot; or &amp;quot;../&amp;quot; sequences (same for \ instead
+     * of /).  If it is null, this call is equivalent to
+     * &lt;code&gt;new java.io.File(filename).getAbsoluteFile()&lt;/code&gt;.
+     *
+     * @param filename a file name.
+     *
+     * @return an absolute file.
+     * @throws java.lang.NullPointerException if filename is null.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>resolveFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>, <param><decl><type><name>String</name></type> <name>filename</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<call><name>isAbsolutePath</name><argument_list>(<argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>char</name></type> <name>sep</name> =<init> <expr><name><name>File</name>.<name>separatorChar</name></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>filename</name> = <call><name><name>filename</name>.<name>replace</name></name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr><name>sep</name></expr></argument>)</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr><name>sep</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name>isContextRelativePath</name><argument_list>(<argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>file</name> = <name>null</name></expr>;</expr_stmt>
+                <comment type="line">// on cygwin, our current directory can be a UNC;</comment>
+                <comment type="line">// assume user.dir is absolute or all hell breaks loose...</comment>
+                <decl_stmt><decl><type><name>String</name></type> <name>udir</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"user.dir"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>filename</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> == <name>sep</name> &amp;&amp; <call><name><name>udir</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> == <name>sep</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>filename</name> = <call><name>dissect</name><argument_list>(<argument><expr><name>udir</name></expr></argument>)</argument_list></call><index>[<expr>0</expr>]</index> + <call><name><name>filename</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then></if>
+            <expr_stmt><expr><name>filename</name> = new <call><name>File</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>filename</name></expr></argument>)</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name>normalize</name><argument_list>(<argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * On DOS and NetWare, the evaluation of certain file
+     * specifications is context-dependent.  These are filenames
+     * beginning with a single separator (relative to current root directory)
+     * and filenames with a drive specification and no intervening separator
+     * (relative to current directory of the specified root).
+     * @param filename the filename to evaluate.
+     * @return true if the filename is relative to system context.
+     * @throws java.lang.NullPointerException if filename is null.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>isContextRelativePath</name><parameter_list>(<param><decl><type><name>String</name></type> <name>filename</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!(<name>ON_DOS</name> || <name>ON_NETWARE</name>) || <call><name><name>filename</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>char</name></type> <name>sep</name> =<init> <expr><name><name>File</name>.<name>separatorChar</name></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>filename</name> = <call><name><name>filename</name>.<name>replace</name></name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr><name>sep</name></expr></argument>)</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr><name>sep</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>char</name></type> <name>c</name> =<init> <expr><call><name><name>filename</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>len</name> =<init> <expr><call><name><name>filename</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr>(<name>c</name> == <name>sep</name> &amp;&amp; (<name>len</name> == 1 || <call><name><name>filename</name>.<name>charAt</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call> != <name>sep</name>))
+                || (<call><name><name>Character</name>.<name>isLetter</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call> &amp;&amp; <name>len</name> &gt; 1
+                &amp;&amp; <call><name><name>filename</name>.<name>indexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call> == 1
+                &amp;&amp; (<name>len</name> == 2 || <call><name><name>filename</name>.<name>charAt</name></name><argument_list>(<argument><expr>2</expr></argument>)</argument_list></call> != <name>sep</name>))</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Verifies that the specified filename represents an absolute path.
+     * Differs from new java.io.File("filename").isAbsolute() in that a path
+     * beginning with a double file separator--signifying a Windows UNC--must
+     * at minimum match "\\a\b" to be considered an absolute path.
+     * @param filename the filename to be checked.
+     * @return true if the filename represents an absolute path.
+     * @throws java.lang.NullPointerException if filename is null.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>isAbsolutePath</name><parameter_list>(<param><decl><type><name>String</name></type> <name>filename</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>len</name> =<init> <expr><call><name><name>filename</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>len</name> == 0</expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>char</name></type> <name>sep</name> =<init> <expr><name><name>File</name>.<name>separatorChar</name></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>filename</name> = <call><name><name>filename</name>.<name>replace</name></name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr><name>sep</name></expr></argument>)</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr><name>sep</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>char</name></type> <name>c</name> =<init> <expr><call><name><name>filename</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!(<name>ON_DOS</name> || <name>ON_NETWARE</name>)</expr>)</condition><then> <block>{
+            <return>return <expr>(<name>c</name> == <name>sep</name>)</expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>c</name> == <name>sep</name></expr>)</condition><then> <block>{
+            <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+            <if>if <condition>(<expr>!(<name>ON_DOS</name> &amp;&amp; <name>len</name> &gt; 4 &amp;&amp; <call><name><name>filename</name>.<name>charAt</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call> == <name>sep</name>)</expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+            <comment type="line">// CheckStyle:MagicNumber ON</comment>
+            <decl_stmt><decl><type><name>int</name></type> <name>nextsep</name> =<init> <expr><call><name><name>filename</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>sep</name></expr></argument>, <argument><expr>2</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr><name>nextsep</name> &gt; 2 &amp;&amp; <name>nextsep</name> + 1 &lt; <name>len</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>int</name></type> <name>colon</name> =<init> <expr><call><name><name>filename</name>.<name>indexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr>(<call><name><name>Character</name>.<name>isLetter</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call> &amp;&amp; <name>colon</name> == 1
+                &amp;&amp; <call><name><name>filename</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 2 &amp;&amp; <call><name><name>filename</name>.<name>charAt</name></name><argument_list>(<argument><expr>2</expr></argument>)</argument_list></call> == <name>sep</name>)
+                || (<name>ON_NETWARE</name> &amp;&amp; <name>colon</name> &gt; 0)</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Translate a path into its native (platform specific) format.
+     * &lt;p&gt;
+     * This method uses PathTokenizer to separate the input path
+     * into its components. This handles DOS style paths in a relatively
+     * sensible way. The file separators are then converted to their platform
+     * specific versions.
+     *
+     * @param toProcess The path to be translated.
+     *                  May be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return the native version of the specified path or
+     *         an empty string if the path is &lt;code&gt;null&lt;/code&gt; or empty.
+     *
+     * @since ant 1.7
+     * @see PathTokenizer
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>translatePath</name><parameter_list>(<param><decl><type><name>String</name></type> <name>toProcess</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>toProcess</name> == <name>null</name> || <call><name><name>toProcess</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <return>return <expr>""</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>path</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>toProcess</name>.<name>length</name></name><argument_list>()</argument_list></call> + <name>EXPAND_SPACE</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>PathTokenizer</name></type> <name>tokenizer</name> =<init> <expr>new <call><name>PathTokenizer</name><argument_list>(<argument><expr><name>toProcess</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>tokenizer</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>pathComponent</name> =<init> <expr><call><name><name>tokenizer</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>pathComponent</name> = <call><name><name>pathComponent</name>.<name>replace</name></name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>pathComponent</name> = <call><name><name>pathComponent</name>.<name>replace</name></name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>path</name>.<name>length</name></name><argument_list>()</argument_list></call> != 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>path</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>pathSeparatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>path</name>.<name>append</name></name><argument_list>(<argument><expr><name>pathComponent</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><call><name><name>path</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * &amp;quot;Normalize&amp;quot; the given absolute path.
+     *
+     * &lt;p&gt;This includes:
+     * &lt;ul&gt;
+     *   &lt;li&gt;Uppercase the drive letter if there is one.&lt;/li&gt;
+     *   &lt;li&gt;Remove redundant slashes after the drive spec.&lt;/li&gt;
+     *   &lt;li&gt;Resolve all ./, .\, ../ and ..\ sequences.&lt;/li&gt;
+     *   &lt;li&gt;DOS style paths that start with a drive letter will have
+     *     \ as the separator.&lt;/li&gt;
+     * &lt;/ul&gt;
+     * Unlike {@link File#getCanonicalPath()} this method
+     * specifically does not resolve symbolic links.
+     *
+     * @param path the path to be normalized.
+     * @return the normalized version of the path.
+     *
+     * @throws java.lang.NullPointerException if path is null.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>normalize</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Stack</name></type> <name>s</name> =<init> <expr>new <call><name>Stack</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>dissect</name> =<init> <expr><call><name>dissect</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>s</name>.<name>push</name></name><argument_list>(<argument><expr><name><name>dissect</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>StringTokenizer</name></type> <name>tok</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><name><name>dissect</name><index>[<expr>1</expr>]</index></name></expr></argument>, <argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>tok</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>thisToken</name> =<init> <expr><call><name><name>tok</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>".".<call><name>equals</name><argument_list>(<argument><expr><name>thisToken</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+            <if>if <condition>(<expr>"..".<call><name>equals</name><argument_list>(<argument><expr><name>thisToken</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name><name>s</name>.<name>size</name></name><argument_list>()</argument_list></call> &lt; 2</expr>)</condition><then> <block>{
+                    <comment type="line">// Cannot resolve it, so skip it.</comment>
+                    <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call></expr>;</return>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>s</name>.<name>pop</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{ <comment type="line">// plain component</comment>
+                <expr_stmt><expr><call><name><name>s</name>.<name>push</name></name><argument_list>(<argument><expr><name>thisToken</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></while>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>sb</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>s</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><name>i</name> &gt; 1</expr>)</condition><then> <block>{
+                <comment type="line">// not before the filesystem root and not after it, since root</comment>
+                <comment type="line">// already contains one</comment>
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>s</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Dissect the specified absolute path.
+     * @param path the path to dissect.
+     * @return String[] {root, remaining path}.
+     * @throws java.lang.NullPointerException if path is null.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>dissect</name><parameter_list>(<param><decl><type><name>String</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>char</name></type> <name>sep</name> =<init> <expr><name><name>File</name>.<name>separatorChar</name></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>path</name> = <call><name><name>path</name>.<name>replace</name></name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr><name>sep</name></expr></argument>)</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr><name>sep</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// make sure we are dealing with an absolute path</comment>
+        <if>if <condition>(<expr>!<call><name>isAbsolutePath</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>path</name> + " is not an absolute path"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>root</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>colon</name> =<init> <expr><call><name><name>path</name>.<name>indexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>colon</name> &gt; 0 &amp;&amp; (<name>ON_DOS</name> || <name>ON_NETWARE</name>)</expr>)</condition><then> <block>{
+
+            <decl_stmt><decl><type><name>int</name></type> <name>next</name> =<init> <expr><name>colon</name> + 1</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>root</name> = <call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>next</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>char</name><index>[]</index></type> <name>ca</name> =<init> <expr><call><name><name>path</name>.<name>toCharArray</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>root</name> += <name>sep</name></expr>;</expr_stmt>
+            <comment type="line">//remove the initial separator; the root has it.</comment>
+            <expr_stmt><expr><name>next</name> = (<name><name>ca</name><index>[<expr><name>next</name></expr>]</index></name> == <name>sep</name>) ? <name>next</name> + 1 : <name>next</name></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>StringBuffer</name></type> <name>sbPath</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <comment type="line">// Eliminate consecutive slashes after the drive spec:</comment>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>next</name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>ca</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <if>if <condition>(<expr><name><name>ca</name><index>[<expr><name>i</name></expr>]</index></name> != <name>sep</name> || <name><name>ca</name><index>[<expr><name>i</name> - 1</expr>]</index></name> != <name>sep</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>sbPath</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>ca</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+            <expr_stmt><expr><name>path</name> = <call><name><name>sbPath</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>path</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 1 &amp;&amp; <call><name><name>path</name>.<name>charAt</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call> == <name>sep</name></expr>)</condition><then> <block>{
+            <comment type="line">// UNC drive</comment>
+            <decl_stmt><decl><type><name>int</name></type> <name>nextsep</name> =<init> <expr><call><name><name>path</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>sep</name></expr></argument>, <argument><expr>2</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>nextsep</name> = <call><name><name>path</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>sep</name></expr></argument>, <argument><expr><name>nextsep</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>root</name> = (<name>nextsep</name> &gt; 2) ? <call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>nextsep</name> + 1</expr></argument>)</argument_list></call> : <name>path</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>path</name> = <call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr><call><name><name>root</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>root</name> = <name><name>File</name>.<name>separator</name></name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>path</name> = <call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if></else></if>
+        <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr><name>root</name></expr>, <expr><name>path</name></expr>}</block></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a VMS String representation of a &lt;code&gt;File&lt;/code&gt; object.
+     * This is useful since the JVM by default internally converts VMS paths
+     * to Unix style.
+     * The returned String is always an absolute path.
+     *
+     * @param f The &lt;code&gt;File&lt;/code&gt; to get the VMS path for.
+     * @return The absolute VMS path to &lt;code&gt;f&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toVMSPath</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// format: "DEVICE:[DIR.SUBDIR]FILE"</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>osPath</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>path</name> =<init> <expr><call><name>normalize</name><argument_list>(<argument><expr><call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>getPath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>f</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>isAbsolute</name> =<init> <expr><call><name><name>path</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> == <name><name>File</name>.<name>separatorChar</name></name></expr></init></decl>;</decl_stmt>
+        <comment type="line">// treat directories specified using .DIR syntax as files</comment>
+        <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>isDirectory</name> =<init> <expr><call><name><name>f</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call>
+                &amp;&amp; !<call><name><name>name</name>.<name>regionMatches</name></name><argument_list>(<argument><expr>true</expr></argument>, <argument><expr><call><name><name>name</name>.<name>length</name></name><argument_list>()</argument_list></call> - 4</expr></argument>, <argument><expr>".DIR"</expr></argument>, <argument><expr>0</expr></argument>, <argument><expr>4</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// CheckStyle:MagicNumber ON</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>device</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>directory</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>file</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>isAbsolute</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>index</name> = <call><name><name>path</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr>1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>index</name> == -1</expr>)</condition><then> <block>{
+                <return>return <expr><call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call> + ":[000000]"</expr>;</return>
+            }</block></then></if>
+            <expr_stmt><expr><name>device</name> = <call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>, <argument><expr><name>index</name>++</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>isDirectory</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>directory</name> = new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr><name>index</name></expr></argument>)</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr>'.'</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>dirEnd</name> =<init> <expr><call><name><name>path</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr><call><name><name>path</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>dirEnd</name> == -1 || <name>dirEnd</name> &lt; <name>index</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>file</name> = <call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr><name>index</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>directory</name> = new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr><name>index</name></expr></argument>, <argument><expr><name>dirEnd</name></expr></argument>)</argument_list></call>.
+                                             <call><name>replace</name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr>'.'</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>index</name> = <name>dirEnd</name> + 1</expr>;</expr_stmt>
+                <if>if <condition>(<expr><call><name><name>path</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; <name>index</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>file</name> = <call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr><name>index</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></else></if>
+        }</block></else></if>
+        <if>if <condition>(<expr>!<name>isAbsolute</name> &amp;&amp; <name>directory</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>directory</name>.<name>insert</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr>'.'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><name>osPath</name> = ((<name>device</name> != <name>null</name>) ? <name>device</name> + ":" : "")
+                + ((<name>directory</name> != <name>null</name>) ? "[" + <name>directory</name> + "]" : "")
+                + ((<name>file</name> != <name>null</name>) ? <name>file</name> : "")</expr>;</expr_stmt>
+        <return>return <expr><name>osPath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a File object for a temporary file in a given directory. Without
+     * actually creating the file.
+     *
+     * &lt;p&gt;
+     * The file denoted by the returned abstract pathname did not exist before
+     * this method was invoked, any subsequent invocation of this method will
+     * yield a different file name.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * The filename is prefixNNNNNsuffix where NNNN is a random number.
+     * &lt;/p&gt;
+     *
+     * @param prefix
+     *            prefix before the random number.
+     * @param suffix
+     *            file extension; include the '.'.
+     * @param parentDir
+     *            Directory to create the temporary file in; java.io.tmpdir used
+     *            if not specified.
+     *
+     * @deprecated since ant 1.7.1 use createTempFile(String, String, File,
+     * boolean, boolean) instead.
+     * @return a File reference to the new, nonexistent temporary file.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>createTempFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>prefix</name></decl></param>, <param><decl><type><name>String</name></type> <name>suffix</name></decl></param>, <param><decl><type><name>File</name></type> <name>parentDir</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>createTempFile</name><argument_list>(<argument><expr><name>prefix</name></expr></argument>, <argument><expr><name>suffix</name></expr></argument>, <argument><expr><name>parentDir</name></expr></argument>, <argument><expr>false</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>NULL_PLACEHOLDER</name> =<init> <expr>"null"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Create a temporary file in a given directory.
+     *
+     * &lt;p&gt;The file denoted by the returned abstract pathname did not
+     * exist before this method was invoked, any subsequent invocation
+     * of this method will yield a different file name.&lt;/p&gt;
+     *
+     * @param prefix prefix before the random number.
+     * @param suffix file extension; include the '.'.
+     * @param parentDir Directory to create the temporary file in;
+     * java.io.tmpdir used if not specified.
+     * @param deleteOnExit whether to set the tempfile for deletion on
+     *        normal VM exit.
+     * @param createFile true if the file must actually be created. If false
+     * chances exist that a file with the same name is created in the time
+     * between invoking this method and the moment the file is actually created.
+     * If possible set to true.
+     *
+     * @return a File reference to the new temporary file.
+     * @since Ant 1.7.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>createTempFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>prefix</name></decl></param>, <param><decl><type><name>String</name></type> <name>suffix</name></decl></param>, <param><decl><type><name>File</name></type> <name>parentDir</name></decl></param>,
+            <param><decl><type><name>boolean</name></type> <name>deleteOnExit</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>createFile</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>result</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>parent</name> =<init> <expr>(<name>parentDir</name> == <name>null</name>)
+                ? <call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.io.tmpdir"</expr></argument>)</argument_list></call>
+                : <call><name><name>parentDir</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>prefix</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>prefix</name> = <name>NULL_PLACEHOLDER</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>suffix</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>suffix</name> = <name>NULL_PLACEHOLDER</name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>createFile</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>result</name> = <call><name><name>File</name>.<name>createTempFile</name></name><argument_list>(<argument><expr><name>prefix</name></expr></argument>, <argument><expr><name>suffix</name></expr></argument>, <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>parent</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Could not create tempfile in "
+                        + <name>parent</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>DecimalFormat</name></type> <name>fmt</name> =<init> <expr>new <call><name>DecimalFormat</name><argument_list>(<argument><expr>"#####"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <synchronized>synchronized (<expr><name>rand</name></expr>) <block>{
+                <do>do <block>{
+                    <expr_stmt><expr><name>result</name> = new <call><name>File</name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>prefix</name>
+                            + <call><name><name>fmt</name>.<name>format</name></name><argument_list>(<argument><expr><call><name><name>rand</name>.<name>nextInt</name></name><argument_list>(<argument><expr><name><name>Integer</name>.<name>MAX_VALUE</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call> + <name>suffix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> while <condition>(<expr><call><name><name>result</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition>;</do>
+            }</block></synchronized>
+        }</block></else></if>
+
+        <if>if <condition>(<expr><name>deleteOnExit</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>result</name>.<name>deleteOnExit</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a File object for a temporary file in a given directory. Without
+     * actually creating the file.
+     *
+     * &lt;p&gt;
+     * The file denoted by the returned abstract pathname did not exist before
+     * this method was invoked, any subsequent invocation of this method will
+     * yield a different file name.
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * The filename is prefixNNNNNsuffix where NNNN is a random number.
+     * &lt;/p&gt;
+     *
+     * @param prefix
+     *            prefix before the random number.
+     * @param suffix
+     *            file extension; include the '.'.
+     * @param parentDir
+     *            Directory to create the temporary file in; java.io.tmpdir used
+     *            if not specified.
+     * @param deleteOnExit
+     *            whether to set the tempfile for deletion on normal VM exit.
+     *
+     * @deprecated since ant 1.7.1 use createTempFile(String, String, File,
+     * boolean, boolean) instead.
+     * @return a File reference to the new, nonexistent temporary file.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>createTempFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>prefix</name></decl></param>, <param><decl><type><name>String</name></type> <name>suffix</name></decl></param>,
+            <param><decl><type><name>File</name></type> <name>parentDir</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>deleteOnExit</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>createTempFile</name><argument_list>(<argument><expr><name>prefix</name></expr></argument>, <argument><expr><name>suffix</name></expr></argument>, <argument><expr><name>parentDir</name></expr></argument>, <argument><expr><name>deleteOnExit</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Compares the contents of two files.
+     *
+     * @param f1 the file whose content is to be compared.
+     * @param f2 the other file whose content is to be compared.
+     *
+     * @return true if the content of the files is the same.
+     *
+     * @throws IOException if the files cannot be read.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>contentEquals</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f1</name></decl></param>, <param><decl><type><name>File</name></type> <name>f2</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <return>return <expr><call><name>contentEquals</name><argument_list>(<argument><expr><name>f1</name></expr></argument>, <argument><expr><name>f2</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Compares the contents of two files.
+     *
+     * @param f1 the file whose content is to be compared.
+     * @param f2 the other file whose content is to be compared.
+     * @param textfile true if the file is to be treated as a text file and
+     *        differences in kind of line break are to be ignored.
+     *
+     * @return true if the content of the files is the same.
+     *
+     * @throws IOException if the files cannot be read.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>contentEquals</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f1</name></decl></param>, <param><decl><type><name>File</name></type> <name>f2</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>textfile</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <return>return <expr><call><name><name>ResourceUtils</name>.<name>contentEquals</name></name><argument_list>(<argument><expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>f1</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>f2</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>textfile</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This was originally an emulation of {@link File#getParentFile} for JDK 1.1, but it is now
+     * implemented using that method (Ant 1.6.3 onwards).
+     *
+     * @param f the file whose parent is required.
+     * @return the given file's parent, or null if the file does not have a parent.
+     * @since 1.10
+     * @deprecated since 1.7. Just use {@link File#getParentFile} directly.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getParentFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>(<name>f</name> == <name>null</name>) ? <name>null</name> : <call><name><name>f</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Read from reader till EOF.
+     * @param rdr the reader from which to read.
+     * @return the contents read out of the given reader.
+     *
+     * @throws IOException if the contents could not be read out from the
+     *         reader.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>readFully</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>rdr</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <return>return <expr><call><name>readFully</name><argument_list>(<argument><expr><name>rdr</name></expr></argument>, <argument><expr><name>BUF_SIZE</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Read from reader till EOF.
+     *
+     * @param rdr the reader from which to read.
+     * @param bufferSize the buffer size to use when reading.
+     *
+     * @return the contents read out of the given reader.
+     *
+     * @throws IOException if the contents could not be read out from the
+     *         reader.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>readFully</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>rdr</name></decl></param>, <param><decl><type><name>int</name></type> <name>bufferSize</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>bufferSize</name> &lt;= 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"Buffer size must be greater "
+                                               + "than 0"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>char</name><index>[]</index></type> <name>buffer</name> =<init> <expr>new <name><name>char</name><index>[<expr><name>bufferSize</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>bufferLength</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>textBuffer</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><name>bufferLength</name> != -1</expr>)</condition> <block>{
+            <expr_stmt><expr><name>bufferLength</name> = <call><name><name>rdr</name>.<name>read</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>bufferLength</name> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>textBuffer</name> = (<name>textBuffer</name> == <name>null</name>) ? new <call><name>StringBuffer</name><argument_list>()</argument_list></call> : <name>textBuffer</name></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>textBuffer</name>.<name>append</name></name><argument_list>(<argument><expr>new <call><name>String</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>bufferLength</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></while>
+        <return>return <expr>(<name>textBuffer</name> == <name>null</name>) ? <name>null</name> : <call><name><name>textBuffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Safe read fully - do not return a null for an empty reader.
+     * @param reader the input to read from.
+     * @return the string.
+     * @throws IOException if unable to read from reader.
+     * @since Ant 1.7.1
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>safeReadFully</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>reader</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>ret</name> =<init> <expr><call><name>readFully</name><argument_list>(<argument><expr><name>reader</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>ret</name> == <name>null</name> ? "" : <name>ret</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This was originally an emulation of File.createNewFile for JDK 1.1,
+     * but it is now implemented using that method (Ant 1.6.3 onwards).
+     *
+     * &lt;p&gt;This method has historically &lt;strong&gt;not&lt;/strong&gt; guaranteed that the
+     * operation was atomic. In its current implementation it is.
+     *
+     * @param f the file to be created.
+     * @return true if the file did not exist already.
+     * @throws IOException on error.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>createNewFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <return>return <expr><call><name><name>f</name>.<name>createNewFile</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a new file, optionally creating parent directories.
+     *
+     * @param f the file to be created.
+     * @param mkdirs &lt;code&gt;boolean&lt;/code&gt; whether to create parent directories.
+     * @return true if the file did not exist already.
+     * @throws IOException on error.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>createNewFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>mkdirs</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>parent</name> =<init> <expr><call><name><name>f</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>mkdirs</name> &amp;&amp; !(<call><name><name>parent</name>.<name>exists</name></name><argument_list>()</argument_list></call>)</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>parent</name>.<name>mkdirs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>f</name>.<name>createNewFile</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Checks whether a given file is a symbolic link.
+     *
+     * &lt;p&gt;It doesn't really test for symbolic links but whether the
+     * canonical and absolute paths of the file are identical--this
+     * may lead to false positives on some platforms.&lt;/p&gt;
+     *
+     * @param parent the parent directory of the file to test
+     * @param name the name of the file to test.
+     *
+     * @return true if the file is a symbolic link.
+     * @throws IOException on error.
+     * @since Ant 1.5
+     * @deprecated use SymbolicLinkUtils instead
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isSymbolicLink</name><parameter_list>(<param><decl><type><name>File</name></type> <name>parent</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>SymbolicLinkUtils</name></type> <name>u</name> =<init> <expr><call><name><name>SymbolicLinkUtils</name>.<name>getSymbolicLinkUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>parent</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>u</name>.<name>isSymbolicLink</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name><name>u</name>.<name>isSymbolicLink</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Removes a leading path from a second path.
+     *
+     * @param leading The leading path, must not be null, must be absolute.
+     * @param path The path to remove from, must not be null, must be absolute.
+     *
+     * @return path's normalized absolute if it doesn't start with
+     * leading; path's path with leading's path removed otherwise.
+     *
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>removeLeadingPath</name><parameter_list>(<param><decl><type><name>File</name></type> <name>leading</name></decl></param>, <param><decl><type><name>File</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>l</name> =<init> <expr><call><name>normalize</name><argument_list>(<argument><expr><call><name><name>leading</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>p</name> =<init> <expr><call><name>normalize</name><argument_list>(<argument><expr><call><name><name>path</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>l</name>.<name>equals</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>""</expr>;</return>
+        }</block></then></if>
+        <comment type="line">// ensure that l ends with a /</comment>
+        <comment type="line">// so we never think /foo was a parent directory of /foobar</comment>
+        <if>if <condition>(<expr>!<call><name><name>l</name>.<name>endsWith</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>l</name> += <name><name>File</name>.<name>separator</name></name></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr>(<call><name><name>p</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>l</name></expr></argument>)</argument_list></call>) ? <call><name><name>p</name>.<name>substring</name></name><argument_list>(<argument><expr><call><name><name>l</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call> : <name>p</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Learn whether one path "leads" another.
+     * @param leading The leading path, must not be null, must be absolute.
+     * @param path The path to remove from, must not be null, must be absolute.
+     * @return true if path starts with leading; false otherwise.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isLeadingPath</name><parameter_list>(<param><decl><type><name>File</name></type> <name>leading</name></decl></param>, <param><decl><type><name>File</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>l</name> =<init> <expr><call><name>normalize</name><argument_list>(<argument><expr><call><name><name>leading</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>p</name> =<init> <expr><call><name>normalize</name><argument_list>(<argument><expr><call><name><name>path</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>l</name>.<name>equals</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <comment type="line">// ensure that l ends with a /</comment>
+        <comment type="line">// so we never think /foo was a parent directory of /foobar</comment>
+        <if>if <condition>(<expr>!<call><name><name>l</name>.<name>endsWith</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>l</name> += <name><name>File</name>.<name>separator</name></name></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>p</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>l</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Constructs a &lt;code&gt;file:&lt;/code&gt; URI that represents the
+     * external form of the given pathname.
+     *
+     * &lt;p&gt;Will be an absolute URI if the given path is absolute.&lt;/p&gt;
+     *
+     * &lt;p&gt;This code encodes non ASCII characters too.&lt;/p&gt;
+     *
+     * &lt;p&gt;The coding of the output is the same as what File.toURI().toASCIIString() produces&lt;/p&gt;
+     *
+     * See &lt;a href="http://www.w3.org/TR/xml11/#dt-sysid"&gt;dt-sysid&lt;/a&gt;
+     * which makes some mention of how
+     * characters not supported by URI Reference syntax should be escaped.
+     *
+     * @param path the path in the local file system.
+     * @return the URI version of the local path.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toURI</name><parameter_list>(<param><decl><type><name>String</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call>.<call><name>toURI</name><argument_list>()</argument_list></call>.<call><name>toASCIIString</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Constructs a file path from a &lt;code&gt;file:&lt;/code&gt; URI.
+     *
+     * &lt;p&gt;Will be an absolute path if the given URI is absolute.&lt;/p&gt;
+     *
+     * &lt;p&gt;Swallows '%' that are not followed by two characters,
+     * doesn't deal with non-ASCII characters.&lt;/p&gt;
+     *
+     * @param uri the URI designating a file in the local filesystem.
+     * @return the local file system path for the file.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>fromURI</name><parameter_list>(<param><decl><type><name>String</name></type> <name>uri</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>cacheFromUriLock</name></expr>) <block>{
+            <if>if <condition>(<expr><call><name><name>uri</name>.<name>equals</name></name><argument_list>(<argument><expr><name>cacheFromUriRequest</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>cacheFromUriResponse</name></expr>;</return>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>path</name> =<init> <expr><call><name><name>Locator</name>.<name>fromURI</name></name><argument_list>(<argument><expr><name>uri</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>ret</name> =<init> <expr><call><name>isAbsolutePath</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call> ? <call><name>normalize</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call> : <name>path</name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>cacheFromUriRequest</name> = <name>uri</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>cacheFromUriResponse</name> = <name>ret</name></expr>;</expr_stmt>
+            <return>return <expr><name>ret</name></expr>;</return>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Compares two filenames.
+     *
+     * &lt;p&gt;Unlike java.io.File#equals this method will try to compare
+     * the absolute paths and &amp;quot;normalize&amp;quot; the filenames
+     * before comparing them.&lt;/p&gt;
+     *
+     * @param f1 the file whose name is to be compared.
+     * @param f2 the other file whose name is to be compared.
+     *
+     * @return true if the file are for the same file.
+     *
+     * @since Ant 1.5.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>fileNameEquals</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f1</name></decl></param>, <param><decl><type><name>File</name></type> <name>f2</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>normalize</name><argument_list>(<argument><expr><call><name><name>f1</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(
+                <argument><expr><call><name>normalize</name><argument_list>(<argument><expr><call><name><name>f2</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Are the two File instances pointing to the same object on the
+     * file system?
+     * @since Ant 1.8.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>areSame</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f1</name></decl></param>, <param><decl><type><name>File</name></type> <name>f2</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>f1</name> == <name>null</name> &amp;&amp; <name>f2</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>f1</name> == <name>null</name> || <name>f2</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>File</name></type> <name>f1Normalized</name> =<init> <expr><call><name>normalize</name><argument_list>(<argument><expr><call><name><name>f1</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>f2Normalized</name> =<init> <expr><call><name>normalize</name><argument_list>(<argument><expr><call><name><name>f2</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name><name>f1Normalized</name>.<name>equals</name></name><argument_list>(<argument><expr><name>f2Normalized</name></expr></argument>)</argument_list></call>
+            || <call><name><name>f1Normalized</name>.<name>getCanonicalFile</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><call><name><name>f2Normalized</name>
+                                                      .<name>getCanonicalFile</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Renames a file, even if that involves crossing file system boundaries.
+     *
+     * &lt;p&gt;This will remove &lt;code&gt;to&lt;/code&gt; (if it exists), ensure that
+     * &lt;code&gt;to&lt;/code&gt;'s parent directory exists and move
+     * &lt;code&gt;from&lt;/code&gt;, which involves deleting &lt;code&gt;from&lt;/code&gt; as
+     * well.&lt;/p&gt;
+     *
+     * @param from the file to move.
+     * @param to the new file name.
+     *
+     * @throws IOException if anything bad happens during this
+     * process.  Note that &lt;code&gt;to&lt;/code&gt; may have been deleted
+     * already when this happens.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>rename</name><parameter_list>(<param><decl><type><name>File</name></type> <name>from</name></decl></param>, <param><decl><type><name>File</name></type> <name>to</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <comment type="line">// identical logic lives in Move.renameFile():</comment>
+        <expr_stmt><expr><name>from</name> = <call><name>normalize</name><argument_list>(<argument><expr><call><name><name>from</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>getCanonicalFile</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>to</name> = <call><name>normalize</name><argument_list>(<argument><expr><call><name><name>to</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr>!<call><name><name>from</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>err</name>.<name>println</name></name><argument_list>(<argument><expr>"Cannot rename nonexistent file " + <name>from</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>from</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><call><name><name>to</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>err</name>.<name>println</name></name><argument_list>(<argument><expr>"Rename of " + <name>from</name> + " to " + <name>to</name> + " is a no-op."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>to</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; !(<call><name>areSame</name><argument_list>(<argument><expr><name>from</name></expr></argument>, <argument><expr><name>to</name></expr></argument>)</argument_list></call> || <call><name>tryHardToDelete</name><argument_list>(<argument><expr><name>to</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Failed to delete " + <name>to</name> + " while trying to rename " + <name>from</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>File</name></type> <name>parent</name> =<init> <expr><call><name><name>to</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>parent</name> != <name>null</name> &amp;&amp; !<call><name><name>parent</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; !<call><name><name>parent</name>.<name>mkdirs</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Failed to create directory " + <name>parent</name>
+                                  + " while trying to rename " + <name>from</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<call><name><name>from</name>.<name>renameTo</name></name><argument_list>(<argument><expr><name>to</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr><name>from</name></expr></argument>, <argument><expr><name>to</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr>!<call><name>tryHardToDelete</name><argument_list>(<argument><expr><name>from</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Failed to delete " + <name>from</name> + " while trying to rename it."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the granularity of file timestamps. The choice is made based on OS, which is
+     * incorrect--it should really be by filesystem. We do not have an easy way to probe for file
+     * systems, however, so this heuristic gives us a decent default.
+     *
+     * @return the difference, in milliseconds, which two file timestamps must have in order for the
+     *         two files to be considered to have different timestamps.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>long</name></type> <name>getFileTimestampGranularity</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>ON_WIN9X</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>FAT_FILE_TIMESTAMP_GRANULARITY</name></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>ON_WINDOWS</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>NTFS_FILE_TIMESTAMP_GRANULARITY</name></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>ON_DOS</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>FAT_FILE_TIMESTAMP_GRANULARITY</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>UNIX_FILE_TIMESTAMP_GRANULARITY</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * test whether a file or directory exists, with an error in the
+     * upper/lower case spelling of the name.
+     * Using this method is only interesting on case insensitive file systems
+     * (Windows).&lt;br/&gt;
+     * It will return true only if 3 conditions are met :
+     * &lt;br/&gt;
+     * &lt;ul&gt;
+     *   &lt;li&gt;operating system is case insensitive&lt;/li&gt;
+     *   &lt;li&gt;file exists&lt;/li&gt;
+     *   &lt;li&gt;actual name from directory reading is different from the
+     *       supplied argument&lt;/li&gt;
+     * &lt;/ul&gt;
+     *  &lt;br/&gt;
+     * the purpose is to identify files or directories on case-insensitive
+     * filesystems whose case is not what is expected.&lt;br/&gt;
+     * Possibly to rename them afterwards to the desired upper/lowercase
+     * combination.
+     * &lt;br/&gt;
+     * @param localFile file to test
+     * @return true if the file exists and the case of the actual file
+     *              is not the case of the parameter
+     * @since Ant 1.7.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>hasErrorInCase</name><parameter_list>(<param><decl><type><name>File</name></type> <name>localFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>localFile</name> = <call><name>normalize</name><argument_list>(<argument><expr><call><name><name>localFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr>!<call><name><name>localFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>localFileName</name> =<init> <expr><call><name><name>localFile</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>FilenameFilter</name></type> <name>ff</name> =<init> <expr>new <class><super><name>FilenameFilter</name></super> <argument_list>()</argument_list> <block>{
+            <function><type><specifier>public</specifier> <name>boolean</name></type> <name>accept</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dir</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+                <return>return <expr><call><name><name>name</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>localFileName</name></expr></argument>)</argument_list></call> &amp;&amp; (!<call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><name>localFileName</name></expr></argument>)</argument_list></call>)</expr>;</return>
+            }</block></function>
+        }</block></class></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>names</name> =<init> <expr><call><name><name>localFile</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call>.<call><name>list</name><argument_list>(<argument><expr><name>ff</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>names</name> != <name>null</name> &amp;&amp; <name><name>names</name>.<name>length</name></name> == 1</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns true if the source is older than the dest.
+     * If the dest file does not exist, then the test returns false; it is
+     * implicitly not up do date.
+     * @param source source file (should be the older).
+     * @param dest dest file (should be the newer).
+     * @param granularity an offset added to the source time.
+     * @return true if the source is older than the dest after accounting
+     *              for granularity.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isUpToDate</name><parameter_list>(<param><decl><type><name>File</name></type> <name>source</name></decl></param>, <param><decl><type><name>File</name></type> <name>dest</name></decl></param>, <param><decl><type><name>long</name></type> <name>granularity</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">//do a check for the destination file existing</comment>
+        <if>if <condition>(<expr>!<call><name><name>dest</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">//if it does not, then the file is not up to date.</comment>
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>long</name></type> <name>sourceTime</name> =<init> <expr><call><name><name>source</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>long</name></type> <name>destTime</name> =<init> <expr><call><name><name>dest</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name>isUpToDate</name><argument_list>(<argument><expr><name>sourceTime</name></expr></argument>, <argument><expr><name>destTime</name></expr></argument>, <argument><expr><name>granularity</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns true if the source is older than the dest.
+     * @param source source file (should be the older).
+     * @param dest dest file (should be the newer).
+     * @return true if the source is older than the dest, taking the granularity into account.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isUpToDate</name><parameter_list>(<param><decl><type><name>File</name></type> <name>source</name></decl></param>, <param><decl><type><name>File</name></type> <name>dest</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>isUpToDate</name><argument_list>(<argument><expr><name>source</name></expr></argument>, <argument><expr><name>dest</name></expr></argument>, <argument><expr><call><name>getFileTimestampGranularity</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Compare two timestamps for being up to date using
+     * the specified granularity.
+     *
+     * @param sourceTime timestamp of source file.
+     * @param destTime timestamp of dest file.
+     * @param granularity os/filesys granularity.
+     * @return true if the dest file is considered up to date.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isUpToDate</name><parameter_list>(<param><decl><type><name>long</name></type> <name>sourceTime</name></decl></param>, <param><decl><type><name>long</name></type> <name>destTime</name></decl></param>, <param><decl><type><name>long</name></type> <name>granularity</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><name>destTime</name> != -1 &amp;&amp; <name>destTime</name> &gt;= <name>sourceTime</name> + <name>granularity</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Compare two timestamps for being up to date using the
+     * current granularity.
+     *
+     * @param sourceTime  timestamp of source file.
+     * @param destTime    timestamp of dest file.
+     * @return true if the dest file is considered up to date.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isUpToDate</name><parameter_list>(<param><decl><type><name>long</name></type> <name>sourceTime</name></decl></param>, <param><decl><type><name>long</name></type> <name>destTime</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>isUpToDate</name><argument_list>(<argument><expr><name>sourceTime</name></expr></argument>, <argument><expr><name>destTime</name></expr></argument>, <argument><expr><call><name>getFileTimestampGranularity</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Close a Writer without throwing any exception if something went wrong.
+     * Do not attempt to close it if the argument is null.
+     * @param device output writer, can be null.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>close</name><parameter_list>(<param><decl><type><name>Writer</name></type> <name>device</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>null</name> != <name>device</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>device</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">//ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Close a Reader without throwing any exception if something went wrong.
+     * Do not attempt to close it if the argument is null.
+     *
+     * @param device Reader, can be null.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>close</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>device</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>null</name> != <name>device</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>device</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">//ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Close a stream without throwing any exception if something went wrong.
+     * Do not attempt to close it if the argument is null.
+     *
+     * @param device stream, can be null.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>close</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>device</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>null</name> != <name>device</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>device</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">//ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Close a stream without throwing any exception if something went wrong.
+     * Do not attempt to close it if the argument is null.
+     *
+     * @param device stream, can be null.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>close</name><parameter_list>(<param><decl><type><name>InputStream</name></type> <name>device</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>null</name> != <name>device</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>device</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">//ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Close a Channel without throwing any exception if something went wrong.
+     * Do not attempt to close it if the argument is null.
+     *
+     * @param device channel, can be null.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>close</name><parameter_list>(<param><decl><type><name>Channel</name></type> <name>device</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>null</name> != <name>device</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>device</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">//ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Closes an URLConnection if its concrete implementation provides
+     * a way to close it that Ant knows of.
+     *
+     * @param conn connection, can be null
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>close</name><parameter_list>(<param><decl><type><name>URLConnection</name></type> <name>conn</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>conn</name> != <name>null</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <if>if <condition>(<expr><name>conn</name> <name>instanceof</name> <name>JarURLConnection</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>JarURLConnection</name></type> <name>juc</name> =<init> <expr>(<name>JarURLConnection</name>) <name>conn</name></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>JarFile</name></type> <name>jf</name> =<init> <expr><call><name><name>juc</name>.<name>getJarFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>jf</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>jf</name> = <name>null</name></expr>;</expr_stmt>
+                }</block></then> <else>else <if>if <condition>(<expr><name>conn</name> <name>instanceof</name> <name>HttpURLConnection</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr>((<name>HttpURLConnection</name>) <name>conn</name>).<call><name>disconnect</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if></else></if>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>exc</name></decl></param>) <block>{
+                <comment type="line">//ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Delete the file with {@link File#delete()} if the argument is not null.
+     * Do nothing on a null argument.
+     * @param file file to delete.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>delete</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>file</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>file</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Accommodate Windows bug encountered in both Sun and IBM JDKs.
+     * Others possible. If the delete does not work, call System.gc(),
+     * wait a little and try again.
+     *
+     * @return whether deletion was successful
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>tryHardToDelete</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>tryHardToDelete</name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr><name>ON_WINDOWS</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If delete does not work, call System.gc() if asked to, wait a
+     * little and try again.
+     *
+     * @return whether deletion was successful
+     * @since Ant 1.8.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>tryHardToDelete</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>runGC</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<call><name><name>f</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>runGC</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>System</name>.<name>gc</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>Thread</name>.<name>sleep</name></name><argument_list>(<argument><expr><name>DELETE_RETRY_SLEEP_MILLIS</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>ex</name></decl></param>) <block>{
+                <comment type="line">// Ignore Exception</comment>
+            }</block></catch></try>
+            <return>return <expr><call><name><name>f</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Calculates the relative path between two files.
+     * &lt;p&gt;
+     * Implementation note:&lt;br/&gt; This function may throw an IOException if an I/O error occurs
+     * because its use of the canonical pathname may require filesystem queries.
+     * &lt;/p&gt;
+     *
+     * @param fromFile the &lt;code&gt;File&lt;/code&gt; to calculate the path from
+     * @param toFile the &lt;code&gt;File&lt;/code&gt; to calculate the path to
+     * @return the relative path between the files
+     * @throws Exception for undocumented reasons
+     * @see File#getCanonicalPath()
+     *
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>getRelativePath</name><parameter_list>(<param><decl><type><name>File</name></type> <name>fromFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>toFile</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>Exception</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>fromPath</name> =<init> <expr><call><name><name>fromFile</name>.<name>getCanonicalPath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>toPath</name> =<init> <expr><call><name><name>toFile</name>.<name>getCanonicalPath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// build the path stack info to compare</comment>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>fromPathStack</name> =<init> <expr><call><name>getPathStack</name><argument_list>(<argument><expr><name>fromPath</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>toPathStack</name> =<init> <expr><call><name>getPathStack</name><argument_list>(<argument><expr><name>toPath</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr>0 &lt; <name><name>toPathStack</name>.<name>length</name></name> &amp;&amp; 0 &lt; <name><name>fromPathStack</name>.<name>length</name></name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr>!<name><name>fromPathStack</name><index>[<expr>0</expr>]</index></name>.<call><name>equals</name><argument_list>(<argument><expr><name><name>toPathStack</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// not the same device (would be "" on Linux/Unix)</comment>
+
+                <return>return <expr><call><name>getPath</name><argument_list>(<argument><expr><call><name><name>Arrays</name>.<name>asList</name></name><argument_list>(<argument><expr><name>toPathStack</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></then></if>
+        }</block></then> <else>else <block>{
+            <comment type="line">// no comparison possible</comment>
+            <return>return <expr><call><name>getPath</name><argument_list>(<argument><expr><call><name><name>Arrays</name>.<name>asList</name></name><argument_list>(<argument><expr><name>toPathStack</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></else></if>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>minLength</name> =<init> <expr><call><name><name>Math</name>.<name>min</name></name><argument_list>(<argument><expr><name><name>fromPathStack</name>.<name>length</name></name></expr></argument>, <argument><expr><name><name>toPathStack</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>same</name> =<init> <expr>1</expr></init></decl>;</decl_stmt> <comment type="line">// Used outside the for loop</comment>
+
+        <comment type="line">// get index of parts which are equal</comment>
+        <for>for (<init>;</init>
+             <condition><expr><name>same</name> &lt; <name>minLength</name> &amp;&amp; <name><name>fromPathStack</name><index>[<expr><name>same</name></expr>]</index></name>.<call><name>equals</name><argument_list>(<argument><expr><name><name>toPathStack</name><index>[<expr><name>same</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</condition>
+             <incr><expr><name>same</name>++</expr></incr>) <block>{
+            <comment type="line">// Do nothing</comment>
+        }</block></for>
+
+        <decl_stmt><decl><type><name>List</name></type> <name>relativePathStack</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// if "from" part is longer, fill it up with ".."</comment>
+        <comment type="line">// to reach path which is equal to both paths</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>same</name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>fromPathStack</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>relativePathStack</name>.<name>add</name></name><argument_list>(<argument><expr>".."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <comment type="line">// fill it up path with parts which were not equal</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>same</name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>toPathStack</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>relativePathStack</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>toPathStack</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <return>return <expr><call><name>getPath</name><argument_list>(<argument><expr><name>relativePathStack</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets all names of the path as an array of &lt;code&gt;String&lt;/code&gt;s.
+     *
+     * @param path to get names from
+     * @return &lt;code&gt;String&lt;/code&gt;s, never &lt;code&gt;null&lt;/code&gt;
+     *
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name><index>[]</index></type> <name>getPathStack</name><parameter_list>(<param><decl><type><name>String</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>normalizedPath</name> =<init> <expr><call><name><name>path</name>.<name>replace</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <return>return <expr><call><name><name>normalizedPath</name>.<name>split</name></name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets path from a &lt;code&gt;List&lt;/code&gt; of &lt;code&gt;String&lt;/code&gt;s.
+     *
+     * @param pathStack &lt;code&gt;List&lt;/code&gt; of &lt;code&gt;String&lt;/code&gt;s to be concatenated as a path.
+     * @return &lt;code&gt;String&lt;/code&gt;, never &lt;code&gt;null&lt;/code&gt;
+     *
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>getPath</name><parameter_list>(<param><decl><type><name>List</name></type> <name>pathStack</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// can safely use '/' because Windows understands '/' as separator</comment>
+        <return>return <expr><call><name>getPath</name><argument_list>(<argument><expr><name>pathStack</name></expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets path from a &lt;code&gt;List&lt;/code&gt; of &lt;code&gt;String&lt;/code&gt;s.
+     *
+     * @param pathStack &lt;code&gt;List&lt;/code&gt; of &lt;code&gt;String&lt;/code&gt;s to be concated as a path.
+     * @param separatorChar &lt;code&gt;char&lt;/code&gt; to be used as separator between names in path
+     * @return &lt;code&gt;String&lt;/code&gt;, never &lt;code&gt;null&lt;/code&gt;
+     *
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>getPath</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>List</name></type> <name>pathStack</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>char</name></type> <name>separatorChar</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>StringBuffer</name></type> <name>buffer</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Iterator</name></type> <name>iter</name> =<init> <expr><call><name><name>pathStack</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>iter</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <while>while <condition>(<expr><call><name><name>iter</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>separatorChar</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><call><name><name>buffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the default encoding.
+     * This is done by opening an InputStreamReader on
+     * a dummy InputStream and getting the encoding.
+     * Could use System.getProperty("file.encoding"), but cannot
+     * see where this is documented.
+     * @return the default file encoding.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getDefaultEncoding</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>InputStreamReader</name></type> <name>is</name> =<init> <expr>new <call><name>InputStreamReader</name><argument_list>(
+            <argument><expr>new <class><super><name>InputStream</name></super><argument_list>()</argument_list> <block>{
+                <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <block>{
+                    <return>return <expr>-1</expr>;</return>
+                }</block></function>
+            }</block></class></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <return>return <expr><call><name><name>is</name>.<name>getEncoding</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name>close</name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+}</block></class>
+</unit>

@@ -1,0 +1,701 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\types\CommandlineJava.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name></name>;</package>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>JavaEnvUtils</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ListIterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Properties</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+<comment type="javadoc">/**
+ * A representation of a Java command line that is
+ * a composite of 2 &lt;tt&gt;Commandline&lt;/tt&gt;s. One is used for the
+ * vm/options and one for the classname/arguments. It provides
+ * specific methods for a Java command line.
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>CommandlineJava</name> <super><implements>implements <name>Cloneable</name></implements></super> <block>{
+
+    <comment type="javadoc">/**
+     * commands to the JVM
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Commandline</name></type> <name>vmCommand</name> =<init> <expr>new <call><name>Commandline</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * actual java commands
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Commandline</name></type> <name>javaCommand</name> =<init> <expr>new <call><name>Commandline</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * properties to add using -D
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>SysProperties</name></type> <name>sysProperties</name> =<init> <expr>new <call><name>SysProperties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>classpath</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>bootclasspath</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>vmVersion</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>maxMemory</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     *  any assertions to make? Currently only supported in forked JVMs
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Assertions</name></type> <name>assertions</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Indicate whether it will execute a jar file or not, in this case
+     * the first vm option must be a -jar and the 'executable' is a jar file.
+     */</comment>
+     <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>executeJar</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether system properties and bootclasspath shall be cloned.
+     * @since Ant 1.7
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>cloneVm</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Specialized Environment class for System properties.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>SysProperties</name> <super><extends>extends <name>Environment</name></extends> <implements>implements <name>Cloneable</name></implements></super> <block>{
+        <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+        <comment type="javadoc">/** the system properties. */</comment>
+        <decl_stmt><decl><type><name>Properties</name></type> <name>sys</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>PropertySet</name></argument>&gt;</argument_list></name></type> <name>propertySets</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>PropertySet</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Get the properties as an array; this is an override of the
+         * superclass, as it evaluates all the properties.
+         * @return the array of definitions; may be null.
+         * @throws BuildException on error.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getVariables</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+            <decl_stmt><decl><type><name><name>List</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>definitions</name> =<init> <expr>new <call><name><name>LinkedList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>addDefinitionsToList</name><argument_list>(<argument><expr><call><name><name>definitions</name>.<name>listIterator</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>definitions</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></then> <else>else <block>{
+                <return>return <expr><call><name><name>definitions</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>definitions</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></else></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Add all definitions (including property sets) to a list.
+         * @param listIt list iterator supporting add method.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>addDefinitionsToList</name><parameter_list>(<param><decl><type><name><name>ListIterator</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>listIt</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>props</name> =<init> <expr><call><name><name>super</name>.<name>getVariables</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>props</name> != <name>null</name></expr>)</condition><then> <block>{
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>props</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <expr_stmt><expr><call><name><name>listIt</name>.<name>add</name></name><argument_list>(<argument><expr>"-D" + <name><name>props</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>Properties</name></type> <name>propertySetProperties</name> =<init> <expr><call><name>mergePropertySets</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>propertySetProperties</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init>
+                 <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr>(<name>String</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name><name>propertySetProperties</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>listIt</name>.<name>add</name></name><argument_list>(<argument><expr>"-D" + <name>key</name> + "=" + <name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the size of the sysproperties instance. This merges all
+         * property sets, so is not an O(1) operation.
+         * @return the size of the sysproperties instance.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>size</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>Properties</name></type> <name>p</name> =<init> <expr><call><name>mergePropertySets</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr><call><name><name>variables</name>.<name>size</name></name><argument_list>()</argument_list></call> + <call><name><name>p</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Cache the system properties and set the system properties to the
+         * new values.
+         * @throws BuildException if Security prevented this operation.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setSystem</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>sys</name> = <call><name><name>System</name>.<name>getProperties</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>Properties</name></type> <name>p</name> =<init> <expr>new <call><name>Properties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>sys</name>.<name>propertyNames</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr>(<name>String</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name><name>sys</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>name</name> != <name>null</name> &amp;&amp; <name>value</name> != <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>p</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></for>
+                <expr_stmt><expr><call><name><name>p</name>.<name>putAll</name></name><argument_list>(<argument><expr><call><name>mergePropertySets</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <for>for (<init><decl><type><name><name>Environment</name>.<name>Variable</name></name></type> <name>v</name> :<range> <expr><name>variables</name></expr></range></decl></init>) <block>{
+                    <expr_stmt><expr><call><name><name>v</name>.<name>validate</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>p</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>v</name>.<name>getKey</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>v</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+                <expr_stmt><expr><call><name><name>System</name>.<name>setProperties</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>SecurityException</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Cannot modify system properties"</expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Restore the system properties to the cached value.
+         * @throws BuildException  if Security prevented this operation, or
+         * there were no system properties to restore.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>restoreSystem</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><name>sys</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Unbalanced nesting of SysProperties"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>System</name>.<name>setProperties</name></name><argument_list>(<argument><expr><name>sys</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>sys</name> = <name>null</name></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>SecurityException</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Cannot modify system properties"</expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Create a deep clone.
+         * @return a cloned instance of SysProperties.
+         * @exception CloneNotSupportedException for signature.
+         */</comment>
+        <function><type><annotation>@<name>SuppressWarnings</name><argument_list>("unchecked")</argument_list></annotation>
+        <specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>CloneNotSupportedException</name></expr></argument></throws> <block>{
+            <try>try <block>{
+                <decl_stmt><decl><type><name>SysProperties</name></type> <name>c</name> =<init> <expr>(<name>SysProperties</name>) <call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name><name>c</name>.<name>variables</name></name> = (<name><name>Vector</name><argument_list>&lt;<argument><name><name>Environment</name>.<name>Variable</name></name></argument>&gt;</argument_list></name>) <call><name><name>variables</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name><name>c</name>.<name>propertySets</name></name> = (<name><name>Vector</name><argument_list>&lt;<argument><name>PropertySet</name></argument>&gt;</argument_list></name>) <call><name><name>propertySets</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><name>c</name></expr>;</return>
+            }</block> <catch>catch (<param><decl><type><name>CloneNotSupportedException</name></type> <name>e</name></decl></param>) <block>{
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></catch></try>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Add a propertyset to the total set.
+         * @param ps the new property set.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>addSyspropertyset</name><parameter_list>(<param><decl><type><name>PropertySet</name></type> <name>ps</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name><name>propertySets</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>ps</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Add a propertyset to the total set.
+         * @param ps the new property set.
+         * @since Ant 1.6.3
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>addSysproperties</name><parameter_list>(<param><decl><type><name>SysProperties</name></type> <name>ps</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name><name>variables</name>.<name>addAll</name></name><argument_list>(<argument><expr><name><name>ps</name>.<name>variables</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>propertySets</name>.<name>addAll</name></name><argument_list>(<argument><expr><name><name>ps</name>.<name>propertySets</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Merge all property sets into a single Properties object.
+         * @return the merged object.
+         */</comment>
+        <function><type><specifier>private</specifier> <name>Properties</name></type> <name>mergePropertySets</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>Properties</name></type> <name>p</name> =<init> <expr>new <call><name>Properties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>PropertySet</name></type> <name>ps</name> :<range> <expr><name>propertySets</name></expr></range></decl></init>) <block>{
+                <expr_stmt><expr><call><name><name>p</name>.<name>putAll</name></name><argument_list>(<argument><expr><call><name><name>ps</name>.<name>getProperties</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <return>return <expr><name>p</name></expr>;</return>
+        }</block></function>
+
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Constructor uses the VM we are running on now.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>CommandlineJava</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setVm</name><argument_list>(<argument><expr><call><name><name>JavaEnvUtils</name>.<name>getJreExecutable</name></name><argument_list>(<argument><expr>"java"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setVmversion</name><argument_list>(<argument><expr><call><name><name>JavaEnvUtils</name>.<name>getJavaVersion</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Create a new argument to the java program.
+     * @return an argument to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Commandline</name>.<name>Argument</name></name></type> <name>createArgument</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>javaCommand</name>.<name>createArgument</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a new JVM argument.
+     * @return an argument to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Commandline</name>.<name>Argument</name></name></type> <name>createVmArgument</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>vmCommand</name>.<name>createArgument</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a system property.
+     * @param sysp a property to be set in the JVM.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addSysproperty</name><parameter_list>(<param><decl><type><name><name>Environment</name>.<name>Variable</name></name></type> <name>sysp</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>sysProperties</name>.<name>addVariable</name></name><argument_list>(<argument><expr><name>sysp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a set of system properties.
+     * @param sysp a set of properties.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addSyspropertyset</name><parameter_list>(<param><decl><type><name>PropertySet</name></type> <name>sysp</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>sysProperties</name>.<name>addSyspropertyset</name></name><argument_list>(<argument><expr><name>sysp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a set of system properties.
+     * @param sysp a set of properties.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addSysproperties</name><parameter_list>(<param><decl><type><name>SysProperties</name></type> <name>sysp</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>sysProperties</name>.<name>addSysproperties</name></name><argument_list>(<argument><expr><name>sysp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the executable used to start the new JVM.
+     * @param vm the executable to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVm</name><parameter_list>(<param><decl><type><name>String</name></type> <name>vm</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>vmCommand</name>.<name>setExecutable</name></name><argument_list>(<argument><expr><name>vm</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the JVM version required.
+     * @param value the version required.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVmversion</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>vmVersion</name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether system properties will be copied to the cloned VM--as
+     * well as the bootclasspath unless you have explicitly specified
+     * a bootclasspath.
+     * @param cloneVm if true copy the system properties.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCloneVm</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>cloneVm</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>cloneVm</name></name> = <name>cloneVm</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the current assertions.
+     * @return assertions or null.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Assertions</name></type> <name>getAssertions</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>assertions</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add an assertion set to the command.
+     * @param assertions assertions to make.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAssertions</name><parameter_list>(<param><decl><type><name>Assertions</name></type> <name>assertions</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>assertions</name></name> = <name>assertions</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set a jar file to execute via the -jar option.
+     * @param jarpathname the pathname of the jar to execute.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setJar</name><parameter_list>(<param><decl><type><name>String</name></type> <name>jarpathname</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>javaCommand</name>.<name>setExecutable</name></name><argument_list>(<argument><expr><name>jarpathname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>executeJar</name> = true</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the name of the jar to be run.
+     * @return the pathname of the jar file to run via -jar option
+     * or &lt;tt&gt;null&lt;/tt&gt; if there is no jar to run.
+     * @see #getClassname()
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getJar</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>executeJar</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>javaCommand</name>.<name>getExecutable</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classname to execute.
+     * @param classname the fully qualified classname.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClassname</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>javaCommand</name>.<name>setExecutable</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>executeJar</name> = false</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the name of the class to be run.
+     * @return the name of the class to run or &lt;tt&gt;null&lt;/tt&gt; if there is no class.
+     * @see #getJar()
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getClassname</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr>!<name>executeJar</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>javaCommand</name>.<name>getExecutable</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a classpath.
+     * @param p the project to use to create the path.
+     * @return a path to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>classpath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>classpath</name> = new <call><name>Path</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>classpath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a boot classpath.
+     * @param p the project to use to create the path.
+     * @return a path to be configured.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createBootclasspath</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>bootclasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>bootclasspath</name> = new <call><name>Path</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>bootclasspath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the vm version.
+     * @return the vm version.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getVmversion</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>vmVersion</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the command line to run a Java vm.
+     * @return the list of all arguments necessary to run the vm.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getCommandline</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">//create the list</comment>
+        <decl_stmt><decl><type><name><name>List</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>commands</name> =<init> <expr>new <call><name><name>LinkedList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">//fill it</comment>
+        <expr_stmt><expr><call><name>addCommandsToList</name><argument_list>(<argument><expr><call><name><name>commands</name>.<name>listIterator</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">//convert to an array</comment>
+        <return>return <expr><call><name><name>commands</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>commands</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add all the commands to a list identified by the iterator passed in.
+     * @param listIterator an iterator that supports the add method.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>addCommandsToList</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name><name>ListIterator</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>listIterator</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">//create the command to run Java, including user specified options</comment>
+        <expr_stmt><expr><call><name>getActualVMCommand</name><argument_list>()</argument_list></call>.<call><name>addCommandToList</name><argument_list>(<argument><expr><name>listIterator</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// properties are part of the vm options...</comment>
+        <expr_stmt><expr><call><name><name>sysProperties</name>.<name>addDefinitionsToList</name></name><argument_list>(<argument><expr><name>listIterator</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name>isCloneVm</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>SysProperties</name></type> <name>clonedSysProperties</name> =<init> <expr>new <call><name>SysProperties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>PropertySet</name></type> <name>ps</name> =<init> <expr>new <call><name>PropertySet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name><name>PropertySet</name>.<name>BuiltinPropertySetName</name></name></type> <name>sys</name> =<init>
+                <expr>new <call><name><name>PropertySet</name>.<name>BuiltinPropertySetName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>sys</name>.<name>setValue</name></name><argument_list>(<argument><expr>"system"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ps</name>.<name>appendBuiltin</name></name><argument_list>(<argument><expr><name>sys</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>clonedSysProperties</name>.<name>addSyspropertyset</name></name><argument_list>(<argument><expr><name>ps</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>clonedSysProperties</name>.<name>addDefinitionsToList</name></name><argument_list>(<argument><expr><name>listIterator</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">//boot classpath</comment>
+        <decl_stmt><decl><type><name>Path</name></type> <name>bcp</name> =<init> <expr><call><name>calculateBootclasspath</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>bcp</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>listIterator</name>.<name>add</name></name><argument_list>(<argument><expr>"-Xbootclasspath:" + <call><name><name>bcp</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">//main classpath</comment>
+        <if>if <condition>(<expr><call><name>haveClasspath</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>listIterator</name>.<name>add</name></name><argument_list>(<argument><expr>"-classpath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>listIterator</name>.<name>add</name></name><argument_list>(
+                    <argument><expr><call><name><name>classpath</name>.<name>concatSystemClasspath</name></name><argument_list>(<argument><expr>"ignore"</expr></argument>)</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">//now any assertions are added</comment>
+        <if>if <condition>(<expr><call><name>getAssertions</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>getAssertions</name><argument_list>()</argument_list></call>.<call><name>applyAssertions</name><argument_list>(<argument><expr><name>listIterator</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">// JDK usage command line says that -jar must be the first option, as there is</comment>
+        <comment type="line">// a bug in JDK &lt; 1.4 that forces the jvm type to be specified as the first</comment>
+        <comment type="line">// option, it is appended here as specified in the docs even though there is</comment>
+        <comment type="line">// in fact no order.</comment>
+        <if>if <condition>(<expr><name>executeJar</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>listIterator</name>.<name>add</name></name><argument_list>(<argument><expr>"-jar"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">// this is the classname to run as well as its arguments.</comment>
+        <comment type="line">// in case of 'executeJar', the executable is a jar file.</comment>
+        <expr_stmt><expr><call><name><name>javaCommand</name>.<name>addCommandToList</name></name><argument_list>(<argument><expr><name>listIterator</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specify max memory of the JVM.
+     * -mx or -Xmx depending on VM version.
+     * @param max the string to pass to the jvm to specify the max memory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMaxmemory</name><parameter_list>(<param><decl><type><name>String</name></type> <name>max</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>maxMemory</name></name> = <name>max</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get a string description.
+     * @return the command line as a string.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>Commandline</name>.<name>toString</name></name><argument_list>(<argument><expr><call><name>getCommandline</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a String that describes the command and arguments suitable for
+     * verbose output before a call to &lt;code&gt;Runtime.exec(String[])&lt;code&gt;.
+     * @return the description string.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>describeCommand</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>Commandline</name>.<name>describeCommand</name></name><argument_list>(<argument><expr><call><name>getCommandline</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a String that describes the java command and arguments
+     * for in-VM executions.
+     *
+     * &lt;p&gt;The class name is the executable in this context.&lt;/p&gt;
+     * @return the description string.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>describeJavaCommand</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>Commandline</name>.<name>describeCommand</name></name><argument_list>(<argument><expr><call><name>getJavaCommand</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the VM command parameters, including memory settings.
+     * @return the VM command parameters.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Commandline</name></type> <name>getActualVMCommand</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Commandline</name></type> <name>actualVMCommand</name> =<init> <expr>(<name>Commandline</name>) <call><name><name>vmCommand</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>maxMemory</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>vmVersion</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"1.1"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>actualVMCommand</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-mx" + <name>maxMemory</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>actualVMCommand</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-Xmx" + <name>maxMemory</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+        <return>return <expr><name>actualVMCommand</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the size of the java command line. This is a fairly intensive
+     * operation, as it has to evaluate the size of many components.
+     * @return the total number of arguments in the java command line.
+     * @see #getCommandline()
+     * @deprecated since 1.7.
+     *             Please dont use this, it effectively creates the
+     *             entire command.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>size</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>size</name> =<init> <expr><call><name>getActualVMCommand</name><argument_list>()</argument_list></call>.<call><name>size</name><argument_list>()</argument_list></call> + <call><name><name>javaCommand</name>.<name>size</name></name><argument_list>()</argument_list></call>
+            + <call><name><name>sysProperties</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// cloned system properties</comment>
+        <if>if <condition>(<expr><call><name>isCloneVm</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>size</name> += <call><name><name>System</name>.<name>getProperties</name></name><argument_list>()</argument_list></call>.<call><name>size</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">// classpath is "-classpath &lt;classpath&gt;" -&gt; 2 args</comment>
+        <if>if <condition>(<expr><call><name>haveClasspath</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>size</name> += 2</expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">// bootclasspath is "-Xbootclasspath:&lt;classpath&gt;" -&gt; 1 arg</comment>
+        <if>if <condition>(<expr><call><name>calculateBootclasspath</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call>.<call><name>size</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>size</name>++</expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">// jar execution requires an additional -jar option</comment>
+        <if>if <condition>(<expr><name>executeJar</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>size</name>++</expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">//assertions take up space too</comment>
+        <if>if <condition>(<expr><call><name>getAssertions</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>size</name> += <call><name>getAssertions</name><argument_list>()</argument_list></call>.<call><name>size</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>size</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the Java command to be used.
+     * @return the java command--not a clone.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Commandline</name></type> <name>getJavaCommand</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>javaCommand</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the VM command, including memory.
+     * @return A deep clone of the instance's VM command, with memory settings added.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Commandline</name></type> <name>getVmCommand</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getActualVMCommand</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the classpath for the command.
+     * @return the classpath or null.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getClasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>classpath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the boot classpath.
+     * @return boot classpath or null.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getBootclasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>bootclasspath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Cache current system properties and set them to those in this
+     * Java command.
+     * @throws BuildException  if Security prevented this operation.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSystemProperties</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>sysProperties</name>.<name>setSystem</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Restore the cached system properties.
+     * @throws BuildException  if Security prevented this operation, or
+     * there was no system properties to restore
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>restoreSystemProperties</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>sysProperties</name>.<name>restoreSystem</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the system properties object.
+     * @return The system properties object.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>SysProperties</name></type> <name>getSystemProperties</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>sysProperties</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Deep clone the object.
+     * @return a CommandlineJava object.
+     * @throws BuildException if anything went wrong.
+     * @throws CloneNotSupportedException never.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>CloneNotSupportedException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>CommandlineJava</name></type> <name>c</name> =<init> <expr>(<name>CommandlineJava</name>) <call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name><name>c</name>.<name>vmCommand</name></name> = (<name>Commandline</name>) <call><name><name>vmCommand</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>c</name>.<name>javaCommand</name></name> = (<name>Commandline</name>) <call><name><name>javaCommand</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>c</name>.<name>sysProperties</name></name> = (<name>SysProperties</name>) <call><name><name>sysProperties</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>c</name>.<name>classpath</name></name> = (<name>Path</name>) <call><name><name>classpath</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>bootclasspath</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>c</name>.<name>bootclasspath</name></name> = (<name>Path</name>) <call><name><name>bootclasspath</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>assertions</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>c</name>.<name>assertions</name></name> = (<name>Assertions</name>) <call><name><name>assertions</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return <expr><name>c</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>CloneNotSupportedException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Clear out the java arguments.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>clearJavaArgs</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>javaCommand</name>.<name>clearArgs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Determine whether the classpath has been specified, and whether it shall
+     * really be used or be nulled by build.sysclasspath.
+     * @return true if the classpath is to be used.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>haveClasspath</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Path</name></type> <name>fullClasspath</name> =<init> <expr><name>classpath</name> != <name>null</name>
+            ? <call><name><name>classpath</name>.<name>concatSystemClasspath</name></name><argument_list>(<argument><expr>"ignore"</expr></argument>)</argument_list></call> : <name>null</name></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>fullClasspath</name> != <name>null</name>
+            &amp;&amp; <call><name><name>fullClasspath</name>.<name>toString</name></name><argument_list>()</argument_list></call>.<call><name>trim</name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Determine whether the bootclasspath has been specified, and whether it
+     * shall really be used (build.sysclasspath could be set or the VM may not
+     * support it).
+     *
+     * @param log whether to log a warning if a bootclasspath has been
+     * specified but will be ignored.
+     * @return true if the bootclasspath is to be used.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>haveBootclasspath</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>log</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>calculateBootclasspath</name><argument_list>(<argument><expr><name>log</name></expr></argument>)</argument_list></call>.<call><name>size</name><argument_list>()</argument_list></call> &gt; 0</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Calculate the bootclasspath based on the bootclasspath
+     * specified, the build.sysclasspath and ant.build.clonevm magic
+     * properties as well as the cloneVm attribute.
+     * @param log whether to write messages to the log.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Path</name></type> <name>calculateBootclasspath</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>log</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>vmVersion</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"1.1"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>bootclasspath</name> != <name>null</name> &amp;&amp; <name>log</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>bootclasspath</name>.<name>log</name></name><argument_list>(<argument><expr>"Ignoring bootclasspath as "
+                                  + "the target VM doesn't support it."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>Path</name></type> <name>b</name> =<init> <expr><name>bootclasspath</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>b</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>b</name> = new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <comment type="line">// even with no user-supplied bootclasspath</comment>
+            <comment type="line">// build.sysclasspath could be set to something other than</comment>
+            <comment type="line">// "ignore" and thus create one</comment>
+            <return>return <expr><call><name><name>b</name>.<name>concatSystemBootClasspath</name></name><argument_list>(<argument><expr><call><name>isCloneVm</name><argument_list>()</argument_list></call> ? "last" : "ignore"</expr></argument>)</argument_list></call></expr>;</return>
+        }</block></else></if>
+        <return>return <expr>new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find out whether either of the cloneVm attribute or the magic property
+     * ant.build.clonevm has been set.
+     * @return &lt;code&gt;boolean&lt;/code&gt;.
+     * @since 1.7
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isCloneVm</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>cloneVm</name>
+            || "true".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"ant.build.clonevm"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Truncate.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>RandomAccessFile</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>ResourceCollection</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileProvider</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Set the length of one or more files, as the intermittently available
+ * &lt;code&gt;truncate&lt;/code&gt; Unix utility/function.
+ * @since Ant 1.7.1
+ */</comment>
+<class><specifier>public</specifier> class <name>Truncate</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUFFER_SIZE</name> =<init> <expr>1024</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>Long</name></type> <name>ZERO</name> =<init> <expr>new <call><name>Long</name><argument_list>(<argument><expr>0L</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>NO_CHILD</name> =<init> <expr>"No files specified."</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>INVALID_LENGTH</name> =<init> <expr>"Cannot truncate to length "</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>READ_WRITE</name> =<init> <expr>"rw"</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>FILL_BUFFER</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>BUFFER_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>path</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>create</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>mkdirs</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Long</name></type> <name>length</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Long</name></type> <name>adjust</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Set a single target File.
+     * @param f the single File
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a nested (filesystem-only) ResourceCollection.
+     * @param rc the ResourceCollection to add.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>ResourceCollection</name></type> <name>rc</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>getPath</name><argument_list>()</argument_list></call>.<call><name>add</name><argument_list>(<argument><expr><name>rc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the amount by which files' lengths should be adjusted.
+     * It is permissible to append K / M / G / T / P.
+     * @param adjust (positive or negative) adjustment amount.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAdjust</name><parameter_list>(<param><decl><type><name>Long</name></type> <name>adjust</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>adjust</name></name> = <name>adjust</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the length to which files should be set.
+     * It is permissible to append K / M / G / T / P.
+     * @param length (positive) adjustment amount.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLength</name><parameter_list>(<param><decl><type><name>Long</name></type> <name>length</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>length</name></name> = <name>length</name></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>length</name> != <name>null</name> &amp;&amp; <call><name><name>length</name>.<name>longValue</name></name><argument_list>()</argument_list></call> &lt; 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>INVALID_LENGTH</name> + <name>length</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether to create nonexistent files.
+     * @param create boolean, default &lt;code&gt;true&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCreate</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>create</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>create</name></name> = <name>create</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether, when creating nonexistent files, nonexistent directories
+     * should also be created.
+     * @param mkdirs boolean, default &lt;code&gt;false&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMkdirs</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>mkdirs</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>mkdirs</name></name> = <name>mkdirs</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>length</name> != <name>null</name> &amp;&amp; <name>adjust</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                    <argument><expr>"length and adjust are mutually exclusive options"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>length</name> == <name>null</name> &amp;&amp; <name>adjust</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>length</name> = <name>ZERO</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>path</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>NO_CHILD</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>Resource</name></type> <name>r</name> :<range> <expr><name>path</name></expr></range></decl></init>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr><call><name><name>r</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call>.<call><name>getFile</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name>shouldProcess</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>process</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>shouldProcess</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>f</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<name>create</name></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Exception</name></type> <name>exception</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <if>if <condition>(<expr><call><name><name>FILE_UTILS</name>.<name>createNewFile</name></name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr><name>mkdirs</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><name>exception</name> = <name>e</name></expr>;</expr_stmt>
+        }</block></catch></try>
+        <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Unable to create " + <name>f</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>exception</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>exception</name></expr></argument>)</argument_list></call></expr>;</throw>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>process</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>long</name></type> <name>len</name> =<init> <expr><call><name><name>f</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>long</name></type> <name>newLength</name> =<init> <expr><name>length</name> == <name>null</name>
+                ? <name>len</name> + <call><name><name>adjust</name>.<name>longValue</name></name><argument_list>()</argument_list></call> : <call><name><name>length</name>.<name>longValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>len</name> == <name>newLength</name></expr>)</condition><then> <block>{
+            <comment type="line">//nothing to do!</comment>
+            <return>return;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>RandomAccessFile</name></type> <name>raf</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>raf</name> = new <call><name>RandomAccessFile</name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr><name>READ_WRITE</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Could not open " + <name>f</name> + " for writing"</expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+        <try>try <block>{
+            <if>if <condition>(<expr><name>newLength</name> &gt; <name>len</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>long</name></type> <name>pos</name> =<init> <expr><name>len</name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>raf</name>.<name>seek</name></name><argument_list>(<argument><expr><name>pos</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <while>while <condition>(<expr><name>pos</name> &lt; <name>newLength</name></expr>)</condition> <block>{
+                    <decl_stmt><decl><type><name>long</name></type> <name>writeCount</name> =<init> <expr><call><name><name>Math</name>.<name>min</name></name><argument_list>(<argument><expr><name><name>FILL_BUFFER</name>.<name>length</name></name></expr></argument>,
+                            <argument><expr><name>newLength</name> - <name>pos</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>raf</name>.<name>write</name></name><argument_list>(<argument><expr><name>FILL_BUFFER</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr>(<name>int</name>) <name>writeCount</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>pos</name> += <name>writeCount</name></expr>;</expr_stmt>
+                }</block></while>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>raf</name>.<name>setLength</name></name><argument_list>(<argument><expr><name>newLength</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Exception working with " + <name>raf</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>raf</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Caught " + <name>e</name> + " closing " + <name>raf</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></finally></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <specifier>synchronized</specifier> <name>Path</name></type> <name>getPath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>path</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>path</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>path</name></expr>;</return>
+    }</block></function>
+
+}</block></class>
+</unit>

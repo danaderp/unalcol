@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\listener\BigProjectLogger.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>listener</name></name>;</package>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildEvent</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>SubBuildListener</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+
+<comment type="javadoc">/**
+ * This is a special logger that is designed to make it easier to work
+ * with big projects, those that use imports and
+ * subant to build complex systems.
+ *
+ * @since Ant1.7.1
+ */</comment>
+
+<class><specifier>public</specifier> class <name>BigProjectLogger</name> <super><extends>extends <name>SimpleBigProjectLogger</name></extends>
+    <implements>implements <name>SubBuildListener</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>volatile</name> <name>boolean</name></type> <name>subBuildStartedRaised</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>Object</name></type> <name>subBuildLock</name> =<init> <expr>new <call><name>Object</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Header string for the log.
+     * {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>HEADER</name>
+        =<init> <expr>"======================================================================"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Footer string for the log.
+     * {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>FOOTER</name> =<init> <expr><name>HEADER</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+    * This is an override point: the message that indicates whether
+    * a build failed. Subclasses can change/enhance the
+    * message.
+    *
+    * @return The classic "BUILD FAILED" plus a timestamp
+    */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getBuildFailedMessage</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>super</name>.<name>getBuildFailedMessage</name></name><argument_list>()</argument_list></call> + <name><name>TimestampedLogger</name>.<name>SPACER</name></name> + <call><name>getTimestamp</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This is an override point: the message that indicates that
+     * a build succeeded. Subclasses can change/enhance the
+     * message.
+     *
+     * @return The classic "BUILD SUCCESSFUL" plus a timestamp
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getBuildSuccessfulMessage</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>super</name>.<name>getBuildSuccessfulMessage</name></name><argument_list>()</argument_list></call> + <name><name>TimestampedLogger</name>.<name>SPACER</name></name> + <call><name>getTimestamp</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * {@inheritDoc}
+     *
+     * @param event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>maybeRaiseSubBuildStarted</name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>super</name>.<name>targetStarted</name></name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * {@inheritDoc}
+     *
+     * @param event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>maybeRaiseSubBuildStarted</name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>super</name>.<name>taskStarted</name></name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * {@inheritDoc}
+     *
+     * @param event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>maybeRaiseSubBuildStarted</name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>subBuildFinished</name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>super</name>.<name>buildFinished</name></name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * {@inheritDoc}
+     *
+     * @param event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>messageLogged</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>maybeRaiseSubBuildStarted</name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>super</name>.<name>messageLogged</name></name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * {@inheritDoc}
+     *
+     * @param event An event with any relevant extra information. Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>subBuildStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name>extractNameOrDefault</name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Project</name></type> <name>project</name> =<init> <expr><call><name><name>event</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>File</name></type> <name>base</name> =<init> <expr><name>project</name> == <name>null</name> ? <name>null</name> : <call><name><name>project</name>.<name>getBaseDir</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>path</name> =<init>
+            <expr>(<name>base</name> == <name>null</name>)
+            ? "With no base directory"
+            : "In " + <call><name><name>base</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>printMessage</name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name> + <call><name>getHeader</name><argument_list>()</argument_list></call>
+                + <name><name>StringUtils</name>.<name>LINE_SEP</name></name> + "Entering project " + <name>name</name>
+                        + <name><name>StringUtils</name>.<name>LINE_SEP</name></name> + <name>path</name>
+                        + <name><name>StringUtils</name>.<name>LINE_SEP</name></name> + <call><name>getFooter</name><argument_list>()</argument_list></call></expr></argument>,
+                <argument><expr><name>out</name></expr></argument>,
+                <argument><expr><call><name><name>event</name>.<name>getPriority</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the name of an event
+     *
+     * @param event the event name
+     * @return the name or a default string
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>extractNameOrDefault</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name>extractProjectName</name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>name</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>name</name> = ""</expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>name</name> = '"' + <name>name</name> + '"'</expr>;</expr_stmt>
+        }</block></else></if>
+        <return>return <expr><name>name</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc} */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>subBuildFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name>extractNameOrDefault</name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>failed</name> =<init> <expr><call><name><name>event</name>.<name>getException</name></name><argument_list>()</argument_list></call> != <name>null</name> ? "failing " : ""</expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>printMessage</name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name> + <call><name>getHeader</name><argument_list>()</argument_list></call>
+                + <name><name>StringUtils</name>.<name>LINE_SEP</name></name> + "Exiting " + <name>failed</name> + "project "
+                + <name>name</name>
+                + <name><name>StringUtils</name>.<name>LINE_SEP</name></name> + <call><name>getFooter</name><argument_list>()</argument_list></call></expr></argument>,
+                <argument><expr><name>out</name></expr></argument>,
+                <argument><expr><call><name><name>event</name>.<name>getPriority</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Override point: return the header string for the entry/exit message
+     * @return the header string
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getHeader</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>HEADER</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Override point: return the footer string for the entry/exit message
+     * @return the footer string
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getFooter</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>FOOTER</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>maybeRaiseSubBuildStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// double checked locking should be OK since the flag is write-once</comment>
+        <if>if <condition>(<expr>!<name>subBuildStartedRaised</name></expr>)</condition><then> <block>{
+            <synchronized>synchronized (<expr><name>subBuildLock</name></expr>) <block>{
+                <if>if <condition>(<expr>!<name>subBuildStartedRaised</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>subBuildStartedRaised</name> = true</expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name>subBuildStarted</name><argument_list>(<argument><expr><name>event</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></synchronized>
+        }</block></then></if>
+    }</block></function>
+}</block></class>
+</unit>

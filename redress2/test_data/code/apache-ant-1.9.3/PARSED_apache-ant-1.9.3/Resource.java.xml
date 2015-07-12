@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\types\Resource.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>math</name>.<name>BigInteger</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>NoSuchElementException</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileProvider</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Describes a "File-like" resource (File, ZipEntry, etc.).
+ *
+ * This class is meant to be used by classes needing to record path
+ * and date/time information about a file, a zip entry or some similar
+ * resource (URL, archive in a version control repository, ...).
+ *
+ * @since Ant 1.5.2
+ * @see org.apache.tools.ant.types.resources.Touchable
+ */</comment>
+<class><specifier>public</specifier> class <name>Resource</name> <super><extends>extends <name>DataType</name></extends> <implements>implements <name><name>Comparable</name><argument_list>&lt;<argument><name>Resource</name></argument>&gt;</argument_list></name>, <name>ResourceCollection</name></implements></super> <block>{
+
+    <comment type="javadoc">/** Constant unknown size */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>long</name></type> <name>UNKNOWN_SIZE</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Constant unknown datetime for getLastModified */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>long</name></type> <name>UNKNOWN_DATETIME</name> =<init> <expr>0L</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Magic number */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAGIC</name> =<init> <expr><call><name>getMagicNumber</name><argument_list>(<argument><expr>"Resource".<call><name>getBytes</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>NULL_NAME</name> =<init> <expr><call><name>getMagicNumber</name><argument_list>(<argument><expr>"null name".<call><name>getBytes</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Create a "magic number" for use in hashCode calculations.
+     * @param seed byte[] to seed with.
+     * @return a magic number as int.
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>static</specifier> <name>int</name></type> <name>getMagicNumber</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>seed</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>new <call><name>BigInteger</name><argument_list>(<argument><expr><name>seed</name></expr></argument>)</argument_list></call>.<call><name>intValue</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>name</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Boolean</name></type> <name>exists</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Long</name></type> <name>lastmodified</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Boolean</name></type> <name>directory</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Long</name></type> <name>size</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Default constructor.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Resource</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Only sets the name.
+     *
+     * &lt;p&gt;This is a dummy, used for not existing resources.&lt;/p&gt;
+     *
+     * @param name relative path of the resource.  Expects
+     * &amp;quot;/&amp;quot; to be used as the directory separator.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Resource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>false</expr></argument>, <argument><expr>0</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Sets the name, lastmodified flag, and exists flag.
+     *
+     * @param name relative path of the resource.  Expects
+     * &amp;quot;/&amp;quot; to be used as the directory separator.
+     * @param exists if true, this resource exists.
+     * @param lastmodified the last modification time of this resource.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Resource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>exists</name></decl></param>, <param><decl><type><name>long</name></type> <name>lastmodified</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>exists</name></expr></argument>, <argument><expr><name>lastmodified</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Sets the name, lastmodified flag, exists flag, and directory flag.
+     *
+     * @param name relative path of the resource.  Expects
+     * &amp;quot;/&amp;quot; to be used as the directory separator.
+     * @param exists if true the resource exists
+     * @param lastmodified the last modification time of the resource
+     * @param directory    if true, this resource is a directory
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Resource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>exists</name></decl></param>, <param><decl><type><name>long</name></type> <name>lastmodified</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>directory</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>exists</name></expr></argument>, <argument><expr><name>lastmodified</name></expr></argument>, <argument><expr><name>directory</name></expr></argument>, <argument><expr><name>UNKNOWN_SIZE</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Sets the name, lastmodified flag, exists flag, directory flag, and size.
+     *
+     * @param name relative path of the resource.  Expects
+     * &amp;quot;/&amp;quot; to be used as the directory separator.
+     * @param exists if true the resource exists
+     * @param lastmodified the last modification time of the resource
+     * @param directory    if true, this resource is a directory
+     * @param size the size of this resource.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Resource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>exists</name></decl></param>, <param><decl><type><name>long</name></type> <name>lastmodified</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>directory</name></decl></param>, <param><decl><type><name>long</name></type> <name>size</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>name</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setName</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setExists</name><argument_list>(<argument><expr><name>exists</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setLastModified</name><argument_list>(<argument><expr><name>lastmodified</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setDirectory</name><argument_list>(<argument><expr><name>directory</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setSize</name><argument_list>(<argument><expr><name>size</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Name attribute will contain the path of a file relative to the
+     * root directory of its fileset or the recorded path of a zip
+     * entry.
+     *
+     * &lt;p&gt;example for a file with fullpath /var/opt/adm/resource.txt
+     * in a file set with root dir /var/opt it will be
+     * adm/resource.txt.&lt;/p&gt;
+     *
+     * &lt;p&gt;&amp;quot;/&amp;quot; will be used as the directory separator.&lt;/p&gt;
+     * @return the name of this resource.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getName</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>isReference</name><argument_list>()</argument_list></call> ? ((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>getName</name><argument_list>()</argument_list></call> : <name>name</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of this Resource.
+     * @param name relative path of the resource.  Expects
+     * &amp;quot;/&amp;quot; to be used as the directory separator.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>name</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The exists attribute tells whether a resource exists.
+     * @return true if this resource exists.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isExists</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>isExists</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <comment type="line">//default true:</comment>
+        <return>return <expr><name>exists</name> == <name>null</name> || <call><name><name>exists</name>.<name>booleanValue</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the exists attribute.
+     * @param exists if true, this resource exists.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setExists</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>exists</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>exists</name></name> = <name>exists</name> ? <name><name>Boolean</name>.<name>TRUE</name></name> : <name><name>Boolean</name>.<name>FALSE</name></name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Tells the modification time in milliseconds since 01.01.1970 (the "epoch").
+     *
+     * @return the modification time, if that is meaningful
+     *            (e.g. for a file resource which exists);
+     *         0 if the resource does not exist, to mirror the behavior
+     *         of {@link java.io.File#lastModified};
+     *         or 0 if the notion of modification time is meaningless for this class
+     *           of resource (e.g. an inline string)
+     */</comment>
+    <function><type><specifier>public</specifier> <name>long</name></type> <name>getLastModified</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>getLastModified</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<call><name>isExists</name><argument_list>()</argument_list></call> || <name>lastmodified</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>UNKNOWN_DATETIME</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>long</name></type> <name>result</name> =<init> <expr><call><name><name>lastmodified</name>.<name>longValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>result</name> &lt; <name>UNKNOWN_DATETIME</name> ? <name>UNKNOWN_DATETIME</name> : <name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the last modification attribute.
+     * @param lastmodified the modification time in milliseconds since 01.01.1970.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLastModified</name><parameter_list>(<param><decl><type><name>long</name></type> <name>lastmodified</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>lastmodified</name></name> = new <call><name>Long</name><argument_list>(<argument><expr><name>lastmodified</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Tells if the resource is a directory.
+     * @return boolean flag indicating if the resource is a directory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isDirectory</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>isDirectory</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <comment type="line">//default false:</comment>
+        <return>return <expr><name>directory</name> != <name>null</name> &amp;&amp; <call><name><name>directory</name>.<name>booleanValue</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the directory attribute.
+     * @param directory if true, this resource is a directory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDirectory</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>directory</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>directory</name></name> = <name>directory</name> ? <name><name>Boolean</name>.<name>TRUE</name></name> : <name><name>Boolean</name>.<name>FALSE</name></name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the size of this Resource.
+     * @param size the size, as a long.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSize</name><parameter_list>(<param><decl><type><name>long</name></type> <name>size</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>size</name></name> = new <call><name>Long</name><argument_list>(<argument><expr><name>size</name> &gt; <name>UNKNOWN_SIZE</name> ? <name>size</name> : <name>UNKNOWN_SIZE</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the size of this Resource.
+     * @return the size, as a long, 0 if the Resource does not exist (for
+     *         compatibility with java.io.File), or UNKNOWN_SIZE if not known.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>long</name></type> <name>getSize</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>getSize</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name>isExists</name><argument_list>()</argument_list></call>
+            ? (<name>size</name> != <name>null</name> ? <call><name><name>size</name>.<name>longValue</name></name><argument_list>()</argument_list></call> : <name>UNKNOWN_SIZE</name>)
+            : 0L</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Clone this Resource.
+     * @return copy of this.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <return>return <expr><call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>CloneNotSupportedException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>UnsupportedOperationException</name><argument_list>(
+                    <argument><expr>"CloneNotSupportedException for a Resource caught. "
+                    + "Derived classes must support cloning."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Delegates to a comparison of names.
+     * @param other the object to compare to.
+     * @return a negative integer, zero, or a positive integer as this Resource
+     *         is less than, equal to, or greater than the specified Resource.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>compareTo</name><parameter_list>(<param><decl><type><name>Resource</name></type> <name>other</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>compareTo</name><argument_list>(<argument><expr><name>other</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name>toString</name><argument_list>()</argument_list></call>.<call><name>compareTo</name><argument_list>(<argument><expr><call><name><name>other</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Implement basic Resource equality.
+     * @param other the object to check against.
+     * @return true if the specified Object is equal to this Resource.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>other</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getCheckedRef</name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name>other</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name><name>other</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><call><name>getClass</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call> &amp;&amp; <call><name>compareTo</name><argument_list>(<argument><expr>(<name>Resource</name>) <name>other</name></expr></argument>)</argument_list></call> == 0</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the hash code for this Resource.
+     * @return hash code as int.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>hashCode</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getCheckedRef</name><argument_list>()</argument_list></call>.<call><name>hashCode</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name>getName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>MAGIC</name> * (<name>name</name> == <name>null</name> ? <name>NULL_NAME</name> : <call><name><name>name</name>.<name>hashCode</name></name><argument_list>()</argument_list></call>)</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get an InputStream for the Resource.
+     * @return an InputStream containing this Resource's content.
+     * @throws IOException if unable to provide the content of this
+     *         Resource as a stream.
+     * @throws UnsupportedOperationException if InputStreams are not
+     *         supported for this Resource type.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>InputStream</name></type> <name>getInputStream</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>getInputStream</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <throw>throw <expr>new <call><name>UnsupportedOperationException</name><argument_list>()</argument_list></call></expr>;</throw>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get an OutputStream for the Resource.
+     * @return an OutputStream to which content can be written.
+     * @throws IOException if unable to provide the content of this
+     *         Resource as a stream.
+     * @throws UnsupportedOperationException if OutputStreams are not
+     *         supported for this Resource type.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>OutputStream</name></type> <name>getOutputStream</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>getOutputStream</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <throw>throw <expr>new <call><name>UnsupportedOperationException</name><argument_list>()</argument_list></call></expr>;</throw>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fulfill the ResourceCollection contract.
+     * @return an Iterator of Resources.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Iterator</name><argument_list>&lt;<argument><name>Resource</name></argument>&gt;</argument_list></name></type> <name>iterator</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>isReference</name><argument_list>()</argument_list></call> ? ((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>iterator</name><argument_list>()</argument_list></call>
+            : new <class><super><name><name>Iterator</name><argument_list>&lt;<argument><name>Resource</name></argument>&gt;</argument_list></name></super><argument_list>()</argument_list> <block>{
+            <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>done</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+            <function><type><specifier>public</specifier> <name>boolean</name></type> <name>hasNext</name><parameter_list>()</parameter_list> <block>{
+                <return>return <expr>!<name>done</name></expr>;</return>
+            }</block></function>
+            <function><type><specifier>public</specifier> <name>Resource</name></type> <name>next</name><parameter_list>()</parameter_list> <block>{
+                <if>if <condition>(<expr><name>done</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>NoSuchElementException</name><argument_list>()</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><name>done</name> = true</expr>;</expr_stmt>
+                <return>return <expr><name><name>Resource</name>.<name>this</name></name></expr>;</return>
+            }</block></function>
+            <function><type><specifier>public</specifier> <name>void</name></type> <name>remove</name><parameter_list>()</parameter_list> <block>{
+                <throw>throw <expr>new <call><name>UnsupportedOperationException</name><argument_list>()</argument_list></call></expr>;</throw>
+            }</block></function>
+        }</block></class></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fulfill the ResourceCollection contract.
+     * @return the size of this ResourceCollection.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>size</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>isReference</name><argument_list>()</argument_list></call> ? ((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>size</name><argument_list>()</argument_list></call> : 1</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fulfill the ResourceCollection contract.
+     * @return whether this Resource is a FileProvider.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isFilesystemOnly</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>(<call><name>isReference</name><argument_list>()</argument_list></call> &amp;&amp; ((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>isFilesystemOnly</name><argument_list>()</argument_list></call>)
+            || <call><name><name>this</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call> != <name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the string representation of this Resource.
+     * @return this Resource formatted as a String.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getCheckedRef</name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>n</name> =<init> <expr><call><name>getName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>n</name> == <name>null</name> ? "(anonymous)" : <name>n</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get a long String representation of this Resource.
+     * This typically should be the value of &lt;code&gt;toString()&lt;/code&gt;
+     * prefixed by a type description.
+     * @return this Resource formatted as a long String.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>final</specifier> <name>String</name></type> <name>toLongString</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>isReference</name><argument_list>()</argument_list></call> ? ((<name>Resource</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>toLongString</name><argument_list>()</argument_list></call>
+            : <call><name>getDataTypeName</name><argument_list>()</argument_list></call> + " \"" + <call><name>toString</name><argument_list>()</argument_list></call> + '"'</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Overrides the base version.
+     * @param r the Reference to set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRefid</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>name</name> != <name>null</name>
+            || <name>exists</name> != <name>null</name>
+            || <name>lastmodified</name> != <name>null</name>
+            || <name>directory</name> != <name>null</name>
+            || <name>size</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>super</name>.<name>setRefid</name></name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a view of this resource that implements the interface
+     * given as the argument or null if there is no such view.
+     *
+     * &lt;p&gt;This allows extension interfaces to be added to resources
+     * without growing the number of permutations of interfaces
+     * decorators/adapters need to implement.&lt;/p&gt;
+     *
+     * &lt;p&gt;This implementation of the method will return the current
+     * instance itself if it can be assigned to the given class.&lt;/p&gt;
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <argument_list>&lt;<argument><name>T</name></argument>&gt;</argument_list> <name>T</name></type> <name>as</name><parameter_list>(<param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>T</name></argument>&gt;</argument_list></name></type> <name>clazz</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>clazz</name>.<name>isAssignableFrom</name></name><argument_list>(<argument><expr><call><name>getClass</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call> ? <call><name><name>clazz</name>.<name>cast</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call> : <name>null</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

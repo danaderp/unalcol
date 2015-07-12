@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\zip\Zip64ExtendedInformationExtraField.java"><comment type="block">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>util</name>.<name>zip</name>.<name>ZipException</name></name>;</import>
+
+<import>import static <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name>.<name>ZipConstants</name>.<name>DWORD</name></name>;</import>
+<import>import static <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name>.<name>ZipConstants</name>.<name>WORD</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Holds size and other extended information for entries that use Zip64
+ * features.
+ *
+ * &lt;p&gt;See {@link
+ * "http://www.pkware.com/documents/casestudies/APPNOTE.TXT PKWARE's
+ * APPNOTE.TXT, section 4.5.3"}.&lt;/p&gt;
+ *
+ * &lt;p&gt;Currently Ant doesn't support encrypting the
+ * central directory so the note about masking doesn't apply.&lt;/p&gt;
+ *
+ * &lt;p&gt;The implementation relies on data being read from the local file
+ * header and assumes that both size values are always present.&lt;/p&gt;
+ *
+ * @since Ant 1.9.0
+ */</comment>
+<class><specifier>public</specifier> class <name>Zip64ExtendedInformationExtraField</name>
+    <super><implements>implements <name>CentralDirectoryParsingZipExtraField</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>ZipShort</name></type> <name>HEADER_ID</name> =<init> <expr>new <call><name>ZipShort</name><argument_list>(<argument><expr>0x0001</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>LFH_MUST_HAVE_BOTH_SIZES_MSG</name> =<init>
+        <expr>"Zip64 extended information must contain"
+        + " both size values in the local file header."</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>EMPTY</name> =<init> <expr>new <name><name>byte</name><index>[<expr>0</expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ZipEightByteInteger</name></type> <name>size</name>, <name>compressedSize</name>, <name>relativeHeaderOffset</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ZipLong</name></type> <name>diskStart</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Stored in {@link #parseFromCentralDirectoryData
+     * parseFromCentralDirectoryData} so it can be reused when ZipFile
+     * calls {@link #reparseCentralDirectoryData
+     * reparseCentralDirectoryData}.
+     *
+     * &lt;p&gt;Not used for anything else&lt;/p&gt;
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>byte</name><index>[]</index></type> <name>rawCentralDirectoryData</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * This constructor should only be used by the code that reads
+     * archives inside of Ant.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Zip64ExtendedInformationExtraField</name><parameter_list>()</parameter_list> <block>{ }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates an extra field based on the original and compressed size.
+     *
+     * @param size the entry's original size
+     * @param compressedSize the entry's compressed size
+     *
+     * @throws IllegalArgumentException if size or compressedSize is null
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Zip64ExtendedInformationExtraField</name><parameter_list>(<param><decl><type><name>ZipEightByteInteger</name></type> <name>size</name></decl></param>,
+                                              <param><decl><type><name>ZipEightByteInteger</name></type> <name>compressedSize</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>size</name></expr></argument>, <argument><expr><name>compressedSize</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates an extra field based on all four possible values.
+     *
+     * @param size the entry's original size
+     * @param compressedSize the entry's compressed size
+     *
+     * @throws IllegalArgumentException if size or compressedSize is null
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Zip64ExtendedInformationExtraField</name><parameter_list>(<param><decl><type><name>ZipEightByteInteger</name></type> <name>size</name></decl></param>,
+                                              <param><decl><type><name>ZipEightByteInteger</name></type> <name>compressedSize</name></decl></param>,
+                                              <param><decl><type><name>ZipEightByteInteger</name></type> <name>relativeHeaderOffset</name></decl></param>,
+                                              <param><decl><type><name>ZipLong</name></type> <name>diskStart</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>size</name></name> = <name>size</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>compressedSize</name></name> = <name>compressedSize</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>relativeHeaderOffset</name></name> = <name>relativeHeaderOffset</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>diskStart</name></name> = <name>diskStart</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/** {@inheritDoc} */</comment>
+    <function><type><specifier>public</specifier> <name>ZipShort</name></type> <name>getHeaderId</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>HEADER_ID</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc} */</comment>
+    <function><type><specifier>public</specifier> <name>ZipShort</name></type> <name>getLocalFileDataLength</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>new <call><name>ZipShort</name><argument_list>(<argument><expr><name>size</name> != <name>null</name> ? 2 * <name>DWORD</name> : 0</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc} */</comment>
+    <function><type><specifier>public</specifier> <name>ZipShort</name></type> <name>getCentralDirectoryLength</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>new <call><name>ZipShort</name><argument_list>(<argument><expr>(<name>size</name> != <name>null</name> ? <name>DWORD</name> : 0)
+                            + (<name>compressedSize</name> != <name>null</name> ? <name>DWORD</name> : 0)
+                            + (<name>relativeHeaderOffset</name> != <name>null</name> ? <name>DWORD</name> : 0)
+                            + (<name>diskStart</name> != <name>null</name> ? <name>WORD</name> : 0)</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc} */</comment>
+    <function><type><specifier>public</specifier> <name>byte</name><index>[]</index></type> <name>getLocalFileDataData</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>size</name> != <name>null</name> || <name>compressedSize</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>size</name> == <name>null</name> || <name>compressedSize</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr><name>LFH_MUST_HAVE_BOTH_SIZES_MSG</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>data</name> =<init> <expr>new <name><name>byte</name><index>[<expr>2 * <name>DWORD</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>addSizes</name><argument_list>(<argument><expr><name>data</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>data</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>EMPTY</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc} */</comment>
+    <function><type><specifier>public</specifier> <name>byte</name><index>[]</index></type> <name>getCentralDirectoryData</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>data</name> =<init> <expr>new <name><name>byte</name><index>[<expr><call><name>getCentralDirectoryLength</name><argument_list>()</argument_list></call>.<call><name>getValue</name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>off</name> =<init> <expr><call><name>addSizes</name><argument_list>(<argument><expr><name>data</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>relativeHeaderOffset</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><call><name><name>relativeHeaderOffset</name>.<name>getBytes</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>data</name></expr></argument>, <argument><expr><name>off</name></expr></argument>, <argument><expr><name>DWORD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>off</name> += <name>DWORD</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>diskStart</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><call><name><name>diskStart</name>.<name>getBytes</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>data</name></expr></argument>, <argument><expr><name>off</name></expr></argument>, <argument><expr><name>WORD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>off</name> += <name>WORD</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>data</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc} */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>parseFromLocalFileData</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>buffer</name></decl></param>, <param><decl><type><name>int</name></type> <name>offset</name></decl></param>, <param><decl><type><name>int</name></type> <name>length</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>ZipException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>length</name> == 0</expr>)</condition><then> <block>{
+            <comment type="line">// no local file data at all, may happen if an archive</comment>
+            <comment type="line">// only holds a ZIP64 extended information extra field</comment>
+            <comment type="line">// inside the central directory but not inside the local</comment>
+            <comment type="line">// file header</comment>
+            <return>return;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>length</name> &lt; 2 * <name>DWORD</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>ZipException</name><argument_list>(<argument><expr><name>LFH_MUST_HAVE_BOTH_SIZES_MSG</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>size</name> = new <call><name>ZipEightByteInteger</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>DWORD</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>compressedSize</name> = new <call><name>ZipEightByteInteger</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>offset</name> += <name>DWORD</name></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>remaining</name> =<init> <expr><name>length</name> - 2 * <name>DWORD</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>remaining</name> &gt;= <name>DWORD</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>relativeHeaderOffset</name> = new <call><name>ZipEightByteInteger</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>offset</name> += <name>DWORD</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>remaining</name> -= <name>DWORD</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>remaining</name> &gt;= <name>WORD</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>diskStart</name> = new <call><name>ZipLong</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>offset</name> += <name>WORD</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>remaining</name> -= <name>WORD</name></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc} */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>parseFromCentralDirectoryData</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>buffer</name></decl></param>, <param><decl><type><name>int</name></type> <name>offset</name></decl></param>,
+                                              <param><decl><type><name>int</name></type> <name>length</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>ZipException</name></expr></argument></throws> <block>{
+        <comment type="line">// store for processing in reparseCentralDirectoryData</comment>
+        <expr_stmt><expr><name>rawCentralDirectoryData</name> = new <name><name>byte</name><index>[<expr><name>length</name></expr>]</index></name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>rawCentralDirectoryData</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>length</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// if there is no size information in here, we are screwed and</comment>
+        <comment type="line">// can only hope things will get resolved by LFH data later</comment>
+        <comment type="line">// But there are some cases that can be detected</comment>
+        <comment type="line">// * all data is there</comment>
+        <comment type="line">// * length == 24 -&gt; both sizes and offset</comment>
+        <comment type="line">// * length % 8 == 4 -&gt; at least we can identify the diskStart field</comment>
+        <if>if <condition>(<expr><name>length</name> &gt;= 3 * <name>DWORD</name> + <name>WORD</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>parseFromLocalFileData</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>length</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>length</name> == 3 * <name>DWORD</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>size</name> = new <call><name>ZipEightByteInteger</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>offset</name> += <name>DWORD</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>compressedSize</name> = new <call><name>ZipEightByteInteger</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>offset</name> += <name>DWORD</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>relativeHeaderOffset</name> = new <call><name>ZipEightByteInteger</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>length</name> % <name>DWORD</name> == <name>WORD</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>diskStart</name> = new <call><name>ZipLong</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr><name>offset</name> + <name>length</name> - <name>WORD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if></else></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parses the raw bytes read from the central directory extra
+     * field with knowledge which fields are expected to be there.
+     *
+     * &lt;p&gt;All four fields inside the zip64 extended information extra
+     * field are optional and must only be present if their corresponding
+     * entry inside the central directory contains the correct magic
+     * value.&lt;/p&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>reparseCentralDirectoryData</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>hasUncompressedSize</name></decl></param>,
+                                            <param><decl><type><name>boolean</name></type> <name>hasCompressedSize</name></decl></param>,
+                                            <param><decl><type><name>boolean</name></type> <name>hasRelativeHeaderOffset</name></decl></param>,
+                                            <param><decl><type><name>boolean</name></type> <name>hasDiskStart</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>ZipException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>rawCentralDirectoryData</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>expectedLength</name> =<init> <expr>(<name>hasUncompressedSize</name> ? <name>DWORD</name> : 0)
+                + (<name>hasCompressedSize</name> ? <name>DWORD</name> : 0)
+                + (<name>hasRelativeHeaderOffset</name> ? <name>DWORD</name> : 0)
+                + (<name>hasDiskStart</name> ? <name>WORD</name> : 0)</expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name><name>rawCentralDirectoryData</name>.<name>length</name></name> &lt; <name>expectedLength</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>ZipException</name><argument_list>(<argument><expr>"central directory zip64 extended"
+                                       + " information extra field's length"
+                                       + " doesn't match central directory"
+                                       + " data.  Expected length "
+                                       + <name>expectedLength</name> + " but is "
+                                       + <name><name>rawCentralDirectoryData</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>int</name></type> <name>offset</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>hasUncompressedSize</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>size</name> = new <call><name>ZipEightByteInteger</name><argument_list>(<argument><expr><name>rawCentralDirectoryData</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>offset</name> += <name>DWORD</name></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>hasCompressedSize</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>compressedSize</name> = new <call><name>ZipEightByteInteger</name><argument_list>(<argument><expr><name>rawCentralDirectoryData</name></expr></argument>,
+                                                         <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>offset</name> += <name>DWORD</name></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>hasRelativeHeaderOffset</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>relativeHeaderOffset</name> =
+                    new <call><name>ZipEightByteInteger</name><argument_list>(<argument><expr><name>rawCentralDirectoryData</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>offset</name> += <name>DWORD</name></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>hasDiskStart</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>diskStart</name> = new <call><name>ZipLong</name><argument_list>(<argument><expr><name>rawCentralDirectoryData</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>offset</name> += <name>WORD</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The uncompressed size stored in this extra field.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ZipEightByteInteger</name></type> <name>getSize</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>size</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The uncompressed size stored in this extra field.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSize</name><parameter_list>(<param><decl><type><name>ZipEightByteInteger</name></type> <name>size</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>size</name></name> = <name>size</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The compressed size stored in this extra field.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ZipEightByteInteger</name></type> <name>getCompressedSize</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>compressedSize</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The uncompressed size stored in this extra field.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCompressedSize</name><parameter_list>(<param><decl><type><name>ZipEightByteInteger</name></type> <name>compressedSize</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>compressedSize</name></name> = <name>compressedSize</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The relative header offset stored in this extra field.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ZipEightByteInteger</name></type> <name>getRelativeHeaderOffset</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>relativeHeaderOffset</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The relative header offset stored in this extra field.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRelativeHeaderOffset</name><parameter_list>(<param><decl><type><name>ZipEightByteInteger</name></type> <name>rho</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>relativeHeaderOffset</name> = <name>rho</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The disk start number stored in this extra field.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ZipLong</name></type> <name>getDiskStartNumber</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>diskStart</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The disk start number stored in this extra field.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDiskStartNumber</name><parameter_list>(<param><decl><type><name>ZipLong</name></type> <name>ds</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>diskStart</name> = <name>ds</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>int</name></type> <name>addSizes</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>data</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>off</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>size</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><call><name><name>size</name>.<name>getBytes</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>data</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>DWORD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>off</name> += <name>DWORD</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>compressedSize</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><call><name><name>compressedSize</name>.<name>getBytes</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>data</name></expr></argument>, <argument><expr><name>off</name></expr></argument>, <argument><expr><name>DWORD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>off</name> += <name>DWORD</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>off</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

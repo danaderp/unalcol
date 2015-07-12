@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\compilers\AptCompilerAdapter.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>compilers</name></name>;</package>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Apt</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Commandline</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Method</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+
+<comment type="javadoc">/**
+ * The implementation of the apt compiler for JDK 1.5
+ * &lt;p/&gt;
+ * As usual, the low level entry points for Java tools are neither documented or
+ * stable; this entry point may change from that of 1.5.0_01-b08 without any
+ * warning at all. The IDE decompile of the tool entry points is as follows:
+ * &lt;pre&gt;
+ * public class Main {
+ * public Main() ;
+ * &lt;p/&gt;
+ * public static transient void main(String... strings) ;
+ * &lt;p/&gt;
+ * public static transient int process(String... strings);
+ * &lt;p/&gt;
+ * public static transient int process(PrintWriter printWriter,
+ *      String... strings) ;
+ * public static transient int process(
+ *      AnnotationProcessorFactory annotationProcessorFactory,
+ *      String... strings) ;
+ * &lt;p/&gt;
+ * public static transient int process(
+ *      AnnotationProcessorFactory annotationProcessorFactory,
+ *      PrintWriter printWriter,
+ *      String... strings);
+ * private static transient int processing(
+ *      AnnotationProcessorFactory annotationProcessorFactory,
+ *      PrintWriter printWriter,
+ *      String... strings) ;
+ * }
+ * &lt;/pre&gt;
+ *
+ * This Adapter is designed to run Apt in-JVM, an option that is not actually
+ * exposed to end-users, because it was too brittle during beta testing; classpath
+ * problems being the core issue.
+ *
+ *
+ *
+ * @since Ant 1.7
+ */</comment>
+<class><specifier>public</specifier> class <name>AptCompilerAdapter</name> <super><extends>extends <name>DefaultCompilerAdapter</name></extends></super> <block>{
+
+    <comment type="javadoc">/**
+     * Integer returned by the Apt compiler to indicate success.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>APT_COMPILER_SUCCESS</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * class in tools.jar that implements APT
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>APT_ENTRY_POINT</name> =<init> <expr>"com.sun.tools.apt.Main"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * method used to compile.
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>APT_METHOD_NAME</name> =<init> <expr>"process"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Get the facade task that fronts this adapter
+     *
+     * @return task instance
+     * @see DefaultCompilerAdapter#getJavac()
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Apt</name></type> <name>getApt</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>(<name>Apt</name>) <call><name>getJavac</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Using the front end arguments, set up the command line to run Apt
+     *
+     * @param apt task
+     * @param cmd command that is set up with the various switches from the task
+     *            options
+     */</comment>
+    <function><type><specifier>static</specifier> <name>void</name></type> <name>setAptCommandlineSwitches</name><parameter_list>(<param><decl><type><name>Apt</name></type> <name>apt</name></decl></param>, <param><decl><type><name>Commandline</name></type> <name>cmd</name></decl></param>)</parameter_list> <block>{
+
+        <if>if <condition>(<expr>!<call><name><name>apt</name>.<name>isCompile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-nocompile"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// Process the factory class</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>factory</name> =<init> <expr><call><name><name>apt</name>.<name>getFactory</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>factory</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-factory"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name>factory</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// Process the factory path</comment>
+        <decl_stmt><decl><type><name>Path</name></type> <name>factoryPath</name> =<init> <expr><call><name><name>apt</name>.<name>getFactoryPath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>factoryPath</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-factorypath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setPath</name><argument_list>(<argument><expr><name>factoryPath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>File</name></type> <name>preprocessDir</name> =<init> <expr><call><name><name>apt</name>.<name>getPreprocessDir</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>preprocessDir</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-s"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setFile</name><argument_list>(<argument><expr><name>preprocessDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// Process the processor options</comment>
+        <decl_stmt><decl><type><name>Vector</name></type> <name>options</name> =<init> <expr><call><name><name>apt</name>.<name>getOptions</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Enumeration</name></type> <name>elements</name> =<init> <expr><call><name><name>options</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Apt</name>.<name>Option</name></name></type> <name>opt</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>arg</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>elements</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <expr_stmt><expr><name>opt</name> = (<name><name>Apt</name>.<name>Option</name></name>) <call><name><name>elements</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>arg</name> = new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>arg</name>.<name>append</name></name><argument_list>(<argument><expr>"-A"</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><call><name><name>opt</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>opt</name>.<name>getValue</name></name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>arg</name>.<name>append</name></name><argument_list>(<argument><expr>"="</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><call><name><name>opt</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name><name>arg</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * using our front end task, set up the command line switches
+     *
+     * @param cmd command line to set up
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>setAptCommandlineSwitches</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>cmd</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Apt</name></type> <name>apt</name> =<init> <expr><call><name>getApt</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>setAptCommandlineSwitches</name><argument_list>(<argument><expr><name>apt</name></expr></argument>, <argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Run the compilation.
+     * @return true on success.
+     * @throws BuildException if the compilation has problems.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>attributes</name>.<name>log</name></name><argument_list>(<argument><expr>"Using apt compiler"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">//set up the javac options</comment>
+        <decl_stmt><decl><type><name>Commandline</name></type> <name>cmd</name> =<init> <expr><call><name>setupModernJavacCommand</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">//then add the Apt options</comment>
+        <expr_stmt><expr><call><name>setAptCommandlineSwitches</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//finally invoke APT</comment>
+        <comment type="line">// Use reflection to be able to build on all JDKs:</comment>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Class</name></type> <name>c</name> =<init> <expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>APT_ENTRY_POINT</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Object</name></type> <name>compiler</name> =<init> <expr><call><name><name>c</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Method</name></type> <name>compile</name> =<init> <expr><call><name><name>c</name>.<name>getMethod</name></name><argument_list>(<argument><expr><name>APT_METHOD_NAME</name></expr></argument>,
+                    <argument><expr>new <name><name>Class</name><index>[]</index></name><block>{<expr>(new <name><name>String</name><index>[]</index></name><block>{}</block>).<call><name>getClass</name><argument_list>()</argument_list></call></expr>}</block></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>result</name> =<init> <expr>((<name>Integer</name>) <call><name><name>compile</name>.<name>invoke</name></name>
+                    <argument_list>(<argument><expr><name>compiler</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name><block>{<expr><call><name><name>cmd</name>.<name>getArguments</name></name><argument_list>()</argument_list></call></expr>}</block></expr></argument>)</argument_list></call>)
+                    .<call><name>intValue</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr>(<name>result</name> == <name>APT_COMPILER_SUCCESS</name>)</expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>be</name></decl></param>) <block>{
+            <comment type="line">//rethrow build exceptions</comment>
+            <throw>throw <expr><name>be</name></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>Exception</name></type> <name>ex</name></decl></param>) <block>{
+            <comment type="line">//cast everything else to a build exception</comment>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Error starting apt compiler"</expr></argument>,
+                    <argument><expr><name>ex</name></expr></argument>, <argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+}</block></class>
+</unit>

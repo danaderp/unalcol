@@ -1,0 +1,777 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\types\Path.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Method</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Collections</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Locale</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Stack</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>MagicNames</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>PathTokenizer</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>Union</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResourceIterator</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>JavaEnvUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * This object represents a path as used by CLASSPATH or PATH
+ * environment variable. A path might also be described as a collection
+ * of unique filesystem resources.
+ * &lt;p&gt;
+ * &lt;code&gt;
+ * &amp;lt;sometask&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;somepath&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;lt;pathelement location="/path/to/file.jar" /&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;lt;pathelement
+ *  path="/path/to/file2.jar:/path/to/class2;/path/to/class3" /&amp;gt;
+ * &lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;lt;pathelement location="/path/to/file3.jar" /&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;lt;pathelement location="/path/to/file4.jar" /&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;/somepath&amp;gt;&lt;br&gt;
+ * &amp;lt;/sometask&amp;gt;&lt;br&gt;
+ * &lt;/code&gt;
+ * &lt;p&gt;
+ * The object implementation &lt;code&gt;sometask&lt;/code&gt; must provide a method called
+ * &lt;code&gt;createSomepath&lt;/code&gt; which returns an instance of &lt;code&gt;Path&lt;/code&gt;.
+ * Nested path definitions are handled by the Path object and must be labeled
+ * &lt;code&gt;pathelement&lt;/code&gt;.&lt;p&gt;
+ *
+ * The path element takes a parameter &lt;code&gt;path&lt;/code&gt; which will be parsed
+ * and split into single elements. It will usually be used
+ * to define a path from an environment variable.
+ */</comment>
+
+<class><specifier>public</specifier> class <name>Path</name> <super><extends>extends <name>DataType</name></extends> <implements>implements <name>Cloneable</name>, <name>ResourceCollection</name></implements></super> <block>{
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+
+    <comment type="javadoc">/** The system classpath as a Path object */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <name>Path</name></type> <name>systemClasspath</name> =<init>
+        <expr>new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>, <argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.class.path"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+
+    <comment type="javadoc">/**
+     * The system bootclasspath as a Path object.
+     *
+     * @since Ant 1.6.2
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <name>Path</name></type> <name>systemBootClasspath</name> =<init>
+        <expr>new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>, <argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"sun.boot.class.path"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+
+    <comment type="javadoc">/**
+     * Helper class, holds the nested &lt;code&gt;&amp;lt;pathelement&amp;gt;&lt;/code&gt; values.
+     */</comment>
+    <class><specifier>public</specifier> class <name>PathElement</name> <super><implements>implements <name>ResourceCollection</name></implements></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>parts</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Set the location.
+         *
+         * @param loc a &lt;code&gt;File&lt;/code&gt; value
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setLocation</name><parameter_list>(<param><decl><type><name>File</name></type> <name>loc</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>parts</name> = new <name><name>String</name><index>[]</index></name> <block>{<expr><call><name>translateFile</name><argument_list>(<argument><expr><call><name><name>loc</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>}</block></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the path.
+         *
+         * @param path a &lt;code&gt;String&lt;/code&gt; value
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setPath</name><parameter_list>(<param><decl><type><name>String</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>parts</name> = <call><name><name>Path</name>.<name>translatePath</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>path</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Return the converted pathelements.
+         *
+         * @return a &lt;code&gt;String[]&lt;/code&gt; value
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getParts</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>parts</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Create an iterator.
+         * @return an iterator.
+         */</comment>
+        <function><type><specifier>public</specifier> <name><name>Iterator</name><argument_list>&lt;<argument><name>Resource</name></argument>&gt;</argument_list></name></type> <name>iterator</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>new <call><name>FileResourceIterator</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>parts</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Check if this resource is only for filesystems.
+         * @return true.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isFilesystemOnly</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the number of resources.
+         * @return the number of parts.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>size</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>parts</name> == <name>null</name> ? 0 : <name><name>parts</name>.<name>length</name></name></expr>;</return>
+        }</block></function>
+
+    }</block></class>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Boolean</name></type> <name>preserveBC</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Union</name></type> <name>union</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>cache</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Invoked by IntrospectionHelper for &lt;code&gt;setXXX(Path p)&lt;/code&gt;
+     * attribute setters.
+     * @param p the &lt;code&gt;Project&lt;/code&gt; for this path.
+     * @param path the &lt;code&gt;String&lt;/code&gt; path definition.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Path</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>, <param><decl><type><name>String</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>createPathElement</name><argument_list>()</argument_list></call>.<call><name>setPath</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Construct an empty &lt;code&gt;Path&lt;/code&gt;.
+     * @param project the &lt;code&gt;Project&lt;/code&gt; for this path.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Path</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setProject</name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Adds a element definition to the path.
+     * @param location the location of the element to add (must not be
+     * &lt;code&gt;null&lt;/code&gt; nor empty.
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLocation</name><parameter_list>(<param><decl><type><name>File</name></type> <name>location</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>createPathElement</name><argument_list>()</argument_list></call>.<call><name>setLocation</name><argument_list>(<argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parses a path definition and creates single PathElements.
+     * @param path the &lt;code&gt;String&lt;/code&gt; path definition.
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPath</name><parameter_list>(<param><decl><type><name>String</name></type> <name>path</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>createPathElement</name><argument_list>()</argument_list></call>.<call><name>setPath</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Makes this instance in effect a reference to another Path instance.
+     *
+     * &lt;p&gt;You must not set another attribute or nest elements inside
+     * this element if you make it a reference.&lt;/p&gt;
+     * @param r the reference to another Path
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRefid</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>union</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>super</name>.<name>setRefid</name></name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates the nested &lt;code&gt;&amp;lt;pathelement&amp;gt;&lt;/code&gt; element.
+     * @return the &lt;code&gt;PathElement&lt;/code&gt; to be configured
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>PathElement</name></type> <name>createPathElement</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>PathElement</name></type> <name>pe</name> =<init> <expr>new <call><name>PathElement</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>pe</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>pe</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a nested &lt;code&gt;&amp;lt;fileset&amp;gt;&lt;/code&gt; element.
+     * @param fs a &lt;code&gt;FileSet&lt;/code&gt; to be added to the path
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileset</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>fs</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name><name>fs</name>.<name>getProject</name></name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>fs</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>fs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a nested &lt;code&gt;&amp;lt;filelist&amp;gt;&lt;/code&gt; element.
+     * @param fl a &lt;code&gt;FileList&lt;/code&gt; to be added to the path
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFilelist</name><parameter_list>(<param><decl><type><name>FileList</name></type> <name>fl</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name><name>fl</name>.<name>getProject</name></name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>fl</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>fl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a nested &lt;code&gt;&amp;lt;dirset&amp;gt;&lt;/code&gt; element.
+     * @param dset a &lt;code&gt;DirSet&lt;/code&gt; to be added to the path
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addDirset</name><parameter_list>(<param><decl><type><name>DirSet</name></type> <name>dset</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name><name>dset</name>.<name>getProject</name></name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>dset</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>dset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a nested path
+     * @param path a &lt;code&gt;Path&lt;/code&gt; to be added to the path
+     * @throws BuildException on error
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>path</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>path</name> == <name>this</name></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>circularReference</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>path</name>.<name>getProject</name></name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>path</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr>(<name>ResourceCollection</name>) <name>path</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a nested &lt;code&gt;ResourceCollection&lt;/code&gt;.
+     * @param c the ResourceCollection to add.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>ResourceCollection</name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>c</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>union</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>union</name> = new <call><name>Union</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>union</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>union</name>.<name>setCache</name></name><argument_list>(<argument><expr><name>cache</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>union</name>.<name>add</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates a nested &lt;code&gt;&amp;lt;path&amp;gt;&lt;/code&gt; element.
+     * @return a &lt;code&gt;Path&lt;/code&gt; to be configured
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createPath</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Path</name></type> <name>p</name> =<init> <expr>new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>p</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Append the contents of the other Path instance to this.
+     * @param other a &lt;code&gt;Path&lt;/code&gt; to be added to the path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>append</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>other</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>other</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>other</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds the components on the given path which exist to this
+     * Path. Components that don't exist aren't added.
+     *
+     * @param source - source path whose components are examined for existence
+     */</comment>
+     <function><type><specifier>public</specifier> <name>void</name></type> <name>addExisting</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>source</name></decl></param>)</parameter_list> <block>{
+         <expr_stmt><expr><call><name>addExisting</name><argument_list>(<argument><expr><name>source</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+     }</block></function>
+
+    <comment type="javadoc">/**
+     * Same as addExisting, but support classpath behavior if tryUserDir
+     * is true. Classpaths are relative to user dir, not the project base.
+     * That used to break jspc test
+     *
+     * @param source the source path
+     * @param tryUserDir  if true try the user directory if the file is not present
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addExisting</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>source</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>tryUserDir</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>list</name> =<init> <expr><call><name><name>source</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>userDir</name> =<init> <expr>(<name>tryUserDir</name>) ? new <call><name>File</name><argument_list>(<argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"user.dir"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                : <name>null</name></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>list</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr><call><name>resolveFile</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>list</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// probably not the best choice, but it solves the problem of</comment>
+            <comment type="line">// relative paths in CLASSPATH</comment>
+            <if>if <condition>(<expr><name>tryUserDir</name> &amp;&amp; !<call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>f</name> = new <call><name>File</name><argument_list>(<argument><expr><name>userDir</name></expr></argument>, <argument><expr><name><name>list</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>setLocation</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>f</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call> != <name>null</name> &amp;&amp; <call><name><name>f</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call>.<call><name>exists</name><argument_list>()</argument_list></call>
+                       &amp;&amp; <call><name>containsWildcards</name><argument_list>(<argument><expr><call><name><name>f</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>setLocation</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"adding " + <name>f</name> + " which contains wildcards and may not"
+                    + " do what you intend it to do depending on your OS or"
+                    + " version of Java"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"dropping " + <name>f</name> + " from path as it doesn't exist"</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if></else></if>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether to cache the current path.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCache</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>cache</name> = <name>b</name></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>union</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>union</name>.<name>setCache</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns all path elements defined by this and nested path objects.
+     * @return list of path elements.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>list</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>Path</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>list</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name>assertFilesystemOnly</name><argument_list>(<argument><expr><name>union</name></expr></argument>)</argument_list></call> == <name>null</name>
+            ? new <name><name>String</name><index>[<expr>0</expr>]</index></name> : <call><name><name>union</name>.<name>list</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a textual representation of the path, which can be used as
+     * CLASSPATH or PATH environment variable definition.
+     * @return a textual representation of the path.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>isReference</name><argument_list>()</argument_list></call> ? <call><name>getCheckedRef</name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call>
+            : <name>union</name> == <name>null</name> ? "" : <call><name><name>union</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Splits a PATH (with : or ; as separators) into its parts.
+     * @param project the project to use
+     * @param source a &lt;code&gt;String&lt;/code&gt; value
+     * @return an array of strings, one for each path element
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name><index>[]</index></type> <name>translatePath</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>String</name></type> <name>source</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>result</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>source</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>new <name><name>String</name><index>[<expr>0</expr>]</index></name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>PathTokenizer</name></type> <name>tok</name> =<init> <expr>new <call><name>PathTokenizer</name><argument_list>(<argument><expr><name>source</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>element</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>tok</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>pathElement</name> =<init> <expr><call><name><name>tok</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>element</name>.<name>append</name></name><argument_list>(<argument><expr><call><name>resolveFile</name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><name>pathElement</name></expr></argument>)</argument_list></call>.<call><name>getPath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr>"Dropping path element " + <name>pathElement</name>
+                    + " as it is not valid relative to the project"</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <call><name><name>element</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name>translateFileSep</name><argument_list>(<argument><expr><name>element</name></expr></argument>, <argument><expr><name>i</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <expr_stmt><expr><call><name><name>result</name>.<name>addElement</name></name><argument_list>(<argument><expr><call><name><name>element</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>element</name> = new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><call><name><name>result</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>result</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns its argument with all file separator characters
+     * replaced so that they match the local OS conventions.
+     * @param source the path to convert
+     * @return the converted path
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>translateFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>source</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>source</name> == <name>null</name></expr>)</condition><then> <block>{
+          <return>return <expr>""</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>StringBuffer</name></type> <name>result</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><name>source</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <call><name><name>result</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name>translateFileSep</name><argument_list>(<argument><expr><name>result</name></expr></argument>, <argument><expr><name>i</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><call><name><name>result</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Translates occurrences at a position of / or \ to correct separator of the
+     * current platform and returns whether it had to do a
+     * replacement.
+     * @param buffer a buffer containing a string
+     * @param pos the position in the string buffer to convert
+     * @return true if the character was a / or \
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>translateFileSep</name><parameter_list>(<param><decl><type><name>StringBuffer</name></type> <name>buffer</name></decl></param>, <param><decl><type><name>int</name></type> <name>pos</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>buffer</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>pos</name></expr></argument>)</argument_list></call> == '/' || <call><name><name>buffer</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>pos</name></expr></argument>)</argument_list></call> == '\\'</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>setCharAt</name></name><argument_list>(<argument><expr><name>pos</name></expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fulfill the ResourceCollection contract.
+     * @return number of elements as int.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>int</name></type> <name>size</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>Path</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>size</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>union</name> == <name>null</name> ? 0 : <call><name>assertFilesystemOnly</name><argument_list>(<argument><expr><name>union</name></expr></argument>)</argument_list></call>.<call><name>size</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Clone this Path.
+     * @return Path with shallowly cloned Resource children.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Path</name></type> <name>result</name> =<init> <expr>(<name>Path</name>) <call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name><name>result</name>.<name>union</name></name> = <name>union</name> == <name>null</name> ? <name>union</name> : (<name>Union</name>) <call><name><name>union</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>result</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>CloneNotSupportedException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Overrides the version of DataType to recurse on all DataType
+     * child elements that may have been added.
+     * @param stk the stack of data types to use (recursively).
+     * @param p   the project to use to dereference the references.
+     * @throws BuildException on error.
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>dieOnCircularReference</name><parameter_list>(<param><decl><type><name><name>Stack</name><argument_list>&lt;<argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>stk</name></decl></param>, <param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name>isChecked</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>super</name>.<name>dieOnCircularReference</name></name><argument_list>(<argument><expr><name>stk</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <if>if <condition>(<expr><name>union</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>pushAndInvokeCircularReferenceCheck</name><argument_list>(<argument><expr><name>union</name></expr></argument>, <argument><expr><name>stk</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Resolve a filename with Project's help - if we know one that is.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>File</name></type> <name>resolveFile</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>String</name></type> <name>relativeName</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(
+            <argument><expr>(<name>project</name> == <name>null</name>) ? <name>null</name> : <call><name><name>project</name>.<name>getBaseDir</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>relativeName</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Concatenates the system class path in the order specified by
+     * the ${build.sysclasspath} property - using &amp;quot;last&amp;quot; as
+     * default value.
+     * @return the concatenated path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>concatSystemClasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>concatSystemClasspath</name><argument_list>(<argument><expr>"last"</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Concatenates the system class path in the order specified by
+     * the ${build.sysclasspath} property - using the supplied value
+     * if ${build.sysclasspath} has not been set.
+     * @param defValue the order ("first", "last", "only")
+     * @return the concatenated path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>concatSystemClasspath</name><parameter_list>(<param><decl><type><name>String</name></type> <name>defValue</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>concatSpecialPath</name><argument_list>(<argument><expr><name>defValue</name></expr></argument>, <argument><expr><name><name>Path</name>.<name>systemClasspath</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Concatenates the system boot class path in the order specified
+     * by the ${build.sysclasspath} property - using the supplied
+     * value if ${build.sysclasspath} has not been set.
+     * @param defValue the order ("first", "last", "only")
+     * @return the concatenated path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>concatSystemBootClasspath</name><parameter_list>(<param><decl><type><name>String</name></type> <name>defValue</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>concatSpecialPath</name><argument_list>(<argument><expr><name>defValue</name></expr></argument>, <argument><expr><name><name>Path</name>.<name>systemBootClasspath</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Concatenates a class path in the order specified by the
+     * ${build.sysclasspath} property - using the supplied value if
+     * ${build.sysclasspath} has not been set.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Path</name></type> <name>concatSpecialPath</name><parameter_list>(<param><decl><type><name>String</name></type> <name>defValue</name></decl></param>, <param><decl><type><name>Path</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Path</name></type> <name>result</name> =<init> <expr>new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>order</name> =<init> <expr><name>defValue</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>o</name> =<init> <expr><call><name>getProject</name><argument_list>()</argument_list></call> != <name>null</name>
+            ? <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>BUILD_SYSCLASSPATH</name></name></expr></argument>)</argument_list></call>
+            : <call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>BUILD_SYSCLASSPATH</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>o</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>order</name> = <name>o</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>order</name>.<name>equals</name></name><argument_list>(<argument><expr>"only"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// only: the developer knows what (s)he is doing</comment>
+            <expr_stmt><expr><call><name><name>result</name>.<name>addExisting</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>order</name>.<name>equals</name></name><argument_list>(<argument><expr>"first"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// first: developer could use a little help</comment>
+            <expr_stmt><expr><call><name><name>result</name>.<name>addExisting</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>result</name>.<name>addExisting</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>order</name>.<name>equals</name></name><argument_list>(<argument><expr>"ignore"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// ignore: don't trust anyone</comment>
+            <expr_stmt><expr><call><name><name>result</name>.<name>addExisting</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        }</block></then> <else>else <block>{
+            <comment type="line">// last: don't trust the developer</comment>
+            <if>if <condition>(<expr>!<call><name><name>order</name>.<name>equals</name></name><argument_list>(<argument><expr>"last"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"invalid value for " + <name><name>MagicNames</name>.<name>BUILD_SYSCLASSPATH</name></name>
+                    + ": " + <name>order</name></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>result</name>.<name>addExisting</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>result</name>.<name>addExisting</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if></else></if></else></if>
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add the Java Runtime classes to this Path instance.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addJavaRuntime</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>JavaEnvUtils</name>.<name>isKaffe</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// newer versions of Kaffe (1.1.1+) won't have this,</comment>
+            <comment type="line">// but this will be sorted by FileSet anyway.</comment>
+            <decl_stmt><decl><type><name>File</name></type> <name>kaffeShare</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.home"</expr></argument>)</argument_list></call>
+                                       + <name><name>File</name>.<name>separator</name></name> + "share"
+                                       + <name><name>File</name>.<name>separator</name></name> + "kaffe"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>kaffeShare</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>FileSet</name></type> <name>kaffeJarFiles</name> =<init> <expr>new <call><name>FileSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>kaffeJarFiles</name>.<name>setDir</name></name><argument_list>(<argument><expr><name>kaffeShare</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>kaffeJarFiles</name>.<name>setIncludes</name></name><argument_list>(<argument><expr>"*.jar"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>addFileset</name><argument_list>(<argument><expr><name>kaffeJarFiles</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then> <else>else <if>if <condition>(<expr>"GNU libgcj".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.vm.name"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addExisting</name><argument_list>(<argument><expr><name>systemBootClasspath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if></else></if>
+
+        <if>if <condition>(<expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.vendor"</expr></argument>)</argument_list></call>.<call><name>toLowerCase</name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call>.<call><name>indexOf</name><argument_list>(<argument><expr>"microsoft"</expr></argument>)</argument_list></call> &gt;= 0</expr>)</condition><then> <block>{
+            <comment type="line">// TODO is this code still necessary? is there any 1.2+ port?</comment>
+            <comment type="line">// Pull in *.zip from packages directory</comment>
+            <decl_stmt><decl><type><name>FileSet</name></type> <name>msZipFiles</name> =<init> <expr>new <call><name>FileSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>msZipFiles</name>.<name>setDir</name></name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.home"</expr></argument>)</argument_list></call>
+                + <name><name>File</name>.<name>separator</name></name> + "Packages"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>msZipFiles</name>.<name>setIncludes</name></name><argument_list>(<argument><expr>"*.ZIP"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addFileset</name><argument_list>(<argument><expr><name>msZipFiles</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <comment type="line">// JDK 1.2+ seems to set java.home to the JRE directory.</comment>
+            <expr_stmt><expr><call><name>addExisting</name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>,
+                                 <argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.home"</expr></argument>)</argument_list></call>
+                                 + <name><name>File</name>.<name>separator</name></name> + "lib"
+                                 + <name><name>File</name>.<name>separator</name></name> + "rt.jar"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// Just keep the old version as well and let addExisting</comment>
+            <comment type="line">// sort it out.</comment>
+            <expr_stmt><expr><call><name>addExisting</name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>,
+                                 <argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.home"</expr></argument>)</argument_list></call>
+                                 + <name><name>File</name>.<name>separator</name></name> + "jre"
+                                 + <name><name>File</name>.<name>separator</name></name> + "lib"
+                                 + <name><name>File</name>.<name>separator</name></name> + "rt.jar"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// Sun's and Apple's 1.4 have JCE and JSSE in separate jars.</comment>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>secJars</name> =<init> <expr><block>{<expr>"jce"</expr>, <expr>"jsse"</expr>}</block></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>secJars</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name>addExisting</name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>,
+                                     <argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.home"</expr></argument>)</argument_list></call>
+                                     + <name><name>File</name>.<name>separator</name></name> + "lib"
+                                     + <name><name>File</name>.<name>separator</name></name> + <name><name>secJars</name><index>[<expr><name>i</name></expr>]</index></name> + ".jar"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>addExisting</name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>,
+                                     <argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.home"</expr></argument>)</argument_list></call>
+                                     + <name><name>File</name>.<name>separator</name></name> + ".."
+                                     + <name><name>File</name>.<name>separator</name></name> + "Classes"
+                                     + <name><name>File</name>.<name>separator</name></name> + <name><name>secJars</name><index>[<expr><name>i</name></expr>]</index></name> + ".jar"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+
+            <comment type="line">// IBM's 1.4 has rt.jar split into 4 smaller jars and a combined</comment>
+            <comment type="line">// JCE/JSSE in security.jar.</comment>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>ibmJars</name>
+                =<init> <expr><block>{<expr>"core"</expr>, <expr>"graphics"</expr>, <expr>"security"</expr>, <expr>"server"</expr>, <expr>"xml"</expr>}</block></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>ibmJars</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name>addExisting</name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>,
+                                     <argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.home"</expr></argument>)</argument_list></call>
+                                     + <name><name>File</name>.<name>separator</name></name> + "lib"
+                                     + <name><name>File</name>.<name>separator</name></name> + <name><name>ibmJars</name><index>[<expr><name>i</name></expr>]</index></name> + ".jar"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+
+            <comment type="line">// Added for MacOS X</comment>
+            <expr_stmt><expr><call><name>addExisting</name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>,
+                                 <argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.home"</expr></argument>)</argument_list></call>
+                                 + <name><name>File</name>.<name>separator</name></name> + ".."
+                                 + <name><name>File</name>.<name>separator</name></name> + "Classes"
+                                 + <name><name>File</name>.<name>separator</name></name> + "classes.jar"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addExisting</name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>,
+                                 <argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.home"</expr></argument>)</argument_list></call>
+                                 + <name><name>File</name>.<name>separator</name></name> + ".."
+                                 + <name><name>File</name>.<name>separator</name></name> + "Classes"
+                                 + <name><name>File</name>.<name>separator</name></name> + "ui.jar"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Emulation of extdirs feature in java &gt;= 1.2.
+     * This method adds all files in the given
+     * directories (but not in sub-directories!) to the classpath,
+     * so that you don't have to specify them all one by one.
+     * @param extdirs - Path to append files to
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addExtdirs</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>extdirs</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>extdirs</name> == <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>extProp</name> =<init> <expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.ext.dirs"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>extProp</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>extdirs</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>extProp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <return>return;</return>
+            }</block></else></if>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>dirs</name> =<init> <expr><call><name><name>extdirs</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>dirs</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>dir</name> =<init> <expr><call><name>resolveFile</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>dirs</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>dir</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; <call><name><name>dir</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>FileSet</name></type> <name>fs</name> =<init> <expr>new <call><name>FileSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>fs</name>.<name>setDir</name></name><argument_list>(<argument><expr><name>dir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>fs</name>.<name>setIncludes</name></name><argument_list>(<argument><expr>"*"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>addFileset</name><argument_list>(<argument><expr><name>fs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fulfill the ResourceCollection contract. The Iterator returned
+     * will throw ConcurrentModificationExceptions if ResourceCollections
+     * are added to this container while the Iterator is in use.
+     * @return a "fail-fast" Iterator.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>final</specifier> <specifier>synchronized</specifier> <name><name>Iterator</name><argument_list>&lt;<argument><name>Resource</name></argument>&gt;</argument_list></name></type> <name>iterator</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>Path</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>iterator</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name>getPreserveBC</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>new <call><name>FileResourceIterator</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><call><name>list</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>union</name> == <name>null</name> ? <name><name>Collections</name>.<name><name/></name></name>&lt;<name>Resource</name>&gt; <call><name>emptySet</name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call>
+            : <call><name>assertFilesystemOnly</name><argument_list>(<argument><expr><name>union</name></expr></argument>)</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fulfill the ResourceCollection contract.
+     * @return whether this is a filesystem-only resource collection.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>boolean</name></type> <name>isFilesystemOnly</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>((<name>Path</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call>).<call><name>isFilesystemOnly</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>assertFilesystemOnly</name><argument_list>(<argument><expr><name>union</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Verify the specified ResourceCollection is filesystem-only.
+     * @param rc the ResourceCollection to check.
+     * @throws BuildException if &lt;code&gt;rc&lt;/code&gt; is not filesystem-only.
+     * @return the passed in ResourceCollection.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>ResourceCollection</name></type> <name>assertFilesystemOnly</name><parameter_list>(<param><decl><type><name>ResourceCollection</name></type> <name>rc</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>rc</name> != <name>null</name> &amp;&amp; !(<call><name><name>rc</name>.<name>isFilesystemOnly</name></name><argument_list>()</argument_list></call>)</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name>getDataTypeName</name><argument_list>()</argument_list></call>
+                + " allows only filesystem resources."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><name>rc</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Helps determine whether to preserve BC by calling &lt;code&gt;list()&lt;/code&gt; on subclasses.
+     * The default behavior of this method is to return &lt;code&gt;true&lt;/code&gt; for any subclass
+     * that implements &lt;code&gt;list()&lt;/code&gt;; this can, of course, be avoided by overriding
+     * this method to return &lt;code&gt;false&lt;/code&gt;. It is not expected that the result of this
+     * method should change over time, thus it is called only once.
+     * @return &lt;code&gt;true&lt;/code&gt; if &lt;code&gt;iterator()&lt;/code&gt; should delegate to &lt;code&gt;list()&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>delegateIteratorToList</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>getClass</name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>Path</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Method</name></type> <name>listMethod</name> =<init> <expr><call><name>getClass</name><argument_list>()</argument_list></call>.<call><name>getMethod</name><argument_list>(<argument><expr>"list"</expr></argument>, <argument><expr>(<name><name>Class</name><index>[]</index></name>) <name>null</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr>!<call><name><name>listMethod</name>.<name>getDeclaringClass</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>Path</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//shouldn't happen, but</comment>
+            <return>return <expr>false</expr>;</return>
+        }</block></catch></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <specifier>synchronized</specifier> <name>boolean</name></type> <name>getPreserveBC</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>preserveBC</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>preserveBC</name> = <call><name>delegateIteratorToList</name><argument_list>()</argument_list></call> ? <name><name>Boolean</name>.<name>TRUE</name></name> : <name><name>Boolean</name>.<name>FALSE</name></name></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>preserveBC</name>.<name>booleanValue</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Does the given file name contain wildcards?
+     * @since Ant 1.8.2
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>containsWildcards</name><parameter_list>(<param><decl><type><name>String</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><name>path</name> != <name>null</name>
+            &amp;&amp; (<call><name><name>path</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"*"</expr></argument>)</argument_list></call> &gt; -1 || <call><name><name>path</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"?"</expr></argument>)</argument_list></call> &gt; -1)</expr>;</return>
+    }</block></function>
+
+}</block></class>
+</unit>

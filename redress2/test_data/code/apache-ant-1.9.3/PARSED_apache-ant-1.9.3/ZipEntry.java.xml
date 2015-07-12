@@ -1,0 +1,716 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\zip\ZipEntry.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Arrays</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Date</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedHashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>zip</name>.<name>ZipException</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Extension that adds better handling of extra fields and provides
+ * access to the internal and external file attributes.
+ *
+ * &lt;p&gt;The extra data is expected to follow the recommendation of
+ * {@link &lt;a href="http://www.pkware.com/documents/casestudies/APPNOTE.TXT"&gt;
+ * APPNOTE.txt&lt;/a&gt;}:&lt;/p&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;the extra byte array consists of a sequence of extra fields&lt;/li&gt;
+ *   &lt;li&gt;each extra fields starts by a two byte header id followed by
+ *   a two byte sequence holding the length of the remainder of
+ *   data.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;Any extra data that cannot be parsed by the rules above will be
+ * consumed as "unparseable" extra data and treated differently by the
+ * methods of this class.  Older versions would have thrown an
+ * exception if any attempt was made to read or write extra data not
+ * conforming to the recommendation.&lt;/p&gt;
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>ZipEntry</name> <super><extends>extends <name>java</name>.<name>util</name>.<name>zip</name>.<name>ZipEntry</name></extends> <implements>implements <name>Cloneable</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>PLATFORM_UNIX</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>PLATFORM_FAT</name>  =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>SHORT_MASK</name> =<init> <expr>0xFFFF</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>SHORT_SHIFT</name> =<init> <expr>16</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>EMPTY</name> =<init> <expr>new <name><name>byte</name><index>[<expr>0</expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The {@link java.util.zip.ZipEntry} base class only supports
+     * the compression methods STORED and DEFLATED. We override the
+     * field so that any compression methods can be used.
+     * &lt;p&gt;
+     * The default value -1 means that the method has not been specified.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>method</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The {@link java.util.zip.ZipEntry#setSize} method in the base
+     * class throws an IllegalArgumentException if the size is bigger
+     * than 2GB for Java versions &lt; 7.  Need to keep our own size
+     * information for Zip64 support.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>size</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>internalAttributes</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>platform</name> =<init> <expr><name>PLATFORM_FAT</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>externalAttributes</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>ZipShort</name></argument>, <argument><name>ZipExtraField</name></argument>&gt;</argument_list></name></type> <name>extraFields</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>UnparseableExtraFieldData</name></type> <name>unparseableExtra</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>name</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>byte</name><index>[]</index></type> <name>rawName</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>GeneralPurposeBit</name></type> <name>gpb</name> =<init> <expr>new <call><name>GeneralPurposeBit</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Creates a new zip entry with the specified name.
+     *
+     * &lt;p&gt;Assumes the entry represents a directory if and only if the
+     * name ends with a forward slash "/".&lt;/p&gt;
+     *
+     * @param name the name of the entry
+     * @since 1.1
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ZipEntry</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setName</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates a new zip entry with fields taken from the specified zip entry.
+     *
+     * &lt;p&gt;Assumes the entry represents a directory if and only if the
+     * name ends with a forward slash "/".&lt;/p&gt;
+     *
+     * @param entry the entry to get fields from
+     * @since 1.1
+     * @throws ZipException on error
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ZipEntry</name><parameter_list>(<param><decl><type><name><name>java</name>.<name>util</name>.<name>zip</name>.<name>ZipEntry</name></name></type> <name>entry</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>ZipException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>entry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setName</name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>extra</name> =<init> <expr><call><name><name>entry</name>.<name>getExtra</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>extra</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setExtraFields</name><argument_list>(<argument><expr><call><name><name>ExtraFieldUtils</name>.<name>parse</name></name><argument_list>(<argument><expr><name>extra</name></expr></argument>, <argument><expr>true</expr></argument>,
+                                                 <argument><expr><name><name>ExtraFieldUtils</name>
+                                                 .<name>UnparseableExtraField</name>.<name>READ</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <comment type="line">// initializes extra data to an empty byte array</comment>
+            <expr_stmt><expr><call><name>setExtra</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <expr_stmt><expr><call><name>setMethod</name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>getMethod</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>size</name></name> = <call><name><name>entry</name>.<name>getSize</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates a new zip entry with fields taken from the specified zip entry.
+     *
+     * &lt;p&gt;Assumes the entry represents a directory if and only if the
+     * name ends with a forward slash "/".&lt;/p&gt;
+     *
+     * @param entry the entry to get fields from
+     * @throws ZipException on error
+     * @since 1.1
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ZipEntry</name><parameter_list>(<param><decl><type><name>ZipEntry</name></type> <name>entry</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>ZipException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr>(<name><name>java</name>.<name>util</name>.<name>zip</name>.<name>ZipEntry</name></name>) <name>entry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setInternalAttributes</name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>getInternalAttributes</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setExternalAttributes</name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>getExternalAttributes</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setExtraFields</name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>getExtraFields</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * @since 1.9
+     */</comment>
+    <constructor><specifier>protected</specifier> <name>ZipEntry</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates a new zip entry taking some information from the given
+     * file and using the provided name.
+     *
+     * &lt;p&gt;The name will be adjusted to end with a forward slash "/" if
+     * the file is a directory.  If the file is not a directory a
+     * potential trailing forward slash will be stripped from the
+     * entry name.&lt;/p&gt;
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ZipEntry</name><parameter_list>(<param><decl><type><name>File</name></type> <name>inputFile</name></decl></param>, <param><decl><type><name>String</name></type> <name>entryName</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><call><name><name>inputFile</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call> &amp;&amp; !<call><name><name>entryName</name>.<name>endsWith</name></name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call> ? 
+             <name>entryName</name> + "/" : <name>entryName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name><name>inputFile</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then><block>{
+            <expr_stmt><expr><call><name>setSize</name><argument_list>(<argument><expr><call><name><name>inputFile</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>setTime</name><argument_list>(<argument><expr><call><name><name>inputFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// TODO are there any other fields we can set here?</comment>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Overwrite clone.
+     * @return a cloned copy of this ZipEntry
+     * @since 1.1
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>ZipEntry</name></type> <name>e</name> =<init> <expr>(<name>ZipEntry</name>) <call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name><name>e</name>.<name>setInternalAttributes</name></name><argument_list>(<argument><expr><call><name>getInternalAttributes</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>e</name>.<name>setExternalAttributes</name></name><argument_list>(<argument><expr><call><name>getExternalAttributes</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>e</name>.<name>setExtraFields</name></name><argument_list>(<argument><expr><call><name>getExtraFields</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>e</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the compression method of this entry, or -1 if the
+     * compression method has not been specified.
+     *
+     * @return compression method
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>int</name></type> <name>getMethod</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>method</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the compression method of this entry.
+     *
+     * @param method compression method
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>void</name></type> <name>setMethod</name><parameter_list>(<param><decl><type><name>int</name></type> <name>method</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>method</name> &lt; 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(
+                    <argument><expr>"ZIP compression method can not be negative: " + <name>method</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>method</name></name> = <name>method</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Retrieves the internal file attributes.
+     *
+     * @return the internal file attributes
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getInternalAttributes</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>internalAttributes</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the internal file attributes.
+     * @param value an &lt;code&gt;int&lt;/code&gt; value
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInternalAttributes</name><parameter_list>(<param><decl><type><name>int</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>internalAttributes</name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Retrieves the external file attributes.
+     * @return the external file attributes
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>long</name></type> <name>getExternalAttributes</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>externalAttributes</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the external file attributes.
+     * @param value an &lt;code&gt;long&lt;/code&gt; value
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setExternalAttributes</name><parameter_list>(<param><decl><type><name>long</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>externalAttributes</name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets Unix permissions in a way that is understood by Info-Zip's
+     * unzip command.
+     * @param mode an &lt;code&gt;int&lt;/code&gt; value
+     * @since Ant 1.5.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUnixMode</name><parameter_list>(<param><decl><type><name>int</name></type> <name>mode</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// CheckStyle:MagicNumberCheck OFF - no point</comment>
+        <expr_stmt><expr><call><name>setExternalAttributes</name><argument_list>(<argument><expr>(<name>mode</name> &lt;&lt; <name>SHORT_SHIFT</name>)
+                              <comment type="line">// MS-DOS read-only attribute</comment>
+                              | ((<name>mode</name> &amp; 0200) == 0 ? 1 : 0)
+                              <comment type="line">// MS-DOS directory flag</comment>
+                              | (<call><name>isDirectory</name><argument_list>()</argument_list></call> ? 0x10 : 0)</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// CheckStyle:MagicNumberCheck ON</comment>
+        <expr_stmt><expr><name>platform</name> = <name>PLATFORM_UNIX</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Unix permission.
+     * @return the unix permissions
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getUnixMode</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>platform</name> != <name>PLATFORM_UNIX</name> ? 0 :
+            <call>(<name>int</name>) <argument_list>(<argument><expr>(<call><name>getExternalAttributes</name><argument_list>()</argument_list></call> &gt;&gt; <name>SHORT_SHIFT</name>) &amp; <name>SHORT_MASK</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Platform specification to put into the &amp;quot;version made
+     * by&amp;quot; part of the central file header.
+     *
+     * @return PLATFORM_FAT unless {@link #setUnixMode setUnixMode}
+     * has been called, in which case PLATFORM_UNIX will be returned.
+     *
+     * @since Ant 1.5.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getPlatform</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>platform</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the platform (UNIX or FAT).
+     * @param platform an &lt;code&gt;int&lt;/code&gt; value - 0 is FAT, 3 is UNIX
+     * @since 1.9
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>setPlatform</name><parameter_list>(<param><decl><type><name>int</name></type> <name>platform</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>platform</name></name> = <name>platform</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Replaces all currently attached extra fields with the new array.
+     * @param fields an array of extra fields
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setExtraFields</name><parameter_list>(<param><decl><type><name><name>ZipExtraField</name><index>[]</index></name></type> <name>fields</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>extraFields</name> = new <call><name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>ZipShort</name></argument>, <argument><name>ZipExtraField</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name>ZipExtraField</name></type> <name>field</name> :<range> <expr><name>fields</name></expr></range></decl></init>) <block>{
+            <if>if <condition>(<expr><name>field</name> <name>instanceof</name> <name>UnparseableExtraFieldData</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>unparseableExtra</name> = (<name>UnparseableExtraFieldData</name>) <name>field</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>extraFields</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>field</name>.<name>getHeaderId</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>field</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></for>
+        <expr_stmt><expr><call><name>setExtra</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Retrieves all extra fields that have been parsed successfully.
+     * @return an array of the extra fields
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ZipExtraField</name><index>[]</index></type> <name>getExtraFields</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getExtraFields</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Retrieves extra fields.
+     * @param includeUnparseable whether to also return unparseable
+     * extra fields as {@link UnparseableExtraFieldData} if such data
+     * exists.
+     * @return an array of the extra fields
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ZipExtraField</name><index>[]</index></type> <name>getExtraFields</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>includeUnparseable</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>extraFields</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>!<name>includeUnparseable</name> || <name>unparseableExtra</name> == <name>null</name>
+                ? new <name><name>ZipExtraField</name><index>[<expr>0</expr>]</index></name>
+                : new <name><name>ZipExtraField</name><index>[]</index></name> <block>{ <expr><name>unparseableExtra</name></expr> }</block></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name><name>List</name><argument_list>&lt;<argument><name>ZipExtraField</name></argument>&gt;</argument_list></name></type> <name>result</name> =<init>
+            <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>ZipExtraField</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><call><name><name>extraFields</name>.<name>values</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>includeUnparseable</name> &amp;&amp; <name>unparseableExtra</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>result</name>.<name>add</name></name><argument_list>(<argument><expr><name>unparseableExtra</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>result</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>ZipExtraField</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds an extra field - replacing an already present extra field
+     * of the same type.
+     *
+     * &lt;p&gt;If no extra field of the same type exists, the field will be
+     * added as last field.&lt;/p&gt;
+     * @param ze an extra field
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addExtraField</name><parameter_list>(<param><decl><type><name>ZipExtraField</name></type> <name>ze</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>ze</name> <name>instanceof</name> <name>UnparseableExtraFieldData</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>unparseableExtra</name> = (<name>UnparseableExtraFieldData</name>) <name>ze</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <if>if <condition>(<expr><name>extraFields</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>extraFields</name> = new <call><name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>ZipShort</name></argument>, <argument><name>ZipExtraField</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>extraFields</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>ze</name>.<name>getHeaderId</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>ze</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <expr_stmt><expr><call><name>setExtra</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds an extra field - replacing an already present extra field
+     * of the same type.
+     *
+     * &lt;p&gt;The new extra field will be the first one.&lt;/p&gt;
+     * @param ze an extra field
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addAsFirstExtraField</name><parameter_list>(<param><decl><type><name>ZipExtraField</name></type> <name>ze</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>ze</name> <name>instanceof</name> <name>UnparseableExtraFieldData</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>unparseableExtra</name> = (<name>UnparseableExtraFieldData</name>) <name>ze</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>ZipShort</name></argument>, <argument><name>ZipExtraField</name></argument>&gt;</argument_list></name></type> <name>copy</name> =<init> <expr><name>extraFields</name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>extraFields</name> = new <call><name><name>LinkedHashMap</name><argument_list>&lt;<argument><name>ZipShort</name></argument>, <argument><name>ZipExtraField</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>extraFields</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>ze</name>.<name>getHeaderId</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>ze</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>copy</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>copy</name>.<name>remove</name></name><argument_list>(<argument><expr><call><name><name>ze</name>.<name>getHeaderId</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>extraFields</name>.<name>putAll</name></name><argument_list>(<argument><expr><name>copy</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></else></if>
+        <expr_stmt><expr><call><name>setExtra</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Remove an extra field.
+     * @param type the type of extra field to remove
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>removeExtraField</name><parameter_list>(<param><decl><type><name>ZipShort</name></type> <name>type</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>extraFields</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name><name>java</name>.<name>util</name>.<name>NoSuchElementException</name></name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>extraFields</name>.<name>remove</name></name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name><name>java</name>.<name>util</name>.<name>NoSuchElementException</name></name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>setExtra</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Removes unparseable extra field data.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>removeUnparseableExtraFieldData</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>unparseableExtra</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name><name>java</name>.<name>util</name>.<name>NoSuchElementException</name></name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>unparseableExtra</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setExtra</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Looks up an extra field by its header id.
+     *
+     * @return null if no such field exists.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ZipExtraField</name></type> <name>getExtraField</name><parameter_list>(<param><decl><type><name>ZipShort</name></type> <name>type</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>extraFields</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>extraFields</name>.<name>get</name></name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Looks up extra field data that couldn't be parsed correctly.
+     *
+     * @return null if no such field exists.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>UnparseableExtraFieldData</name></type> <name>getUnparseableExtraFieldData</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>unparseableExtra</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parses the given bytes as extra field data and consumes any
+     * unparseable data as an {@link UnparseableExtraFieldData}
+     * instance.
+     * @param extra an array of bytes to be parsed into extra fields
+     * @throws RuntimeException if the bytes cannot be parsed
+     * @since 1.1
+     * @throws RuntimeException on error
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>void</name></type> <name>setExtra</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>extra</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>RuntimeException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>ZipExtraField</name><index>[]</index></type> <name>local</name> =<init>
+                <expr><call><name><name>ExtraFieldUtils</name>.<name>parse</name></name><argument_list>(<argument><expr><name>extra</name></expr></argument>, <argument><expr>true</expr></argument>,
+                                      <argument><expr><name><name>ExtraFieldUtils</name>.<name>UnparseableExtraField</name>.<name>READ</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>mergeExtraFields</name><argument_list>(<argument><expr><name>local</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>ZipException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// actually this is not be possible as of Ant 1.8.1</comment>
+            <throw>throw <expr>new <call><name>RuntimeException</name><argument_list>(<argument><expr>"Error parsing extra fields for entry: "
+                                       + <call><name>getName</name><argument_list>()</argument_list></call> + " - " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Unfortunately {@link java.util.zip.ZipOutputStream
+     * java.util.zip.ZipOutputStream} seems to access the extra data
+     * directly, so overriding getExtra doesn't help - we need to
+     * modify super's data directly.
+     *
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>setExtra</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>super</name>.<name>setExtra</name></name><argument_list>(<argument><expr><call><name><name>ExtraFieldUtils</name>.<name>mergeLocalFileDataData</name></name><argument_list>(<argument><expr><call><name>getExtraFields</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the central directory part of extra fields.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCentralDirectoryExtra</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>ZipExtraField</name><index>[]</index></type> <name>central</name> =<init>
+                <expr><call><name><name>ExtraFieldUtils</name>.<name>parse</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>, <argument><expr>false</expr></argument>,
+                                      <argument><expr><name><name>ExtraFieldUtils</name>.<name>UnparseableExtraField</name>.<name>READ</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>mergeExtraFields</name><argument_list>(<argument><expr><name>central</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>ZipException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>RuntimeException</name><argument_list>(<argument><expr><call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Retrieves the extra data for the local file data.
+     * @return the extra data for local file
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>byte</name><index>[]</index></type> <name>getLocalFileDataExtra</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>extra</name> =<init> <expr><call><name>getExtra</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>extra</name> != <name>null</name> ? <name>extra</name> : <name>EMPTY</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Retrieves the extra data for the central directory.
+     * @return the central directory extra data
+     * @since 1.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>byte</name><index>[]</index></type> <name>getCentralDirectoryExtra</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>ExtraFieldUtils</name>.<name>mergeCentralDirectoryData</name></name><argument_list>(<argument><expr><call><name>getExtraFields</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Make this class work in JDK 1.1 like a 1.2 class.
+     *
+     * &lt;p&gt;This either stores the size for later usage or invokes
+     * setCompressedSize via reflection.&lt;/p&gt;
+     * @param size the size to use
+     * @deprecated since 1.7.
+     *             Use setCompressedSize directly.
+     * @since 1.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setComprSize</name><parameter_list>(<param><decl><type><name>long</name></type> <name>size</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setCompressedSize</name><argument_list>(<argument><expr><name>size</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the name of the entry.
+     * @return the entry name
+     * @since 1.9
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>String</name></type> <name>getName</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>name</name> == <name>null</name> ? <call><name><name>super</name>.<name>getName</name></name><argument_list>()</argument_list></call> : <name>name</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Is this entry a directory?
+     * @return true if the entry is a directory
+     * @since 1.10
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>boolean</name></type> <name>isDirectory</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getName</name><argument_list>()</argument_list></call>.<call><name>endsWith</name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of the entry.
+     * @param name the name to use
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>name</name> != <name>null</name> &amp;&amp; <call><name>getPlatform</name><argument_list>()</argument_list></call> == <name>PLATFORM_FAT</name>
+            &amp;&amp; <call><name><name>name</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call> == -1</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>name</name> = <call><name><name>name</name>.<name>replace</name></name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>name</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the uncompressed size of the entry data.
+     * @return the entry size
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>long</name></type> <name>getSize</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>size</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the uncompressed size of the entry data.
+     * @param size the uncompressed size in bytes
+     * @exception IllegalArgumentException if the specified size is less
+     *            than 0
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>void</name></type> <name>setSize</name><parameter_list>(<param><decl><type><name>long</name></type> <name>size</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>size</name> &lt; 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalArgumentException</name><argument_list>(<argument><expr>"invalid entry size"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>size</name></name> = <name>size</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the name using the raw bytes and the string created from
+     * it by guessing or using the configured encoding.
+     * @param name the name to use created from the raw bytes using
+     * the guessed or configured encoding
+     * @param rawName the bytes originally read as name from the
+     * archive
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>rawName</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setName</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>rawName</name></name> = <name>rawName</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the raw bytes that made up the name before it has been
+     * converted using the configured or guessed encoding.
+     *
+     * &lt;p&gt;This method will return null if this instance has not been
+     * read from an archive.&lt;/p&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>byte</name><index>[]</index></type> <name>getRawName</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>rawName</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>b</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name><name>rawName</name>.<name>length</name></name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>rawName</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>b</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>rawName</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>b</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the hashCode of the entry.
+     * This uses the name as the hashcode.
+     * @return a hashcode.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>int</name></type> <name>hashCode</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">// this method has severe consequences on performance. We cannot rely</comment>
+        <comment type="line">// on the super.hashCode() method since super.getName() always return</comment>
+        <comment type="line">// the empty string in the current implemention (there's no setter)</comment>
+        <comment type="line">// so it is basically draining the performance of a hashmap lookup</comment>
+        <return>return <expr><call><name>getName</name><argument_list>()</argument_list></call>.<call><name>hashCode</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The "general purpose bit" field.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>GeneralPurposeBit</name></type> <name>getGeneralPurposeBit</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>gpb</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The "general purpose bit" field.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setGeneralPurposeBit</name><parameter_list>(<param><decl><type><name>GeneralPurposeBit</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>gpb</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If there are no extra fields, use the given fields as new extra
+     * data - otherwise merge the fields assuming the existing fields
+     * and the new fields stem from different locations inside the
+     * archive.
+     * @param f the extra fields to merge
+     * @param local whether the new fields originate from local data
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>mergeExtraFields</name><parameter_list>(<param><decl><type><name><name>ZipExtraField</name><index>[]</index></name></type> <name>f</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>local</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>ZipException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>extraFields</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setExtraFields</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <for>for (<init><decl><type><name>ZipExtraField</name></type> <name>element</name> :<range> <expr><name>f</name></expr></range></decl></init>) <block>{
+                <decl_stmt><decl><type><name>ZipExtraField</name></type> <name>existing</name></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>element</name> <name>instanceof</name> <name>UnparseableExtraFieldData</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>existing</name> = <name>unparseableExtra</name></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>existing</name> = <call><name>getExtraField</name><argument_list>(<argument><expr><call><name><name>element</name>.<name>getHeaderId</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <if>if <condition>(<expr><name>existing</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>addExtraField</name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <if>if <condition>(<expr><name>local</name>
+                        || !(<name>existing</name>
+                             <name>instanceof</name> <name>CentralDirectoryParsingZipExtraField</name>)</expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>b</name> =<init> <expr><call><name><name>element</name>.<name>getLocalFileDataData</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>existing</name>.<name>parseFromLocalFileData</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>b</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>b</name> =<init> <expr><call><name><name>element</name>.<name>getCentralDirectoryData</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr>((<name>CentralDirectoryParsingZipExtraField</name>) <name>existing</name>)
+                            .<call><name>parseFromCentralDirectoryData</name><argument_list>(<argument><expr><name>b</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>b</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block></else></if>
+            }</block></for>
+            <expr_stmt><expr><call><name>setExtra</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc} */</comment>
+    <function><type><specifier>public</specifier> <name>Date</name></type> <name>getLastModifiedDate</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>new <call><name>Date</name><argument_list>(<argument><expr><call><name>getTime</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="block">/* (non-Javadoc)
+     * @see java.lang.Object#equals(java.lang.Object)
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>obj</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>this</name> == <name>obj</name></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>obj</name> == <name>null</name> || <call><name>getClass</name><argument_list>()</argument_list></call> != <call><name><name>obj</name>.<name>getClass</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>ZipEntry</name></type> <name>other</name> =<init> <expr>(<name>ZipEntry</name>) <name>obj</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>myName</name> =<init> <expr><call><name>getName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>otherName</name> =<init> <expr><call><name><name>other</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>myName</name> == <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>otherName</name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+        }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>myName</name>.<name>equals</name></name><argument_list>(<argument><expr><name>otherName</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if></else></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>myComment</name> =<init> <expr><call><name>getComment</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>otherComment</name> =<init> <expr><call><name><name>other</name>.<name>getComment</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>myComment</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>myComment</name> = ""</expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>otherComment</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>otherComment</name> = ""</expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name>getTime</name><argument_list>()</argument_list></call> == <call><name><name>other</name>.<name>getTime</name></name><argument_list>()</argument_list></call>
+            &amp;&amp; <call><name><name>myComment</name>.<name>equals</name></name><argument_list>(<argument><expr><name>otherComment</name></expr></argument>)</argument_list></call>
+            &amp;&amp; <call><name>getInternalAttributes</name><argument_list>()</argument_list></call> == <call><name><name>other</name>.<name>getInternalAttributes</name></name><argument_list>()</argument_list></call>
+            &amp;&amp; <call><name>getPlatform</name><argument_list>()</argument_list></call> == <call><name><name>other</name>.<name>getPlatform</name></name><argument_list>()</argument_list></call>
+            &amp;&amp; <call><name>getExternalAttributes</name><argument_list>()</argument_list></call> == <call><name><name>other</name>.<name>getExternalAttributes</name></name><argument_list>()</argument_list></call>
+            &amp;&amp; <call><name>getMethod</name><argument_list>()</argument_list></call> == <call><name><name>other</name>.<name>getMethod</name></name><argument_list>()</argument_list></call>
+            &amp;&amp; <call><name>getSize</name><argument_list>()</argument_list></call> == <call><name><name>other</name>.<name>getSize</name></name><argument_list>()</argument_list></call>
+            &amp;&amp; <call><name>getCrc</name><argument_list>()</argument_list></call> == <call><name><name>other</name>.<name>getCrc</name></name><argument_list>()</argument_list></call>
+            &amp;&amp; <call><name>getCompressedSize</name><argument_list>()</argument_list></call> == <call><name><name>other</name>.<name>getCompressedSize</name></name><argument_list>()</argument_list></call>
+            &amp;&amp; <call><name><name>Arrays</name>.<name>equals</name></name><argument_list>(<argument><expr><call><name>getCentralDirectoryExtra</name><argument_list>()</argument_list></call></expr></argument>,
+                             <argument><expr><call><name><name>other</name>.<name>getCentralDirectoryExtra</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+            &amp;&amp; <call><name><name>Arrays</name>.<name>equals</name></name><argument_list>(<argument><expr><call><name>getLocalFileDataExtra</name><argument_list>()</argument_list></call></expr></argument>,
+                             <argument><expr><call><name><name>other</name>.<name>getLocalFileDataExtra</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+            &amp;&amp; <call><name><name>gpb</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>other</name>.<name>gpb</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

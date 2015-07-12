@@ -1,0 +1,515 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Available.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>AntClassLoader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>PropertyHelper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>Condition</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>EnumeratedAttribute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Reference</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Will set the given property if the requested resource is available at
+ * runtime. This task may also be used as a condition by the condition task.
+ *
+ * @since Ant 1.1
+ *
+ * @ant.task category="control"
+ */</comment>
+<class><specifier>public</specifier> class <name>Available</name> <super><extends>extends <name>Task</name></extends> <implements>implements <name>Condition</name></implements></super> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>property</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>classname</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>filename</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>file</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>filepath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>resource</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>FileDir</name></type> <name>type</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>classpath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>AntClassLoader</name></type> <name>loader</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>value</name> =<init> <expr>"true"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>isTask</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>ignoreSystemclasses</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>searchParents</name>   =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Set the searchParents attribute.
+     * This controls the behaviour of the the "file" type.
+     * If true, the path, parent path and grandparent path are
+     * searched for the file. If false, only the path is searched.
+     * The default value is false.
+     * @param searchParents the value to set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSearchParents</name><parameter_list>(<param><decl><type><name>boolean</name></type>  <name>searchParents</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>searchParents</name></name> = <name>searchParents</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath to be used when searching for classes and resources.
+     *
+     * @param classpath an Ant Path object containing the search path.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createClasspath</name><argument_list>()</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Classpath to be used when searching for classes and resources.
+     *
+     * @return an empty Path instance to be configured by Ant.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>classpath</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>classpath</name></name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>this</name>.<name>classpath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath by reference.
+     *
+     * @param r a Reference to a Path instance to be used as the classpath
+     *          value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createClasspath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the path to use when looking for a file.
+     *
+     * @param filepath a Path instance containing the search path for files.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFilepath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>filepath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createFilepath</name><argument_list>()</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>filepath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Path to search for file resources.
+     *
+     * @return a new Path instance which Ant will configure with a file search
+     *         path.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createFilepath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>filepath</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>filepath</name></name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>this</name>.<name>filepath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of the property which will be set if the particular resource
+     * is available.
+     *
+     * @param property the name of the property to set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>property</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>property</name></name> = <name>property</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the value to be given to the property if the desired resource is
+     * available.
+     *
+     * @param value the value to be given.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setValue</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>value</name></name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the value to be given to the property if the desired resource is
+     * available.
+     *
+     * @param value the value to be given.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setValue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setValue</name><argument_list>(<argument><expr>(<name>Object</name>) <name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set a classname of a class which must be available to set the given
+     * property.
+     *
+     * @param classname the name of the class required.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClassname</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!"".<call><name>equals</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>classname</name></name> = <name>classname</name></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the file which must be present in the file system to set the given
+     * property.
+     *
+     * @param file the name of the file which is required.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>file</name></name> = <name>file</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>filename</name></name> = <call><name><name>FILE_UTILS</name>.<name>removeLeadingPath</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getBaseDir</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of a Java resource which is required to set the property.
+     *
+     * @param resource the name of a resource which is required to be available.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setResource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>resource</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>resource</name></name> = <name>resource</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @deprecated since 1.5.x.
+     *             setType(String) is deprecated and is replaced with
+     *             setType(Available.FileDir) to make Ant's Introspection
+     *             mechanism do the work and also to encapsulate operations on
+     *             the type in its own class.
+     * @param type the type of resource
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setType</name><parameter_list>(<param><decl><type><name>String</name></type> <name>type</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"DEPRECATED - The setType(String) method has been deprecated."
+            + " Use setType(Available.FileDir) instead."</expr></argument>,
+            <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>type</name></name> = new <call><name>FileDir</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>this</name>.<name>type</name>.<name>setValue</name></name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set what type of file is required - either directory or file.
+     *
+     * @param type an instance of the FileDir enumeratedAttribute indicating
+     *             whether the file required is to be a directory or a plain
+     *             file.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setType</name><parameter_list>(<param><decl><type><name>FileDir</name></type> <name>type</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>type</name></name> = <name>type</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether the search for classes should ignore the runtime classes and
+     * just use the given classpath.
+     *
+     * @param ignore true if system classes are to be ignored.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIgnoresystemclasses</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>ignore</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>ignoreSystemclasses</name></name> = <name>ignore</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Entry point when operating as a task.
+     *
+     * @exception BuildException if the task is not configured correctly.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>property</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"property attribute is required"</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>isTask</name> = true</expr>;</expr_stmt>
+        <try>try <block>{
+            <if>if <condition>(<expr><call><name>eval</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>PropertyHelper</name></type> <name>ph</name> =<init> <expr><call><name><name>PropertyHelper</name>.<name>getPropertyHelper</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Object</name></type> <name>oldvalue</name> =<init> <expr><call><name><name>ph</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>property</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>null</name> != <name>oldvalue</name> &amp;&amp; !<call><name><name>oldvalue</name>.<name>equals</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"DEPRECATED - &lt;available&gt; used to override an existing"
+                        + " property."
+                        + <name><name>StringUtils</name>.<name>LINE_SEP</name></name>
+                        + "  Build file should not reuse the same property"
+                        + " name for different values."</expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <comment type="line">// NB: this makes use of Project#setProperty rather than Project#setNewProperty</comment>
+                <comment type="line">//     due to backwards compatiblity reasons</comment>
+                <expr_stmt><expr><call><name><name>ph</name>.<name>setProperty</name></name><argument_list>(<argument><expr><name>property</name></expr></argument>, <argument><expr><name>value</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><name>isTask</name> = false</expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Evaluate the availability of a resource.
+     *
+     * @return boolean is the resource is available.
+     * @exception BuildException if the condition is not configured correctly
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>eval</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <if>if <condition>(<expr><name>classname</name> == <name>null</name> &amp;&amp; <name>file</name> == <name>null</name> &amp;&amp; <name>resource</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"At least one of (classname|file|"
+                                         + "resource) is required"</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>type</name> != <name>null</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>file</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The type attribute is only valid "
+                                             + "when specifying the file "
+                                             + "attribute."</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>classpath</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name><name>this</name>.<name>loader</name></name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>appendix</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>isTask</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>appendix</name> = " to set property " + <name>property</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>setTaskName</name><argument_list>(<argument><expr>"available"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <if>if <condition>(<expr>(<name>classname</name> != <name>null</name>) &amp;&amp; !<call><name>checkClass</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Unable to load class " + <name>classname</name> + <name>appendix</name></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr>(<name>file</name> != <name>null</name>) &amp;&amp; !<call><name>checkFile</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr>"Unable to find "</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>type</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>' '</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><name>filename</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>appendix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>buf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr>(<name>resource</name> != <name>null</name>) &amp;&amp; !<call><name>checkResource</name><argument_list>(<argument><expr><name>resource</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Unable to load resource " + <name>resource</name> + <name>appendix</name></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>loader</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>loader</name>.<name>cleanup</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>loader</name> = <name>null</name></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr>!<name>isTask</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>setTaskName</name><argument_list>(<argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Search for file/directory either relative to project's
+     * basedir or in the path given as filepath.
+     *
+     * &lt;p&gt;filepath can be a list of directory and/or file names (gen'd
+     * via &lt;fileset&gt;)&lt;/p&gt;
+     *
+     * &lt;p&gt;look for:&lt;/p&gt;&lt;ul&gt;
+     *   &lt;li&gt;full-pathname specified == path in list&lt;/li&gt;
+     *   &lt;li&gt;full-pathname specified == parent dir of path in list&lt;/li&gt;
+     *   &lt;li&gt;simple name specified   == path in list&lt;/li&gt;
+     *   &lt;li&gt;simple name specified   == path in list + name&lt;/li&gt;
+     *   &lt;li&gt;simple name specified   == parent dir + name&lt;/li&gt;
+     *   &lt;li&gt;simple name specified   == parent of parent dir + name&lt;/li&gt;
+     * &lt;/ul&gt;
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>checkFile</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>filepath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>checkFile</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>paths</name> =<init> <expr><call><name><name>filepath</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>paths</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Searching " + <name><name>paths</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>path</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>paths</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// **   full-pathname specified == path in list</comment>
+                <comment type="line">// **   simple name specified   == path in list</comment>
+                <if>if <condition>(<expr><call><name><name>path</name>.<name>exists</name></name><argument_list>()</argument_list></call>
+                    &amp;&amp; (<call><name><name>filename</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>paths</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call>
+                        || <call><name><name>filename</name>.<name>equals</name></name><argument_list>(<argument><expr><call><name><name>path</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr><name>type</name> == <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found: " + <name>path</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <return>return <expr>true</expr>;</return>
+                    }</block></then> <else>else <if>if <condition>(<expr><call><name><name>type</name>.<name>isDir</name></name><argument_list>()</argument_list></call>
+                               &amp;&amp; <call><name><name>path</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found directory: " + <name>path</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <return>return <expr>true</expr>;</return>
+                    }</block></then> <else>else <if>if <condition>(<expr><call><name><name>type</name>.<name>isFile</name></name><argument_list>()</argument_list></call>
+                               &amp;&amp; <call><name><name>path</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found file: " + <name>path</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <return>return <expr>true</expr>;</return>
+                    }</block></then></if></else></if></else></if>
+                    <comment type="line">// not the requested type</comment>
+                    <return>return <expr>false</expr>;</return>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>File</name></type> <name>parent</name> =<init> <expr><call><name><name>path</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <comment type="line">// **   full-pathname specified == parent dir of path in list</comment>
+                <if>if <condition>(<expr><name>parent</name> != <name>null</name> &amp;&amp; <call><name><name>parent</name>.<name>exists</name></name><argument_list>()</argument_list></call>
+                    &amp;&amp; <call><name><name>filename</name>.<name>equals</name></name><argument_list>(<argument><expr><call><name><name>parent</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr><name>type</name> == <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found: " + <name>parent</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <return>return <expr>true</expr>;</return>
+                    }</block></then> <else>else <if>if <condition>(<expr><call><name><name>type</name>.<name>isDir</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found directory: " + <name>parent</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <return>return <expr>true</expr>;</return>
+                    }</block></then></if></else></if>
+                    <comment type="line">// not the requested type</comment>
+                    <return>return <expr>false</expr>;</return>
+                }</block></then></if>
+                <comment type="line">// **   simple name specified   == path in list + name</comment>
+                <if>if <condition>(<expr><call><name><name>path</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; <call><name><name>path</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr><call><name>checkFile</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>path</name></expr></argument>, <argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr></argument>,
+                                  <argument><expr><name>filename</name> + " in " + <name>path</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <return>return <expr>true</expr>;</return>
+                    }</block></then></if>
+                }</block></then></if>
+
+                <comment type="line">// **   simple name specified   == parent dir + name</comment>
+                <while>while <condition>(<expr><name>searchParents</name> &amp;&amp; <name>parent</name> != <name>null</name> &amp;&amp; <call><name><name>parent</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                    <if>if <condition>(<expr><call><name>checkFile</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr></argument>,
+                                  <argument><expr><name>filename</name> + " in " + <name>parent</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <return>return <expr>true</expr>;</return>
+                    }</block></then></if>
+                    <expr_stmt><expr><name>parent</name> = <call><name><name>parent</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></while>
+            }</block></for>
+        }</block></else></if>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if a given file exists and matches the required type.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>checkFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>, <param><decl><type><name>String</name></type> <name>text</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>type</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>type</name>.<name>isDir</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name><name>f</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found directory: " + <name>text</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <return>return <expr><call><name><name>f</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>;</return>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>type</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name><name>f</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found file: " + <name>text</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <return>return <expr><call><name><name>f</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>;</return>
+            }</block></then></if></else></if>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found: " + <name>text</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if a given resource can be loaded.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>checkResource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>resource</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>loader</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>(<call><name><name>loader</name>.<name>getResourceAsStream</name></name><argument_list>(<argument><expr><name>resource</name></expr></argument>)</argument_list></call> != <name>null</name>)</expr>;</return>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>ClassLoader</name></type> <name>cL</name> =<init> <expr><call><name><name>this</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getClassLoader</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>cL</name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr>(<call><name><name>cL</name>.<name>getResourceAsStream</name></name><argument_list>(<argument><expr><name>resource</name></expr></argument>)</argument_list></call> != <name>null</name>)</expr>;</return>
+            }</block></then> <else>else <block>{
+                <return>return
+                    <expr>(<call><name><name>ClassLoader</name>.<name>getSystemResourceAsStream</name></name><argument_list>(<argument><expr><name>resource</name></expr></argument>)</argument_list></call> != <name>null</name>)</expr>;</return>
+            }</block></else></if>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check if a given class can be loaded.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>checkClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <if>if <condition>(<expr><name>ignoreSystemclasses</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>loader</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>loader</name>.<name>setParentFirst</name></name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>loader</name>.<name>addJavaLibraries</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>loader</name>.<name>findClass</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>SecurityException</name></type> <name>se</name></decl></param>) <block>{
+                    <comment type="line">// class found but restricted name; this is</comment>
+                    <comment type="line">// actually the case we're looking for in JDK 1.3+,</comment>
+                    <comment type="line">// so catch the exception and return</comment>
+                    <return>return <expr>true</expr>;</return>
+                }</block></catch></try>
+            }</block></then> <else>else <if>if <condition>(<expr><name>loader</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>loader</name>.<name>loadClass</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <decl_stmt><decl><type><name>ClassLoader</name></type> <name>l</name> =<init> <expr><call><name><name>this</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getClassLoader</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <comment type="line">// Can return null to represent the bootstrap class loader.</comment>
+                <comment type="line">// see API docs of Class.getClassLoader.</comment>
+                <if>if <condition>(<expr><name>l</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>, <argument><expr>true</expr></argument>, <argument><expr><name>l</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></else></if></else></if>
+            <return>return <expr>true</expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"class \"" + <name>classname</name> + "\" was not found"</expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>false</expr>;</return>
+        }</block></catch> <catch>catch (<param><decl><type><name>NoClassDefFoundError</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Could not load dependent class \"" + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call>
+                + "\" for class \"" + <name>classname</name> + "\""</expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>false</expr>;</return>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * EnumeratedAttribute covering the file types to be checked for, either
+     * file or dir.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>FileDir</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name><index>[]</index></type> <name>VALUES</name> =<init> <expr><block>{<expr>"file"</expr>, <expr>"dir"</expr>}</block></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * @see EnumeratedAttribute#getValues
+         */</comment>
+        <comment type="javadoc">/** {@inheritDoc}. */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>VALUES</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Indicate if the value specifies a directory.
+         *
+         * @return true if the value specifies a directory.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isDir</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>"dir".<call><name>equalsIgnoreCase</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Indicate if the value specifies a file.
+         *
+         * @return true if the value specifies a file.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isFile</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>"file".<call><name>equalsIgnoreCase</name><argument_list>(<argument><expr><call><name>getValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+    }</block></class>
+}</block></class>
+</unit>

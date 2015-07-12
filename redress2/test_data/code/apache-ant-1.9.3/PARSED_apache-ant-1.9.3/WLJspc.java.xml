@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\jsp\WLJspc.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>jsp</name></name>;</package>
+
+<comment type="line">//apache/ant imports</comment>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Date</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>StringTokenizer</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Java</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>MatchingTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Precompiles JSP's using WebLogic's JSP compiler (weblogic.jspc).
+ *
+ * Tested only on Weblogic 4.5.1 - NT4.0 and Solaris 5.7
+ *
+ * required attributes
+ *      src : root of source tree for JSP, ie, the document root for your weblogic server
+ *      dest : root of destination directory, what you have set as
+ *             WorkingDir in the weblogic properties
+ *      package : start package name under which your JSP's would be compiled
+ *
+ * other attributes
+ *     classpath
+ *
+ * A classpath should be set which contains the weblogic classes as well as all
+ * application classes referenced by the JSP. The system classpath is also
+ * appended when the jspc is called, so you may choose to put everything in
+ * the classpath while calling Ant. However, since presumably the JSP's will
+ * reference classes being build by Ant, it would be better to explicitly add
+ * the classpath in the task
+ *
+ * The task checks timestamps on the JSP's and the generated classes, and compiles
+ * only those files that have changed.
+ *
+ * It follows the weblogic naming convention of putting classes in
+ *  &lt;b&gt; _dirName/_fileName.class for dirname/fileName.jsp   &lt;/b&gt;
+ *
+ * Limitation: It compiles the files thru the Classic compiler only.
+ * Limitation: Since it is my experience that weblogic jspc throws out of
+ *             memory error on being given too many files at one go, it is
+ *             called multiple times with one jsp file each.
+ *
+ * &lt;pre&gt;
+ * example
+ * &amp;lt;target name="jspcompile" depends="compile"&amp;gt;
+ *   &amp;lt;wljspc src="c:\\weblogic\\myserver\\public_html"
+ *           dest="c:\\weblogic\\myserver\\serverclasses" package="myapp.jsp"&amp;gt;
+ *   &amp;lt;classpath&amp;gt;
+ *          &amp;lt;pathelement location="${weblogic.classpath}" /&amp;gt;
+ *           &amp;lt;pathelement path="${compile.dest}" /&amp;gt;
+ *      &amp;lt;/classpath&amp;gt;
+ *
+ *   &amp;lt;/wljspc&amp;gt;
+ * &amp;lt;/target&amp;gt;
+ * &lt;/pre&gt;
+ *
+ */</comment>
+
+<class><specifier>public</specifier> class <name>WLJspc</name> <super><extends>extends <name>MatchingTask</name></extends></super> <block>{
+    <comment type="line">//TODO Test on other versions of weblogic</comment>
+    <comment type="line">//TODO add more attributes to the task, to take care of all jspc options</comment>
+    <comment type="line">//TODO Test on Unix</comment>
+
+    <comment type="javadoc">/** root of compiled files tree */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>destinationDirectory</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** root of source files tree */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>sourceDirectory</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** package under which resultant classes will reside */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>destinationPackage</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** classpath used to compile the jsp files. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>compileClasspath</name></decl>;</decl_stmt>
+
+    <comment type="line">//private String compilerPath; //fully qualified name for the compiler executable</comment>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>pathToPackage</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>filesToDo</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Run the task.
+     * @throws BuildException if there is an error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr>!<call><name><name>destinationDirectory</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"destination directory "
+                + <call><name><name>destinationDirectory</name>.<name>getPath</name></name><argument_list>()</argument_list></call> + " is not valid"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr>!<call><name><name>sourceDirectory</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"src directory "
+                + <call><name><name>sourceDirectory</name>.<name>getPath</name></name><argument_list>()</argument_list></call> + " is not valid"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>destinationPackage</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"package attribute must be present."</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+
+        <expr_stmt><expr><name>pathToPackage</name>
+            = <call><name><name>this</name>.<name>destinationPackage</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// get all the files in the sourceDirectory</comment>
+        <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name><name>super</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><name>sourceDirectory</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">//use the systemclasspath as well, to include the ant jar</comment>
+        <if>if <condition>(<expr><name>compileClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compileClasspath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>compileClasspath</name> = <call><name><name>compileClasspath</name>.<name>concatSystemClasspath</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">//Weblogic.jspc calls System.exit() ... have to fork</comment>
+        <comment type="line">// Therefore, takes loads of time</comment>
+        <comment type="line">// Can pass directories at a time (*.jsp) but easily runs out of</comment>
+        <comment type="line">// memory on hefty dirs (even on  a Sun)</comment>
+        <decl_stmt><decl><type><name>Java</name></type> <name>helperTask</name> =<init> <expr>new <call><name>Java</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>helperTask</name>.<name>setFork</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>helperTask</name>.<name>setClassname</name></name><argument_list>(<argument><expr>"weblogic.jspc"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>helperTask</name>.<name>setTaskName</name></name><argument_list>(<argument><expr><call><name>getTaskName</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>args</name> =<init> <expr>new <name><name>String</name><index>[<expr>12</expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <comment type="line">// CheckStyle:MagicNumber ON</comment>
+
+        <decl_stmt><decl><type><name>File</name></type> <name>jspFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>parents</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <comment type="line">//TODO  this array stuff is a remnant of prev trials.. gotta remove.</comment>
+        <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name>++</expr>]</index></name> = "-d"</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name>++</expr>]</index></name> = <call><name><name>destinationDirectory</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>.<call><name>trim</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name>++</expr>]</index></name> = "-docroot"</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name>++</expr>]</index></name> = <call><name><name>sourceDirectory</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>.<call><name>trim</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name>++</expr>]</index></name> = "-keepgenerated"</expr>;</expr_stmt>
+        <comment type="line">//Call compiler as class... dont want to fork again</comment>
+        <comment type="line">//Use classic compiler -- can be parameterised?</comment>
+        <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name>++</expr>]</index></name> =  "-compilerclass"</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name>++</expr>]</index></name> = "sun.tools.javac.Main"</expr>;</expr_stmt>
+        <comment type="line">//Weblogic jspc does not seem to work unless u explicitly set this...</comment>
+        <comment type="line">// Does not take the classpath from the env....</comment>
+        <comment type="line">// Am i missing something about the Java task??</comment>
+        <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name>++</expr>]</index></name> = "-classpath"</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name>++</expr>]</index></name> = <call><name><name>compileClasspath</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>this</name>.<name>scanDir</name></name><argument_list>(<argument><expr><name>files</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Compiling " + <call><name><name>filesToDo</name>.<name>size</name></name><argument_list>()</argument_list></call> + " JSP files"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>filesToDo</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <comment type="line">//TODO</comment>
+            <comment type="line">// All this to get package according to weblogic standards</comment>
+            <comment type="line">// Can be written better... this is too hacky!</comment>
+            <comment type="line">// Careful.. similar code in scanDir , but slightly different!!</comment>
+            <decl_stmt><decl><type><name>String</name></type> <name>filename</name> =<init> <expr>(<name>String</name>) <call><name><name>filesToDo</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>jspFile</name> = new <call><name>File</name><argument_list>(<argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name></expr>]</index></name> = "-package"</expr>;</expr_stmt>
+            <expr_stmt><expr><name>parents</name> = <call><name><name>jspFile</name>.<name>getParent</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr>(<name>parents</name> != <name>null</name>)  &amp;&amp; (!("").<call><name>equals</name><argument_list>(<argument><expr><name>parents</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>parents</name> =  <call><name><name>this</name>.<name>replaceString</name></name><argument_list>(<argument><expr><name>parents</name></expr></argument>, <argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>, <argument><expr>"_."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name> + 1</expr>]</index></name> = <name>destinationPackage</name> + "." + "_" + <name>parents</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name> + 1</expr>]</index></name> = <name>destinationPackage</name></expr>;</expr_stmt>
+            }</block></else></if>
+
+
+            <expr_stmt><expr><name><name>args</name><index>[<expr><name>j</name> + 2</expr>]</index></name> =  <name>sourceDirectory</name> + <name><name>File</name>.<name>separator</name></name> + <name>filename</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>helperTask</name>.<name>clearArgs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// CheckStyle:MagicNumber OFF</comment>
+            <for>for (<init><decl><type><name>int</name></type> <name>x</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>x</name> &lt; <name>j</name> + 3</expr>;</condition> <incr><expr><name>x</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>helperTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr><name>x</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <comment type="line">// CheckStyle:MagicNumber ON</comment>
+
+            <expr_stmt><expr><call><name><name>helperTask</name>.<name>setClasspath</name></name><argument_list>(<argument><expr><name>compileClasspath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>helperTask</name>.<name>executeJava</name></name><argument_list>()</argument_list></call> != 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>filename</name> + " failed to compile"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+
+
+    <comment type="javadoc">/**
+     * Set the classpath to be used for this compilation.
+     * @param classpath the classpath to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compileClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compileClasspath</name> = <name>classpath</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>compileClasspath</name>.<name>append</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Maybe creates a nested classpath element.
+     * @return a path to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compileClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compileClasspath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>compileClasspath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the directory containing the source jsp's
+     *
+     *
+     * @param dirName the directory containg the source jsp's
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSrc</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dirName</name></decl></param>)</parameter_list> <block>{
+
+        <expr_stmt><expr><name>sourceDirectory</name> = <name>dirName</name></expr>;</expr_stmt>
+    }</block></function>
+
+     <comment type="javadoc">/**
+     * Set the directory containing the source jsp's
+     *
+     *
+     * @param dirName the directory containg the source jsp's
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDest</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dirName</name></decl></param>)</parameter_list> <block>{
+
+        <expr_stmt><expr><name>destinationDirectory</name> = <name>dirName</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the package under which the compiled classes go
+     *
+     * @param packageName the package name for the classes
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPackage</name><parameter_list>(<param><decl><type><name>String</name></type> <name>packageName</name></decl></param>)</parameter_list> <block>{
+
+        <expr_stmt><expr><name>destinationPackage</name> = <name>packageName</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Scan the array of files and add the jsp
+     * files that need to be compiled to the filesToDo field.
+     * @param files the files to scan.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>scanDir</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>files</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>long</name></type> <name>now</name> =<init> <expr>(new <call><name>Date</name><argument_list>()</argument_list></call>).<call><name>getTime</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>jspFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>parents</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>pack</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>files</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>srcFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>this</name>.<name>sourceDirectory</name></name></expr></argument>, <argument><expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <comment type="line">//TODO</comment>
+            <comment type="line">// All this to convert source to destination directory according</comment>
+            <comment type="line">// to weblogic standards Can be written better... this is too hacky!</comment>
+            <expr_stmt><expr><name>jspFile</name> = new <call><name>File</name><argument_list>(<argument><expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>parents</name> = <call><name><name>jspFile</name>.<name>getParent</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr>(<name>parents</name> != <name>null</name>)  &amp;&amp; (!("").<call><name>equals</name><argument_list>(<argument><expr><name>parents</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>parents</name> =  <call><name><name>this</name>.<name>replaceString</name></name><argument_list>(<argument><expr><name>parents</name></expr></argument>, <argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>, <argument><expr>"_/"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>pack</name> = <name>pathToPackage</name> + <name><name>File</name>.<name>separator</name></name> + "_" + <name>parents</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>pack</name> = <name>pathToPackage</name></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <decl_stmt><decl><type><name>String</name></type> <name>filePath</name> =<init> <expr><name>pack</name> + <name><name>File</name>.<name>separator</name></name> + "_"</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>startingIndex</name> =<init> <expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>lastIndexOf</name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call> != -1
+                    ? <name><name>files</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>lastIndexOf</name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call> + 1 : 0</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>endingIndex</name> =<init> <expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>indexOf</name><argument_list>(<argument><expr>".jsp"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>endingIndex</name> == -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Skipping " + <name><name>files</name><index>[<expr><name>i</name></expr>]</index></name> + ". Not a JSP"</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <continue>continue;</continue>
+            }</block></then></if>
+
+            <expr_stmt><expr><name>filePath</name> += <name><name>files</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>substring</name><argument_list>(<argument><expr><name>startingIndex</name></expr></argument>, <argument><expr><name>endingIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>filePath</name> += ".class"</expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>classFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>this</name>.<name>destinationDirectory</name></name></expr></argument>, <argument><expr><name>filePath</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><call><name><name>srcFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call> &gt; <name>now</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Warning: file modified in the future: "
+                    + <name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>srcFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call> &gt; <call><name><name>classFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>filesToDo</name>.<name>addElement</name></name><argument_list>(<argument><expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Recompiling File " + <name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Replace occurances of a string with a replacement string.
+     * @param inpString the string to convert.
+     * @param escapeChars the string to replace.
+     * @param replaceChars the string to place.
+     * @return the converted string.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>replaceString</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inpString</name></decl></param>, <param><decl><type><name>String</name></type> <name>escapeChars</name></decl></param>,
+                                   <param><decl><type><name>String</name></type> <name>replaceChars</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>localString</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>numTokens</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringTokenizer</name></type> <name>st</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><name>inpString</name></expr></argument>, <argument><expr><name>escapeChars</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>numTokens</name> = <call><name><name>st</name>.<name>countTokens</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>numTokens</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>test</name> =<init> <expr><call><name><name>st</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>test</name> = (<call><name><name>test</name>.<name>equals</name></name><argument_list>(<argument><expr><name>escapeChars</name></expr></argument>)</argument_list></call> ? <name>replaceChars</name> : <name>test</name>)</expr>;</expr_stmt>
+            <expr_stmt><expr><name>localString</name> += <name>test</name></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>localString</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

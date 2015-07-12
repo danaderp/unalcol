@@ -1,0 +1,710 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\jsp\JspC.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>jsp</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Date</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>AntClassLoader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>MatchingTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>jsp</name>.<name>compilers</name>.<name>JspCompilerAdapter</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>jsp</name>.<name>compilers</name>.<name>JspCompilerAdapterFactory</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Reference</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Runs a JSP compiler.
+ *
+ * &lt;p&gt; This task takes the given jsp files and compiles them into java
+ * files. It is then up to the user to compile the java files into classes.
+ *
+ * &lt;p&gt; The task requires the srcdir and destdir attributes to be
+ * set. This Task is a MatchingTask, so the files to be compiled can be
+ * specified using includes/excludes attributes or nested include/exclude
+ * elements. Optional attributes are verbose (set the verbosity level passed
+ * to jasper), package (name of the destination package for generated java
+ * classes and classpath (the classpath to use when running the jsp
+ * compiler).
+ * &lt;p&gt; This task supports the nested elements classpath (A Path) and
+ * classpathref (A Reference) which can be used in preference to the
+ * attribute classpath, if the jsp compiler is not already in the ant
+ * classpath.
+ *
+ * &lt;p&gt;&lt;h4&gt;Usage&lt;/h4&gt;
+ * &lt;pre&gt;
+ * &amp;lt;jspc srcdir="${basedir}/src/war"
+ *       destdir="${basedir}/gensrc"
+ *       package="com.i3sp.jsp"
+ *       verbose="9"&amp;gt;
+ *   &amp;lt;include name="**\/*.jsp" /&amp;gt;
+ * &amp;lt;/jspc&amp;gt;
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt; Large Amount of cutting and pasting from the Javac task...
+ * @since 1.5
+ */</comment>
+<class><specifier>public</specifier> class <name>JspC</name> <super><extends>extends <name>MatchingTask</name></extends></super> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>classpath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>compilerClasspath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>src</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>destDir</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>packageName</name></decl>;</decl_stmt>
+    <comment type="javadoc">/** name of the compiler to use */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>compilerName</name> =<init> <expr>"jasper"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  -ieplugin &amp;lt;clsid&amp;gt; Java Plugin classid for Internet Explorer
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>iepluginid</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>mapped</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>verbose</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>Vector</name></type> <name>compileList</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><name>Vector</name></type> <name>javaFiles</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  flag to control action on execution trouble
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>failOnError</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  -uriroot &amp;lt;dir&amp;gt; The root directory that uri files should be resolved
+     *  against,
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>uriroot</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  -webinc &amp;lt;file&amp;gt; Creates partial servlet mappings for the -webapp option
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>webinc</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  -webxml &amp;lt;file&amp;gt; Creates a complete web.xml when using the -webapp option.
+     */</comment>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>webxml</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  web apps
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>WebAppParameter</name></type> <name>webApp</name></decl>;</decl_stmt>
+
+
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>FAIL_MSG</name>
+        =<init> <expr>"Compile failed, messages should have been provided."</expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+
+    <comment type="javadoc">/**
+     * Set the path for source JSP files.
+     * @param srcDir the source path.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSrcDir</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>srcDir</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>src</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>src</name> = <name>srcDir</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>src</name>.<name>append</name></name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the source dir.
+     * @return the source path.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getSrcDir</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>src</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the destination directory into which the JSP source
+     * files should be compiled.
+     * @param destDir the destination directory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestdir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>destDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destDir</name></name> = <name>destDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the destination directory.
+     * @return the directory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getDestdir</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>destDir</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of the package the compiled jsp files should be in.
+     * @param pkg the name of the package.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPackage</name><parameter_list>(<param><decl><type><name>String</name></type> <name>pkg</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>packageName</name></name> = <name>pkg</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the name of the package.
+     * @return the package.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getPackage</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>packageName</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the verbose level of the compiler
+     * @param i the verbose level to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVerbose</name><parameter_list>(<param><decl><type><name>int</name></type> <name>i</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>verbose</name> = <name>i</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the verbose level.
+     * @return the level.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getVerbose</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>verbose</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether or not the build should halt if compilation fails.
+     * Defaults to &lt;code&gt;true&lt;/code&gt;.
+     * @param fail a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFailonerror</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>fail</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>failOnError</name> = <name>fail</name></expr>;</expr_stmt>
+    }</block></function>
+    <comment type="javadoc">/**
+     * Gets the failonerror flag.
+     * @return the flag.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getFailonerror</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>failOnError</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the IE CLASSID value.
+     * @return the value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getIeplugin</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>iepluginid</name></expr>;</return>
+    }</block></function>
+    <comment type="javadoc">/**
+     * Java Plugin CLASSID for Internet Explorer
+     * @param iepluginid the id to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIeplugin</name><parameter_list>(<param><decl><type><name>String</name></type> <name>iepluginid</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>iepluginid</name></name> = <name>iepluginid</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, generate separate write() calls for each HTML line
+     * in the JSP.
+     * @return mapping status
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isMapped</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>mapped</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, generate separate write() calls for each HTML line
+     * in the JSP.
+     * @param mapped a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMapped</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>mapped</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>mapped</name></name> = <name>mapped</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The URI context of relative URI references in the JSP pages.
+     * If it does not exist then it is derived from the location
+     * of the file relative to the declared or derived value of uriroot.
+     *
+     * @param  uribase  The new Uribase value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUribase</name><parameter_list>(<param><decl><type><name>File</name></type> <name>uribase</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Uribase is currently an unused parameter"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the uri base value.
+     * @return the value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getUribase</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>uriroot</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     *  The root directory that uri files should be resolved
+     *  against. (Default is the directory jspc is invoked from)
+     *
+     * @param  uriroot  The new Uribase value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUriroot</name><parameter_list>(<param><decl><type><name>File</name></type> <name>uriroot</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>uriroot</name></name> = <name>uriroot</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the uri root value.
+     * @return the value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getUriroot</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>uriroot</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the classpath to be used for this compilation.
+     * @param cp the path to be used.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>cp</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>classpath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>classpath</name> = <name>cp</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>classpath</name>.<name>append</name></name><argument_list>(<argument><expr><name>cp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a path to the classpath.
+     * @return a path to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>classpath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>classpath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>classpath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a reference to a classpath defined elsewhere
+     * @param r a reference to a classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createClasspath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the classpath.
+     * @return the classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getClasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>classpath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath to be used to find this compiler adapter
+     * @param cp the compiler classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCompilerclasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>cp</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compilerClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compilerClasspath</name> = <name>cp</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>compilerClasspath</name>.<name>append</name></name><argument_list>(<argument><expr><name>cp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get the classpath used to find the compiler adapter
+     * @return the compiler classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getCompilerclasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>compilerClasspath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Support nested compiler classpath, used to locate compiler adapter
+     * @return a path to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createCompilerclasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compilerClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compilerClasspath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>compilerClasspath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     *  Filename for web.xml.
+     *
+     * @param  webxml  The new Webxml value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setWebxml</name><parameter_list>(<param><decl><type><name>File</name></type> <name>webxml</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>webxml</name></name> = <name>webxml</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Filename for web.xml.
+     * @return The filename for web.xml.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getWebxml</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>webxml</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     *  output filename for the fraction of web.xml that lists
+     *  servlets.
+     * @param  webinc  The new Webinc value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setWebinc</name><parameter_list>(<param><decl><type><name>File</name></type> <name>webinc</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>webinc</name></name> = <name>webinc</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the webinc attribute.
+     * @return the webinc attribute.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getWebinc</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>webinc</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a single webapp.
+     *
+     * @param  webappParam  add a web app parameter
+     * @throws BuildException if more than one webapp is specified.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addWebApp</name><parameter_list>(<param><decl><type><name>WebAppParameter</name></type> <name>webappParam</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="line">//demand create vector of filesets</comment>
+        <if>if <condition>(<expr><name>webApp</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>webApp</name> = <name>webappParam</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one webapp can be specified"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the web app.
+     * @return the web app attribute.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>WebAppParameter</name></type> <name>getWebApp</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>webApp</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Class name of a JSP compiler adapter.
+     * @param compiler the compiler class name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCompiler</name><parameter_list>(<param><decl><type><name>String</name></type> <name>compiler</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>compilerName</name></name> = <name>compiler</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get the list of files to compile
+     * @return the list of files.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Vector</name></type> <name>getCompileList</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>compileList</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * execute by building up a list of files that
+     * have changed and hand them off to a jsp compiler
+     * @throws BuildException on error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <comment type="line">// make sure that we've got a destdir</comment>
+        <if>if <condition>(<expr><name>destDir</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"destdir attribute must be set!"</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr>!<call><name><name>destDir</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"destination directory \"" + <name>destDir</name>
+                                     + "\" does not exist or is not a directory"</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>File</name></type> <name>dest</name> =<init> <expr><call><name>getActualDestDir</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>AntClassLoader</name></type> <name>al</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <comment type="line">//bind to a compiler</comment>
+            <decl_stmt><decl><type><name>JspCompilerAdapter</name></type> <name>compiler</name> =<init>
+                <expr><call><name><name>JspCompilerAdapterFactory</name>
+                .<name>getCompiler</name></name><argument_list>(<argument><expr><name>compilerName</name></expr></argument>, <argument><expr><name>this</name></expr></argument>,
+                             <argument><expr><name>al</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name>compilerClasspath</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">//if we are a webapp, hand off to the compiler, which had</comment>
+            <comment type="line">//better handle it</comment>
+            <if>if <condition>(<expr><name>webApp</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>doCompilation</name><argument_list>(<argument><expr><name>compiler</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+
+            <comment type="line">// make sure that we've got a srcdir</comment>
+            <if>if <condition>(<expr><name>src</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"srcdir attribute must be set!"</expr></argument>,
+                                         <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name> <index>[]</index></type> <name>list</name> =<init> <expr><call><name><name>src</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name><name>list</name>.<name>length</name></name> == 0</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"srcdir attribute must be set!"</expr></argument>,
+                                         <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+
+            <comment type="line">// if the compiler does its own dependency stuff, we just</comment>
+            <comment type="line">// call it right now</comment>
+            <if>if <condition>(<expr><call><name><name>compiler</name>.<name>implementsOwnDependencyChecking</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>doCompilation</name><argument_list>(<argument><expr><name>compiler</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+
+            <comment type="line">//the remainder of this method is only for compilers that</comment>
+            <comment type="line">//need their dependency work done</comment>
+            <decl_stmt><decl><type><name>JspMangler</name></type> <name>mangler</name> =<init> <expr><call><name><name>compiler</name>.<name>createMangler</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// scan source directories and dest directory to build up both copy</comment>
+            <comment type="line">// lists and compile lists</comment>
+            <expr_stmt><expr><call><name>resetFileLists</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>filecount</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>list</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>srcDir</name> =<init> <expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><name><name>list</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr>!<call><name><name>srcDir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"srcdir \"" + <call><name><name>srcDir</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                                             + "\" does not exist!"</expr></argument>,
+                                             <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name><name>this</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>filecount</name> = <name><name>files</name>.<name>length</name></name></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>scanDir</name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>, <argument><expr><name>dest</name></expr></argument>, <argument><expr><name>mangler</name></expr></argument>, <argument><expr><name>files</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+
+            <comment type="line">// compile the source files</comment>
+
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"compiling " + <call><name><name>compileList</name>.<name>size</name></name><argument_list>()</argument_list></call> + " files"</expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><call><name><name>compileList</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Compiling " + <call><name><name>compileList</name>.<name>size</name></name><argument_list>()</argument_list></call> + " source file"
+                    + (<call><name><name>compileList</name>.<name>size</name></name><argument_list>()</argument_list></call> == 1 ? "" : "s")
+                    + " to "
+                    + <name>dest</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>doCompilation</name><argument_list>(<argument><expr><name>compiler</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            }</block></then> <else>else <block>{
+                <if>if <condition>(<expr><name>filecount</name> == 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"there were no files to compile"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"all files are up to date"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></else></if>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>al</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>al</name>.<name>cleanup</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * calculate where the files will end up:
+     * this is destDir or it id destDir + the package name
+     */</comment>
+    <function><type><specifier>private</specifier> <name>File</name></type> <name>getActualDestDir</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>dest</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>packageName</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>dest</name> = <name>destDir</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>path</name> =<init> <expr><call><name><name>destDir</name>.<name>getPath</name></name><argument_list>()</argument_list></call> + <name><name>File</name>.<name>separatorChar</name></name>
+                + <call><name><name>packageName</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>dest</name> = new <call><name>File</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <return>return <expr><name>dest</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * do the compile
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>doCompilation</name><parameter_list>(<param><decl><type><name>JspCompilerAdapter</name></type> <name>compiler</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="line">// now we need to populate the compiler adapter</comment>
+        <expr_stmt><expr><call><name><name>compiler</name>.<name>setJspc</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// finally, lets execute the compiler!!</comment>
+        <if>if <condition>(<expr>!<call><name><name>compiler</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>failOnError</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>FAIL_MSG</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>FAIL_MSG</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Clear the list of files to be compiled and copied..
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>resetFileLists</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>compileList</name>.<name>removeAllElements</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Scans the directory looking for source files to be compiled.
+     * The results are returned in the class variable compileList
+     * @param srcDir the source directory.
+     * @param dest   the destination directory.
+     * @param mangler the jsp filename mangler.
+     * @param files   the file names to mangle.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>scanDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>srcDir</name></decl></param>, <param><decl><type><name>File</name></type> <name>dest</name></decl></param>, <param><decl><type><name>JspMangler</name></type> <name>mangler</name></decl></param>,
+                           <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>files</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>long</name></type> <name>now</name> =<init> <expr>(new <call><name>Date</name><argument_list>()</argument_list></call>).<call><name>getTime</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>files</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>filename</name> =<init> <expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>srcFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>, <argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>javaFile</name> =<init> <expr><call><name>mapToJavaFile</name><argument_list>(<argument><expr><name>mangler</name></expr></argument>, <argument><expr><name>srcFile</name></expr></argument>, <argument><expr><name>srcDir</name></expr></argument>, <argument><expr><name>dest</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>javaFile</name> == <name>null</name></expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><call><name><name>srcFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call> &gt; <name>now</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Warning: file modified in the future: " + <name>filename</name></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>boolean</name></type> <name>shouldCompile</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>shouldCompile</name> = <call><name>isCompileNeeded</name><argument_list>(<argument><expr><name>srcFile</name></expr></argument>, <argument><expr><name>javaFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>shouldCompile</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>compileList</name>.<name>addElement</name></name><argument_list>(<argument><expr><call><name><name>srcFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>javaFiles</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>javaFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not compilation is needed. A return value of
+     * &lt;code&gt;true&lt;code&gt; means yes, &lt;code&gt;false&lt;/code&gt; means
+     * our tests do not indicate this, but as the TLDs are
+     * not used for dependency checking this is not guaranteed.
+     * The current tests are
+     * &lt;ol&gt;
+     * &lt;li&gt;no dest file
+     * &lt;li&gt;dest file out of date w.r.t source
+     * &lt;li&gt;dest file zero bytes long
+     * &lt;/ol&gt;
+     * @param srcFile JSP source file
+     * @param javaFile JSP dest file
+     * @return true if a compile is definately needed.
+     *
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isCompileNeeded</name><parameter_list>(<param><decl><type><name>File</name></type> <name>srcFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>javaFile</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>boolean</name></type> <name>shouldCompile</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<call><name><name>javaFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>shouldCompile</name> = true</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Compiling " + <call><name><name>srcFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                + " because java file " + <call><name><name>javaFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                + " does not exist"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <if>if <condition>(<expr><call><name><name>srcFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call> &gt; <call><name><name>javaFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>shouldCompile</name> = true</expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Compiling " + <call><name><name>srcFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                    + " because it is out of date with respect to "
+                    + <call><name><name>javaFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <if>if <condition>(<expr><call><name><name>javaFile</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>shouldCompile</name> = true</expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Compiling " + <call><name><name>srcFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                        + " because java file " + <call><name><name>javaFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                        + " is empty"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></else></if>
+        }</block></else></if>
+        <return>return <expr><name>shouldCompile</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * get a filename from our jsp file.
+     * @param mangler the jsp filename manager.
+     * @param srcFile the source file.
+     * @param srcDir  the source directory.
+     * @param dest    the destination directory.
+     * @return the filename.
+     * @todo support packages and subdirs
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>File</name></type> <name>mapToJavaFile</name><parameter_list>(<param><decl><type><name>JspMangler</name></type> <name>mangler</name></decl></param>, <param><decl><type><name>File</name></type> <name>srcFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>srcDir</name></decl></param>,
+                                 <param><decl><type><name>File</name></type> <name>dest</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<call><name><name>srcFile</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>endsWith</name><argument_list>(<argument><expr>".jsp"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>javaFileName</name> =<init> <expr><call><name><name>mangler</name>.<name>mapJspToJavaName</name></name><argument_list>(<argument><expr><name>srcFile</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">//        String srcFileDir=srcFile.getParent();</comment>
+        <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><name>dest</name></expr></argument>, <argument><expr><name>javaFileName</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * delete any java output files that are empty
+     * this is to get around a little defect in jasper: when it
+     * fails, it leaves incomplete files around.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>deleteEmptyJavaFiles</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>javaFiles</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>javaFiles</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>file</name> =<init> <expr>(<name>File</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>file</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; <call><name><name>file</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"deleting empty output file " + <name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>file</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></while>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * static inner class used as a parameter element
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>WebAppParameter</name> <block>{
+
+        <comment type="javadoc">/**
+         * the sole option
+         */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>directory</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * query current directory
+         * @return the directory.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>File</name></type> <name>getDirectory</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>directory</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * set directory; alternate syntax
+         * @param directory the base dir.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setBaseDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>directory</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>directory</name></name> = <name>directory</name></expr>;</expr_stmt>
+        }</block></function>
+        <comment type="line">//end inner class</comment>
+    }</block></class>
+
+
+    <comment type="line">//end class</comment>
+}</block></class>
+</unit>

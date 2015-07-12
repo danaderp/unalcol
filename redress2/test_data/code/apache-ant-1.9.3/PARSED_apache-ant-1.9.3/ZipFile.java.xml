@@ -1,0 +1,1050 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\zip\ZipFile.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>EOFException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>RandomAccessFile</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Arrays</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Collections</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Comparator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>zip</name>.<name>Inflater</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>zip</name>.<name>InflaterInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>zip</name>.<name>ZipException</name></name>;</import>
+
+<import>import static <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name>.<name>ZipConstants</name>.<name>DWORD</name></name>;</import>
+<import>import static <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name>.<name>ZipConstants</name>.<name>SHORT</name></name>;</import>
+<import>import static <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name>.<name>ZipConstants</name>.<name>WORD</name></name>;</import>
+<import>import static <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name>.<name>ZipConstants</name>.<name>ZIP64_MAGIC</name></name>;</import>
+<import>import static <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>zip</name>.<name>ZipConstants</name>.<name>ZIP64_MAGIC_SHORT</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Replacement for &lt;code&gt;java.util.ZipFile&lt;/code&gt;.
+ *
+ * &lt;p&gt;This class adds support for file name encodings other than UTF-8
+ * (which is required to work on ZIP files created by native zip tools
+ * and is able to skip a preamble like the one found in self
+ * extracting archives.  Furthermore it returns instances of
+ * &lt;code&gt;org.apache.tools.zip.ZipEntry&lt;/code&gt; instead of
+ * &lt;code&gt;java.util.zip.ZipEntry&lt;/code&gt;.&lt;/p&gt;
+ *
+ * &lt;p&gt;It doesn't extend &lt;code&gt;java.util.zip.ZipFile&lt;/code&gt; as it would
+ * have to reimplement all methods anyway.  Like
+ * &lt;code&gt;java.util.ZipFile&lt;/code&gt;, it uses RandomAccessFile under the
+ * covers and supports compressed and uncompressed entries.  As of
+ * Apache Ant 1.9.0 it also transparently supports Zip64
+ * extensions and thus individual entries and archives larger than 4
+ * GB or with more than 65536 entries.&lt;/p&gt;
+ *
+ * &lt;p&gt;The method signatures mimic the ones of
+ * &lt;code&gt;java.util.zip.ZipFile&lt;/code&gt;, with a couple of exceptions:
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;There is no getName method.&lt;/li&gt;
+ *   &lt;li&gt;entries has been renamed to getEntries.&lt;/li&gt;
+ *   &lt;li&gt;getEntries and getEntry return
+ *   &lt;code&gt;org.apache.tools.zip.ZipEntry&lt;/code&gt; instances.&lt;/li&gt;
+ *   &lt;li&gt;close is allowed to throw IOException.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>ZipFile</name> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>HASH_SIZE</name> =<init> <expr>509</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>NIBLET_MASK</name> =<init> <expr>0x0f</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BYTE_SHIFT</name> =<init> <expr>8</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>POS_0</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>POS_1</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>POS_2</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>POS_3</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * List of entries in the order they appear inside the central
+     * directory.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name><name>List</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></type> <name>entries</name> =<init> <expr>new <call><name><name>LinkedList</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Maps String to list of ZipEntrys, name -&gt; actual entries.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name><name>LinkedList</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name></type> <name>nameMap</name> =<init>
+        <expr>new <call><name><name>HashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name><name>LinkedList</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>HASH_SIZE</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> class <name>OffsetEntry</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>headerOffset</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>dataOffset</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * The encoding to use for filenames and the file comment.
+     *
+     * &lt;p&gt;For a list of possible values see &lt;a
+     * href="http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html"&gt;http://java.sun.com/j2se/1.5.0/docs/guide/intl/encoding.doc.html&lt;/a&gt;.
+     * Defaults to the platform's default character encoding.&lt;/p&gt;
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>String</name></type> <name>encoding</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The zip encoding to use for filenames and the file comment.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>ZipEncoding</name></type> <name>zipEncoding</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * File name of actual source.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>String</name></type> <name>archiveName</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The actual data source.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>RandomAccessFile</name></type> <name>archive</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether to look for and use Unicode extra fields.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>boolean</name></type> <name>useUnicodeExtraFields</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether the file is closed.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>closed</name></decl>;</decl_stmt>
+
+    <comment type="line">// cached buffers</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>DWORD_BUF</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>DWORD</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>WORD_BUF</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>WORD</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>CFH_BUF</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>CFH_LEN</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>SHORT_BUF</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>SHORT</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Opens the given file for reading, assuming the platform's
+     * native encoding for file names.
+     *
+     * @param f the archive.
+     *
+     * @throws IOException if an error occurs while reading the file.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ZipFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Opens the given file for reading, assuming the platform's
+     * native encoding for file names.
+     *
+     * @param name name of the archive.
+     *
+     * @throws IOException if an error occurs while reading the file.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ZipFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Opens the given file for reading, assuming the specified
+     * encoding for file names, scanning unicode extra fields.
+     *
+     * @param name name of the archive.
+     * @param encoding the encoding to use for file names, use null
+     * for the platform's default encoding
+     *
+     * @throws IOException if an error occurs while reading the file.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ZipFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>encoding</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Opens the given file for reading, assuming the specified
+     * encoding for file names and scanning for unicode extra fields.
+     *
+     * @param f the archive.
+     * @param encoding the encoding to use for file names, use null
+     * for the platform's default encoding
+     *
+     * @throws IOException if an error occurs while reading the file.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ZipFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>, <param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Opens the given file for reading, assuming the specified
+     * encoding for file names.
+     *
+     * @param f the archive.
+     * @param encoding the encoding to use for file names, use null
+     * for the platform's default encoding
+     * @param useUnicodeExtraFields whether to use InfoZIP Unicode
+     * Extra Fields (if present) to set the file names.
+     *
+     * @throws IOException if an error occurs while reading the file.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>ZipFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>, <param><decl><type><name>String</name></type> <name>encoding</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>useUnicodeExtraFields</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>archiveName</name></name> = <call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>encoding</name></name> = <name>encoding</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>zipEncoding</name></name> = <call><name><name>ZipEncodingHelper</name>.<name>getZipEncoding</name></name><argument_list>(<argument><expr><name>encoding</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>useUnicodeExtraFields</name></name> = <name>useUnicodeExtraFields</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>archive</name> = new <call><name>RandomAccessFile</name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr>"r"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>success</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>, <argument><name>NameAndComment</name></argument>&gt;</argument_list></name></type> <name>entriesWithoutUTF8Flag</name> =<init>
+                <expr><call><name>populateFromCentralDirectory</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>resolveLocalFileHeaderData</name><argument_list>(<argument><expr><name>entriesWithoutUTF8Flag</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>success</name> = true</expr>;</expr_stmt>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr>!<name>success</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><name>closed</name> = true</expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>archive</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e2</name></decl></param>) <block>{
+                    <comment type="line">// swallow, throw the original exception instead</comment>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * The encoding to use for filenames and the file comment.
+     *
+     * @return null if using the platform's default character encoding.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getEncoding</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>encoding</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Closes the archive.
+     * @throws IOException if an error occurs closing the archive.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>close</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <comment type="line">// this flag is only written here and read in finalize() which</comment>
+        <comment type="line">// can never be run in parallel.</comment>
+        <comment type="line">// no synchronization needed.</comment>
+        <expr_stmt><expr><name>closed</name> = true</expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>archive</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * close a zipfile quietly; throw no io fault, do nothing
+     * on a null parameter
+     * @param zipfile file to close, can be null
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>closeQuietly</name><parameter_list>(<param><decl><type><name>ZipFile</name></type> <name>zipfile</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>zipfile</name> != <name>null</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>zipfile</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">//ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns all entries.
+     *
+     * &lt;p&gt;Entries will be returned in the same order they appear
+     * within the archive's central directory.&lt;/p&gt;
+     *
+     * @return all entries as {@link ZipEntry} instances
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></type> <name>getEntries</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>Collections</name>.<name>enumeration</name></name><argument_list>(<argument><expr><name>entries</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns all entries in physical order.
+     *
+     * &lt;p&gt;Entries will be returned in the same order their contents
+     * appear within the archive.&lt;/p&gt;
+     *
+     * @return all entries as {@link ZipEntry} instances
+     *
+     * @since Ant 1.9.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></type> <name>getEntriesInPhysicalOrder</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>ZipEntry</name><index>[]</index></type> <name>allEntries</name> =<init> <expr><call><name><name>entries</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>ZipEntry</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>Arrays</name>.<name>sort</name></name><argument_list>(<argument><expr><name>allEntries</name></expr></argument>, <argument><expr><name>OFFSET_COMPARATOR</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>Collections</name>.<name>enumeration</name></name><argument_list>(<argument><expr><call><name><name>Arrays</name>.<name>asList</name></name><argument_list>(<argument><expr><name>allEntries</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a named entry - or {@code null} if no entry by
+     * that name exists.
+     *
+     * &lt;p&gt;If multiple entries with the same name exist the first entry
+     * in the archive's central directory by that name is
+     * returned.&lt;/p&gt;
+     *
+     * @param name name of the entry.
+     * @return the ZipEntry corresponding to the given name - or
+     * {@code null} if not present.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ZipEntry</name></type> <name>getEntry</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>LinkedList</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></type> <name>entriesOfThatName</name> =<init> <expr><call><name><name>nameMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>entriesOfThatName</name> != <name>null</name> ? <call><name><name>entriesOfThatName</name>.<name>getFirst</name></name><argument_list>()</argument_list></call> : <name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns all named entries in the same order they appear within
+     * the archive's central directory.
+     *
+     * @param name name of the entry.
+     * @return the Iterable&lt;ZipEntry&gt; corresponding to the
+     * given name
+     * @since 1.9.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Iterable</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></type> <name>getEntries</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>List</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></type> <name>entriesOfThatName</name> =<init> <expr><call><name><name>nameMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>entriesOfThatName</name> != <name>null</name> ? <name>entriesOfThatName</name>
+            : <name><name>Collections</name>.<name><name/></name></name>&lt;<name>ZipEntry</name>&gt;<call><name>emptyList</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns all named entries in the same order their contents
+     * appear within the archive.
+     *
+     * @param name name of the entry.
+     * @return the Iterable&lt;ZipEntry&gt; corresponding to the
+     * given name
+     * @since 1.9.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Iterable</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></type> <name>getEntriesInPhysicalOrder</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>ZipEntry</name><index>[]</index></type> <name>entriesOfThatName</name> =<init> <expr>new <name><name>ZipEntry</name><index>[<expr>0</expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>nameMap</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>entriesOfThatName</name> = <call><name><name>nameMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call>.<call><name>toArray</name><argument_list>(<argument><expr><name>entriesOfThatName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>Arrays</name>.<name>sort</name></name><argument_list>(<argument><expr><name>entriesOfThatName</name></expr></argument>, <argument><expr><name>OFFSET_COMPARATOR</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>Arrays</name>.<name>asList</name></name><argument_list>(<argument><expr><name>entriesOfThatName</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether this class is able to read the given entry.
+     *
+     * &lt;p&gt;May return false if it is set up to use encryption or a
+     * compression method that hasn't been implemented yet.&lt;/p&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>canReadEntryData</name><parameter_list>(<param><decl><type><name>ZipEntry</name></type> <name>ze</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>ZipUtil</name>.<name>canHandleEntryData</name></name><argument_list>(<argument><expr><name>ze</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns an InputStream for reading the contents of the given entry.
+     *
+     * @param ze the entry to get the stream for.
+     * @return a stream to read the entry from.
+     * @throws IOException if unable to create an input stream from the zipentry
+     * @throws ZipException if the zipentry uses an unsupported feature
+     */</comment>
+    <function><type><specifier>public</specifier> <name>InputStream</name></type> <name>getInputStream</name><parameter_list>(<param><decl><type><name>ZipEntry</name></type> <name>ze</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>ZipException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr>!(<name>ze</name> <name>instanceof</name> <name>Entry</name>)</expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// cast valididty is checked just above</comment>
+        <decl_stmt><decl><type><name>OffsetEntry</name></type> <name>offsetEntry</name> =<init> <expr>((<name>Entry</name>) <name>ze</name>).<call><name>getOffsetEntry</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>ZipUtil</name>.<name>checkRequestedFeatures</name></name><argument_list>(<argument><expr><name>ze</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>long</name></type> <name>start</name> =<init> <expr><name><name>offsetEntry</name>.<name>dataOffset</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>BoundedInputStream</name></type> <name>bis</name> =<init>
+            <expr>new <call><name>BoundedInputStream</name><argument_list>(<argument><expr><name>start</name></expr></argument>, <argument><expr><call><name><name>ze</name>.<name>getCompressedSize</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <switch>switch <condition>(<expr><call><name><name>ze</name>.<name>getMethod</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <case>case <expr><name><name>ZipEntry</name>.<name>STORED</name></name></expr>:
+                <return>return <expr><name>bis</name></expr>;</return>
+            </case><case>case <expr><name><name>ZipEntry</name>.<name>DEFLATED</name></name></expr>:
+                <expr_stmt><expr><call><name><name>bis</name>.<name>addDummy</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><specifier>final</specifier> <name>Inflater</name></type> <name>inflater</name> =<init> <expr>new <call><name>Inflater</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <return>return <expr>new <class><super><name>InflaterInputStream</name></super><argument_list>(<argument><expr><name>bis</name></expr></argument>, <argument><expr><name>inflater</name></expr></argument>)</argument_list> <block>{
+                    <function><type><annotation>@<name>Override</name></annotation>
+                    <specifier>public</specifier> <name>void</name></type> <name>close</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+                        <expr_stmt><expr><call><name><name>super</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>inflater</name>.<name>end</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></function>
+                }</block></class></expr>;</return>
+            </case><default>default:
+                <throw>throw <expr>new <call><name>ZipException</name><argument_list>(<argument><expr>"Found unsupported compression method "
+                                       + <call><name><name>ze</name>.<name>getMethod</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        </default>}</block></switch>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Ensures that the close method of this zipfile is called when
+     * there are no more references to it.
+     * @see #close()
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>protected</specifier> <name>void</name></type> <name>finalize</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>Throwable</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <if>if <condition>(<expr>!<name>closed</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>System</name>.<name>err</name>.<name>println</name></name><argument_list>(<argument><expr>"Cleaning up unclosed ZipFile for archive "
+                                   + <name>archiveName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>close</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>super</name>.<name>finalize</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Length of a "central directory" entry structure without file
+     * name, extra fields or comment.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>CFH_LEN</name> =<init>
+        <comment type="block">/* version made by                 */</comment> <expr><name>SHORT</name>
+        <comment type="block">/* version needed to extract       */</comment> + <name>SHORT</name>
+        <comment type="block">/* general purpose bit flag        */</comment> + <name>SHORT</name>
+        <comment type="block">/* compression method              */</comment> + <name>SHORT</name>
+        <comment type="block">/* last mod file time              */</comment> + <name>SHORT</name>
+        <comment type="block">/* last mod file date              */</comment> + <name>SHORT</name>
+        <comment type="block">/* crc-32                          */</comment> + <name>WORD</name>
+        <comment type="block">/* compressed size                 */</comment> + <name>WORD</name>
+        <comment type="block">/* uncompressed size               */</comment> + <name>WORD</name>
+        <comment type="block">/* filename length                 */</comment> + <name>SHORT</name>
+        <comment type="block">/* extra field length              */</comment> + <name>SHORT</name>
+        <comment type="block">/* file comment length             */</comment> + <name>SHORT</name>
+        <comment type="block">/* disk number start               */</comment> + <name>SHORT</name>
+        <comment type="block">/* internal file attributes        */</comment> + <name>SHORT</name>
+        <comment type="block">/* external file attributes        */</comment> + <name>WORD</name>
+        <comment type="block">/* relative offset of local header */</comment> + <name>WORD</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>long</name></type> <name>CFH_SIG</name> =<init>
+        <expr><call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>ZipOutputStream</name>.<name>CFH_SIG</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Reads the central directory of the given archive and populates
+     * the internal tables with ZipEntry instances.
+     *
+     * &lt;p&gt;The ZipEntrys will know all data that can be obtained from
+     * the central directory alone, but not the data that requires the
+     * local file header or additional data to be read.&lt;/p&gt;
+     *
+     * @return a map of zipentries that didn't have the language
+     * encoding flag set when read.
+     */</comment>
+    <function><type><specifier>private</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>, <argument><name>NameAndComment</name></argument>&gt;</argument_list></name></type> <name>populateFromCentralDirectory</name><parameter_list>()</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name><name>HashMap</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>, <argument><name>NameAndComment</name></argument>&gt;</argument_list></name></type> <name>noUTF8Flag</name> =<init>
+            <expr>new <call><name><name>HashMap</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>, <argument><name>NameAndComment</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name>positionAtCentralDirectory</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>WORD_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>long</name></type> <name>sig</name> =<init> <expr><call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>WORD_BUF</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>sig</name> != <name>CFH_SIG</name> &amp;&amp; <call><name>startsWithLocalFileHeader</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"central directory is empty, can't expand"
+                                  + " corrupt archive."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <while>while <condition>(<expr><name>sig</name> == <name>CFH_SIG</name></expr>)</condition> <block>{
+            <expr_stmt><expr><call><name>readCentralDirectoryEntry</name><argument_list>(<argument><expr><name>noUTF8Flag</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>WORD_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>sig</name> = <call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>WORD_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><name>noUTF8Flag</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Reads an individual entry of the central directory, creats an
+     * ZipEntry from it and adds it to the global maps.
+     *
+     * @param noUTF8Flag map used to collect entries that don't have
+     * their UTF-8 flag set and whose name will be set by data read
+     * from the local file header later.  The current entry may be
+     * added to this map.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type>
+        <name>readCentralDirectoryEntry</name><parameter_list>(<param><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>, <argument><name>NameAndComment</name></argument>&gt;</argument_list></name></type> <name>noUTF8Flag</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>off</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>OffsetEntry</name></type> <name>offset</name> =<init> <expr>new <call><name>OffsetEntry</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Entry</name></type> <name>ze</name> =<init> <expr>new <call><name>Entry</name><argument_list>(<argument><expr><name>offset</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>versionMadeBy</name> =<init> <expr><call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>off</name> += <name>SHORT</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setPlatform</name></name><argument_list>(<argument><expr>(<name>versionMadeBy</name> &gt;&gt; <name>BYTE_SHIFT</name>) &amp; <name>NIBLET_MASK</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>off</name> += <name>SHORT</name></expr>;</expr_stmt> <comment type="line">// skip version info</comment>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>GeneralPurposeBit</name></type> <name>gpFlag</name> =<init> <expr><call><name><name>GeneralPurposeBit</name>.<name>parse</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>hasUTF8Flag</name> =<init> <expr><call><name><name>gpFlag</name>.<name>usesUTF8ForNames</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>ZipEncoding</name></type> <name>entryEncoding</name> =<init>
+            <expr><name>hasUTF8Flag</name> ? <name><name>ZipEncodingHelper</name>.<name>UTF8_ZIP_ENCODING</name></name> : <name>zipEncoding</name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setGeneralPurposeBit</name></name><argument_list>(<argument><expr><name>gpFlag</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name>off</name> += <name>SHORT</name></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setMethod</name></name><argument_list>(<argument><expr><call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>off</name> += <name>SHORT</name></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>long</name></type> <name>time</name> =<init> <expr><call><name><name>ZipUtil</name>.<name>dosToJavaTime</name></name><argument_list>(<argument><expr><call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setTime</name></name><argument_list>(<argument><expr><name>time</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>off</name> += <name>WORD</name></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setCrc</name></name><argument_list>(<argument><expr><call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>off</name> += <name>WORD</name></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setCompressedSize</name></name><argument_list>(<argument><expr><call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>off</name> += <name>WORD</name></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setSize</name></name><argument_list>(<argument><expr><call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>off</name> += <name>WORD</name></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>fileNameLen</name> =<init> <expr><call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>off</name> += <name>SHORT</name></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>extraLen</name> =<init> <expr><call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>off</name> += <name>SHORT</name></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>commentLen</name> =<init> <expr><call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>off</name> += <name>SHORT</name></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>diskStart</name> =<init> <expr><call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>off</name> += <name>SHORT</name></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setInternalAttributes</name></name><argument_list>(<argument><expr><call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>off</name> += <name>SHORT</name></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setExternalAttributes</name></name><argument_list>(<argument><expr><call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>off</name> += <name>WORD</name></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>fileName</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>fileNameLen</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>fileName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setName</name></name><argument_list>(<argument><expr><call><name><name>entryEncoding</name>.<name>decode</name></name><argument_list>(<argument><expr><name>fileName</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>fileName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// LFH offset,</comment>
+        <expr_stmt><expr><name><name>offset</name>.<name>headerOffset</name></name> = <call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>CFH_BUF</name></expr></argument>, <argument><expr><name>off</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">// data offset will be filled later</comment>
+        <expr_stmt><expr><call><name><name>entries</name>.<name>add</name></name><argument_list>(<argument><expr><name>ze</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>cdExtraData</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>extraLen</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>cdExtraData</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setCentralDirectoryExtra</name></name><argument_list>(<argument><expr><name>cdExtraData</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>setSizesAndOffsetFromZip64Extra</name><argument_list>(<argument><expr><name>ze</name></expr></argument>, <argument><expr><name>offset</name></expr></argument>, <argument><expr><name>diskStart</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>comment</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>commentLen</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>comment</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>ze</name>.<name>setComment</name></name><argument_list>(<argument><expr><call><name><name>entryEncoding</name>.<name>decode</name></name><argument_list>(<argument><expr><name>comment</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr>!<name>hasUTF8Flag</name> &amp;&amp; <name>useUnicodeExtraFields</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>noUTF8Flag</name>.<name>put</name></name><argument_list>(<argument><expr><name>ze</name></expr></argument>, <argument><expr>new <call><name>NameAndComment</name><argument_list>(<argument><expr><name>fileName</name></expr></argument>, <argument><expr><name>comment</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If the entry holds a Zip64 extended information extra field,
+     * read sizes from there if the entry's sizes are set to
+     * 0xFFFFFFFFF, do the same for the offset of the local file
+     * header.
+     *
+     * &lt;p&gt;Ensures the Zip64 extra either knows both compressed and
+     * uncompressed size or neither of both as the internal logic in
+     * ExtraFieldUtils forces the field to create local header data
+     * even if they are never used - and here a field with only one
+     * size would be invalid.&lt;/p&gt;
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setSizesAndOffsetFromZip64Extra</name><parameter_list>(<param><decl><type><name>ZipEntry</name></type> <name>ze</name></decl></param>,
+                                                 <param><decl><type><name>OffsetEntry</name></type> <name>offset</name></decl></param>,
+                                                 <param><decl><type><name>int</name></type> <name>diskStart</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Zip64ExtendedInformationExtraField</name></type> <name>z64</name> =<init>
+            <expr>(<name>Zip64ExtendedInformationExtraField</name>)
+            <call><name><name>ze</name>.<name>getExtraField</name></name><argument_list>(<argument><expr><name><name>Zip64ExtendedInformationExtraField</name>.<name>HEADER_ID</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>z64</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>boolean</name></type> <name>hasUncompressedSize</name> =<init> <expr><call><name><name>ze</name>.<name>getSize</name></name><argument_list>()</argument_list></call> == <name>ZIP64_MAGIC</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>boolean</name></type> <name>hasCompressedSize</name> =<init> <expr><call><name><name>ze</name>.<name>getCompressedSize</name></name><argument_list>()</argument_list></call> == <name>ZIP64_MAGIC</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>boolean</name></type> <name>hasRelativeHeaderOffset</name> =<init>
+                <expr><name><name>offset</name>.<name>headerOffset</name></name> == <name>ZIP64_MAGIC</name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>z64</name>.<name>reparseCentralDirectoryData</name></name><argument_list>(<argument><expr><name>hasUncompressedSize</name></expr></argument>,
+                                            <argument><expr><name>hasCompressedSize</name></expr></argument>,
+                                            <argument><expr><name>hasRelativeHeaderOffset</name></expr></argument>,
+                                            <argument><expr><name>diskStart</name> == <name>ZIP64_MAGIC_SHORT</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>hasUncompressedSize</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>ze</name>.<name>setSize</name></name><argument_list>(<argument><expr><call><name><name>z64</name>.<name>getSize</name></name><argument_list>()</argument_list></call>.<call><name>getLongValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name>hasCompressedSize</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>z64</name>.<name>setSize</name></name><argument_list>(<argument><expr>new <call><name>ZipEightByteInteger</name><argument_list>(<argument><expr><call><name><name>ze</name>.<name>getSize</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if>
+
+            <if>if <condition>(<expr><name>hasCompressedSize</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>ze</name>.<name>setCompressedSize</name></name><argument_list>(<argument><expr><call><name><name>z64</name>.<name>getCompressedSize</name></name><argument_list>()</argument_list></call>.<call><name>getLongValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name>hasUncompressedSize</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>z64</name>.<name>setCompressedSize</name></name><argument_list>(<argument><expr>new <call><name>ZipEightByteInteger</name><argument_list>(<argument><expr><call><name><name>ze</name>.<name>getCompressedSize</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if>
+
+            <if>if <condition>(<expr><name>hasRelativeHeaderOffset</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>offset</name>.<name>headerOffset</name></name> =
+                    <call><name><name>z64</name>.<name>getRelativeHeaderOffset</name></name><argument_list>()</argument_list></call>.<call><name>getLongValue</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Length of the "End of central directory record" - which is
+     * supposed to be the last structure of the archive - without file
+     * comment.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MIN_EOCD_SIZE</name> =<init>
+        <comment type="block">/* end of central dir signature    */</comment> <expr><name>WORD</name>
+        <comment type="block">/* number of this disk             */</comment> + <name>SHORT</name>
+        <comment type="block">/* number of the disk with the     */</comment>
+        <comment type="block">/* start of the central directory  */</comment> + <name>SHORT</name>
+        <comment type="block">/* total number of entries in      */</comment>
+        <comment type="block">/* the central dir on this disk    */</comment> + <name>SHORT</name>
+        <comment type="block">/* total number of entries in      */</comment>
+        <comment type="block">/* the central dir                 */</comment> + <name>SHORT</name>
+        <comment type="block">/* size of the central directory   */</comment> + <name>WORD</name>
+        <comment type="block">/* offset of start of central      */</comment>
+        <comment type="block">/* directory with respect to       */</comment>
+        <comment type="block">/* the starting disk number        */</comment> + <name>WORD</name>
+        <comment type="block">/* zipfile comment length          */</comment> + <name>SHORT</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Maximum length of the "End of central directory record" with a
+     * file comment.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAX_EOCD_SIZE</name> =<init> <expr><name>MIN_EOCD_SIZE</name>
+        <comment type="block">/* maximum length of zipfile comment */</comment> + <name>ZIP64_MAGIC_SHORT</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Offset of the field that holds the location of the first
+     * central directory entry inside the "End of central directory
+     * record" relative to the start of the "End of central directory
+     * record".
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>CFD_LOCATOR_OFFSET</name> =<init>
+        <comment type="block">/* end of central dir signature    */</comment> <expr><name>WORD</name>
+        <comment type="block">/* number of this disk             */</comment> + <name>SHORT</name>
+        <comment type="block">/* number of the disk with the     */</comment>
+        <comment type="block">/* start of the central directory  */</comment> + <name>SHORT</name>
+        <comment type="block">/* total number of entries in      */</comment>
+        <comment type="block">/* the central dir on this disk    */</comment> + <name>SHORT</name>
+        <comment type="block">/* total number of entries in      */</comment>
+        <comment type="block">/* the central dir                 */</comment> + <name>SHORT</name>
+        <comment type="block">/* size of the central directory   */</comment> + <name>WORD</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Length of the "Zip64 end of central directory locator" - which
+     * should be right in front of the "end of central directory
+     * record" if one is present at all.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>ZIP64_EOCDL_LENGTH</name> =<init>
+        <comment type="block">/* zip64 end of central dir locator sig */</comment> <expr><name>WORD</name>
+        <comment type="block">/* number of the disk with the start    */</comment>
+        <comment type="block">/* start of the zip64 end of            */</comment>
+        <comment type="block">/* central directory                    */</comment> + <name>WORD</name>
+        <comment type="block">/* relative offset of the zip64         */</comment>
+        <comment type="block">/* end of central directory record      */</comment> + <name>DWORD</name>
+        <comment type="block">/* total number of disks                */</comment> + <name>WORD</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Offset of the field that holds the location of the "Zip64 end
+     * of central directory record" inside the "Zip64 end of central
+     * directory locator" relative to the start of the "Zip64 end of
+     * central directory locator".
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>ZIP64_EOCDL_LOCATOR_OFFSET</name> =<init>
+        <comment type="block">/* zip64 end of central dir locator sig */</comment> <expr><name>WORD</name>
+        <comment type="block">/* number of the disk with the start    */</comment>
+        <comment type="block">/* start of the zip64 end of            */</comment>
+        <comment type="block">/* central directory                    */</comment> + <name>WORD</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Offset of the field that holds the location of the first
+     * central directory entry inside the "Zip64 end of central
+     * directory record" relative to the start of the "Zip64 end of
+     * central directory record".
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>ZIP64_EOCD_CFD_LOCATOR_OFFSET</name> =<init>
+        <comment type="block">/* zip64 end of central dir        */</comment>
+        <comment type="block">/* signature                       */</comment> <expr><name>WORD</name>
+        <comment type="block">/* size of zip64 end of central    */</comment>
+        <comment type="block">/* directory record                */</comment> + <name>DWORD</name>
+        <comment type="block">/* version made by                 */</comment> + <name>SHORT</name>
+        <comment type="block">/* version needed to extract       */</comment> + <name>SHORT</name>
+        <comment type="block">/* number of this disk             */</comment> + <name>WORD</name>
+        <comment type="block">/* number of the disk with the     */</comment>
+        <comment type="block">/* start of the central directory  */</comment> + <name>WORD</name>
+        <comment type="block">/* total number of entries in the  */</comment>
+        <comment type="block">/* central directory on this disk  */</comment> + <name>DWORD</name>
+        <comment type="block">/* total number of entries in the  */</comment>
+        <comment type="block">/* central directory               */</comment> + <name>DWORD</name>
+        <comment type="block">/* size of the central directory   */</comment> + <name>DWORD</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Searches for either the &amp;quot;Zip64 end of central directory
+     * locator&amp;quot; or the &amp;quot;End of central dir record&amp;quot;, parses
+     * it and positions the stream at the first central directory
+     * record.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>positionAtCentralDirectory</name><parameter_list>()</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>positionAtEndOfCentralDirectoryRecord</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>found</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>searchedForZip64EOCD</name> =<init>
+            <expr><call><name><name>archive</name>.<name>getFilePointer</name></name><argument_list>()</argument_list></call> &gt; <name>ZIP64_EOCDL_LENGTH</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>searchedForZip64EOCD</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>archive</name>.<name>seek</name></name><argument_list>(<argument><expr><call><name><name>archive</name>.<name>getFilePointer</name></name><argument_list>()</argument_list></call> - <name>ZIP64_EOCDL_LENGTH</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>WORD_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>found</name> = <call><name><name>Arrays</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>ZipOutputStream</name>.<name>ZIP64_EOCD_LOC_SIG</name></name></expr></argument>, <argument><expr><name>WORD_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<name>found</name></expr>)</condition><then> <block>{
+            <comment type="line">// not a ZIP64 archive</comment>
+            <if>if <condition>(<expr><name>searchedForZip64EOCD</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>skipBytes</name><argument_list>(<argument><expr><name>ZIP64_EOCDL_LENGTH</name> - <name>WORD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>positionAtCentralDirectory32</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>positionAtCentralDirectory64</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parses the &amp;quot;Zip64 end of central directory locator&amp;quot;,
+     * finds the &amp;quot;Zip64 end of central directory record&amp;quot; using the
+     * parsed information, parses that and positions the stream at the
+     * first central directory record.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>positionAtCentralDirectory64</name><parameter_list>()</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>skipBytes</name><argument_list>(<argument><expr><name>ZIP64_EOCDL_LOCATOR_OFFSET</name>
+                  - <name>WORD</name></expr></argument> <comment type="block">/* signature has already been read */</comment>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>DWORD_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>archive</name>.<name>seek</name></name><argument_list>(<argument><expr><call><name><name>ZipEightByteInteger</name>.<name>getLongValue</name></name><argument_list>(<argument><expr><name>DWORD_BUF</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>WORD_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr>!<call><name><name>Arrays</name>.<name>equals</name></name><argument_list>(<argument><expr><name>WORD_BUF</name></expr></argument>, <argument><expr><name><name>ZipOutputStream</name>.<name>ZIP64_EOCD_SIG</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>ZipException</name><argument_list>(<argument><expr>"archive's ZIP64 end of central "
+                                   + "directory locator is corrupt."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>skipBytes</name><argument_list>(<argument><expr><name>ZIP64_EOCD_CFD_LOCATOR_OFFSET</name>
+                  - <name>WORD</name></expr></argument> <comment type="block">/* signature has already been read */</comment>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>DWORD_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>archive</name>.<name>seek</name></name><argument_list>(<argument><expr><call><name><name>ZipEightByteInteger</name>.<name>getLongValue</name></name><argument_list>(<argument><expr><name>DWORD_BUF</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Searches for the &amp;quot;End of central dir record&amp;quot;, parses
+     * it and positions the stream at the first central directory
+     * record.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>positionAtCentralDirectory32</name><parameter_list>()</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>skipBytes</name><argument_list>(<argument><expr><name>CFD_LOCATOR_OFFSET</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>WORD_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>archive</name>.<name>seek</name></name><argument_list>(<argument><expr><call><name><name>ZipLong</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>WORD_BUF</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Searches for the and positions the stream at the start of the
+     * &amp;quot;End of central dir record&amp;quot;.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>positionAtEndOfCentralDirectoryRecord</name><parameter_list>()</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>boolean</name></type> <name>found</name> =<init> <expr><call><name>tryToLocateSignature</name><argument_list>(<argument><expr><name>MIN_EOCD_SIZE</name></expr></argument>, <argument><expr><name>MAX_EOCD_SIZE</name></expr></argument>,
+                                             <argument><expr><name><name>ZipOutputStream</name>.<name>EOCD_SIG</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<name>found</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>ZipException</name><argument_list>(<argument><expr>"archive is not a ZIP archive"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Searches the archive backwards from minDistance to maxDistance
+     * for the given signature, positions the RandomaccessFile right
+     * at the signature if it has been found.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>tryToLocateSignature</name><parameter_list>(<param><decl><type><name>long</name></type> <name>minDistanceFromEnd</name></decl></param>,
+                                         <param><decl><type><name>long</name></type> <name>maxDistanceFromEnd</name></decl></param>,
+                                         <param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>sig</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>boolean</name></type> <name>found</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>long</name></type> <name>off</name> =<init> <expr><call><name><name>archive</name>.<name>length</name></name><argument_list>()</argument_list></call> - <name>minDistanceFromEnd</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>long</name></type> <name>stopSearching</name> =<init>
+            <expr><call><name><name>Math</name>.<name>max</name></name><argument_list>(<argument><expr>0L</expr></argument>, <argument><expr><call><name><name>archive</name>.<name>length</name></name><argument_list>()</argument_list></call> - <name>maxDistanceFromEnd</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>off</name> &gt;= 0</expr>)</condition><then> <block>{
+            <for>for (<init>;</init> <condition><expr><name>off</name> &gt;= <name>stopSearching</name></expr>;</condition> <incr><expr><name>off</name>--</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>archive</name>.<name>seek</name></name><argument_list>(<argument><expr><name>off</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>curr</name> =<init> <expr><call><name><name>archive</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>curr</name> == -1</expr>)</condition><then> <block>{
+                    <break>break;</break>
+                }</block></then></if>
+                <if>if <condition>(<expr><name>curr</name> == <name><name>sig</name><index>[<expr><name>POS_0</name></expr>]</index></name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>curr</name> = <call><name><name>archive</name>.<name>read</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <if>if <condition>(<expr><name>curr</name> == <name><name>sig</name><index>[<expr><name>POS_1</name></expr>]</index></name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>curr</name> = <call><name><name>archive</name>.<name>read</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        <if>if <condition>(<expr><name>curr</name> == <name><name>sig</name><index>[<expr><name>POS_2</name></expr>]</index></name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>curr</name> = <call><name><name>archive</name>.<name>read</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            <if>if <condition>(<expr><name>curr</name> == <name><name>sig</name><index>[<expr><name>POS_3</name></expr>]</index></name></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><name>found</name> = true</expr>;</expr_stmt>
+                                <break>break;</break>
+                            }</block></then></if>
+                        }</block></then></if>
+                    }</block></then></if>
+                }</block></then></if>
+            }</block></for>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>found</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>archive</name>.<name>seek</name></name><argument_list>(<argument><expr><name>off</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>found</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Skips the given number of bytes or throws an EOFException if
+     * skipping failed.
+     */</comment> 
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>skipBytes</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>int</name></type> <name>count</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>totalSkipped</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><name>totalSkipped</name> &lt; <name>count</name></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>skippedNow</name> =<init> <expr><call><name><name>archive</name>.<name>skipBytes</name></name><argument_list>(<argument><expr><name>count</name> - <name>totalSkipped</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>skippedNow</name> &lt;= 0</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>EOFException</name><argument_list>()</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><name>totalSkipped</name> += <name>skippedNow</name></expr>;</expr_stmt>
+        }</block></while>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Number of bytes in local file header up to the &amp;quot;length of
+     * filename&amp;quot; entry.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>long</name></type> <name>LFH_OFFSET_FOR_FILENAME_LENGTH</name> =<init>
+        <comment type="block">/* local file header signature     */</comment> <expr><name>WORD</name>
+        <comment type="block">/* version needed to extract       */</comment> + <name>SHORT</name>
+        <comment type="block">/* general purpose bit flag        */</comment> + <name>SHORT</name>
+        <comment type="block">/* compression method              */</comment> + <name>SHORT</name>
+        <comment type="block">/* last mod file time              */</comment> + <name>SHORT</name>
+        <comment type="block">/* last mod file date              */</comment> + <name>SHORT</name>
+        <comment type="block">/* crc-32                          */</comment> + <name>WORD</name>
+        <comment type="block">/* compressed size                 */</comment> + <name>WORD</name>
+        <comment type="block">/* uncompressed size               */</comment> + <name>WORD</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Walks through all recorded entries and adds the data available
+     * from the local file header.
+     *
+     * &lt;p&gt;Also records the offsets for the data to read from the
+     * entries.&lt;/p&gt;
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>resolveLocalFileHeaderData</name><parameter_list>(<param><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>, <argument><name>NameAndComment</name></argument>&gt;</argument_list></name></type>
+                                            <name>entriesWithoutUTF8Flag</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <for>for (<init><decl><type><name><name>Iterator</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></type> <name>it</name> =<init> <expr><call><name><name>entries</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>it</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr/>) <block>{
+            <comment type="line">// entries is filled in populateFromCentralDirectory and</comment>
+            <comment type="line">// never modified</comment>
+            <decl_stmt><decl><type><name>Entry</name></type> <name>ze</name> =<init> <expr>(<name>Entry</name>) <call><name><name>it</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>OffsetEntry</name></type> <name>offsetEntry</name> =<init> <expr><call><name><name>ze</name>.<name>getOffsetEntry</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>long</name></type> <name>offset</name> =<init> <expr><name><name>offsetEntry</name>.<name>headerOffset</name></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>archive</name>.<name>seek</name></name><argument_list>(<argument><expr><name>offset</name> + <name>LFH_OFFSET_FOR_FILENAME_LENGTH</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>SHORT_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>fileNameLen</name> =<init> <expr><call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>SHORT_BUF</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>SHORT_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>extraFieldLen</name> =<init> <expr><call><name><name>ZipShort</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>SHORT_BUF</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>lenToSkip</name> =<init> <expr><name>fileNameLen</name></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><name>lenToSkip</name> &gt; 0</expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>skipped</name> =<init> <expr><call><name><name>archive</name>.<name>skipBytes</name></name><argument_list>(<argument><expr><name>lenToSkip</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>skipped</name> &lt;= 0</expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"failed to skip file name in"
+                                          + " local file header"</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><name>lenToSkip</name> -= <name>skipped</name></expr>;</expr_stmt>
+            }</block></while>
+            <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>localExtraData</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>extraFieldLen</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>localExtraData</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ze</name>.<name>setExtra</name></name><argument_list>(<argument><expr><name>localExtraData</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>offsetEntry</name>.<name>dataOffset</name></name> = <name>offset</name> + <name>LFH_OFFSET_FOR_FILENAME_LENGTH</name>
+                + <name>SHORT</name> + <name>SHORT</name> + <name>fileNameLen</name> + <name>extraFieldLen</name></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><call><name><name>entriesWithoutUTF8Flag</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>ze</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>NameAndComment</name></type> <name>nc</name> =<init> <expr><call><name><name>entriesWithoutUTF8Flag</name>.<name>get</name></name><argument_list>(<argument><expr><name>ze</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>ZipUtil</name>.<name>setNameAndCommentFromExtraFields</name></name><argument_list>(<argument><expr><name>ze</name></expr></argument>, <argument><expr><name><name>nc</name>.<name>name</name></name></expr></argument>,
+                                                         <argument><expr><name><name>nc</name>.<name>comment</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>ze</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name><name>LinkedList</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></type> <name>entriesOfThatName</name> =<init> <expr><call><name><name>nameMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>entriesOfThatName</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>entriesOfThatName</name> = new <call><name><name>LinkedList</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>nameMap</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>entriesOfThatName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>entriesOfThatName</name>.<name>addLast</name></name><argument_list>(<argument><expr><name>ze</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Checks whether the archive starts with a LFH.  If it doesn't,
+     * it may be an empty archive.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>startsWithLocalFileHeader</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>archive</name>.<name>seek</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>archive</name>.<name>readFully</name></name><argument_list>(<argument><expr><name>WORD_BUF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>Arrays</name>.<name>equals</name></name><argument_list>(<argument><expr><name>WORD_BUF</name></expr></argument>, <argument><expr><name><name>ZipOutputStream</name>.<name>LFH_SIG</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * InputStream that delegates requests to the underlying
+     * RandomAccessFile, making sure that only bytes from a certain
+     * range can be read.
+     */</comment>
+    <class><specifier>private</specifier> class <name>BoundedInputStream</name> <super><extends>extends <name>InputStream</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>remaining</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>loc</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>addDummyByte</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+        <constructor><name>BoundedInputStream</name><parameter_list>(<param><decl><type><name>long</name></type> <name>start</name></decl></param>, <param><decl><type><name>long</name></type> <name>remaining</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>remaining</name></name> = <name>remaining</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>loc</name> = <name>start</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><annotation>@<name>Override</name></annotation>
+        <specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><name>remaining</name>-- &lt;= 0</expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>addDummyByte</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>addDummyByte</name> = false</expr>;</expr_stmt>
+                    <return>return <expr>0</expr>;</return>
+                }</block></then></if>
+                <return>return <expr>-1</expr>;</return>
+            }</block></then></if>
+            <synchronized>synchronized (<expr><name>archive</name></expr>) <block>{
+                <expr_stmt><expr><call><name><name>archive</name>.<name>seek</name></name><argument_list>(<argument><expr><name>loc</name>++</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><call><name><name>archive</name>.<name>read</name></name><argument_list>()</argument_list></call></expr>;</return>
+            }</block></synchronized>
+        }</block></function>
+
+        <function><type><annotation>@<name>Override</name></annotation>
+        <specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>b</name></decl></param>, <param><decl><type><name>int</name></type> <name>off</name></decl></param>, <param><decl><type><name>int</name></type> <name>len</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <if>if <condition>(<expr><name>remaining</name> &lt;= 0</expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>addDummyByte</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>addDummyByte</name> = false</expr>;</expr_stmt>
+                    <expr_stmt><expr><name><name>b</name><index>[<expr><name>off</name></expr>]</index></name> = 0</expr>;</expr_stmt>
+                    <return>return <expr>1</expr>;</return>
+                }</block></then></if>
+                <return>return <expr>-1</expr>;</return>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>len</name> &lt;= 0</expr>)</condition><then> <block>{
+                <return>return <expr>0</expr>;</return>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>len</name> &gt; <name>remaining</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>len</name> = (<name>int</name>) <name>remaining</name></expr>;</expr_stmt>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>int</name></type> <name>ret</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+            <synchronized>synchronized (<expr><name>archive</name></expr>) <block>{
+                <expr_stmt><expr><call><name><name>archive</name>.<name>seek</name></name><argument_list>(<argument><expr><name>loc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>ret</name> = <call><name><name>archive</name>.<name>read</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>, <argument><expr><name>off</name></expr></argument>, <argument><expr><name>len</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></synchronized>
+            <if>if <condition>(<expr><name>ret</name> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>loc</name> += <name>ret</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>remaining</name> -= <name>ret</name></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return <expr><name>ret</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Inflater needs an extra dummy byte for nowrap - see
+         * Inflater's javadocs.
+         */</comment>
+        <function><type><name>void</name></type> <name>addDummy</name><parameter_list>()</parameter_list> <block>{
+            <expr_stmt><expr><name>addDummyByte</name> = true</expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> class <name>NameAndComment</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>name</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>comment</name></decl>;</decl_stmt>
+        <constructor><specifier>private</specifier> <name>NameAndComment</name><parameter_list>(<param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>name</name></decl></param>, <param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>comment</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>name</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>comment</name></name> = <name>comment</name></expr>;</expr_stmt>
+        }</block></constructor>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Compares two ZipEntries based on their offset within the archive.
+     *
+     * &lt;p&gt;Won't return any meaningful results if one of the entries
+     * isn't part of the archive at all.&lt;/p&gt;
+     *
+     * @since Ant 1.9.0
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name><name>Comparator</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></type> <name>OFFSET_COMPARATOR</name> =<init>
+        <expr>new <class><super><name><name>Comparator</name><argument_list>&lt;<argument><name>ZipEntry</name></argument>&gt;</argument_list></name></super><argument_list>()</argument_list> <block>{
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>compare</name><parameter_list>(<param><decl><type><name>ZipEntry</name></type> <name>e1</name></decl></param>, <param><decl><type><name>ZipEntry</name></type> <name>e2</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>e1</name> == <name>e2</name></expr>)</condition><then> <block>{
+                <return>return <expr>0</expr>;</return>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>Entry</name></type> <name>ent1</name> =<init> <expr><name>e1</name> <name>instanceof</name> <name>Entry</name> ? (<name>Entry</name>) <name>e1</name> : <name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Entry</name></type> <name>ent2</name> =<init> <expr><name>e2</name> <name>instanceof</name> <name>Entry</name> ? (<name>Entry</name>) <name>e2</name> : <name>null</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>ent1</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr>1</expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>ent2</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr>-1</expr>;</return>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>long</name></type> <name>val</name> =<init> <expr>(<call><name><name>ent1</name>.<name>getOffsetEntry</name></name><argument_list>()</argument_list></call>.<name>headerOffset</name>
+                        - <call><name><name>ent2</name>.<name>getOffsetEntry</name></name><argument_list>()</argument_list></call>.<name>headerOffset</name>)</expr></init></decl>;</decl_stmt>
+            <return>return <expr><name>val</name> == 0 ? 0 : <name>val</name> &lt; 0 ? -1 : +1</expr>;</return>
+        }</block></function>
+    }</block></class></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Extends ZipEntry to store the offset within the archive.
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>Entry</name> <super><extends>extends <name>ZipEntry</name></extends></super> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>OffsetEntry</name></type> <name>offsetEntry</name></decl>;</decl_stmt>
+
+        <constructor><name>Entry</name><parameter_list>(<param><decl><type><name>OffsetEntry</name></type> <name>offset</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>offsetEntry</name></name> = <name>offset</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><name>OffsetEntry</name></type> <name>getOffsetEntry</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>offsetEntry</name></expr>;</return>
+        }</block></function>
+
+        <function><type><annotation>@<name>Override</name></annotation>
+        <specifier>public</specifier> <name>int</name></type> <name>hashCode</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>3 * <call><name><name>super</name>.<name>hashCode</name></name><argument_list>()</argument_list></call>
+                + <call>(<name>int</name>) <argument_list>(<argument><expr><name><name>offsetEntry</name>.<name>headerOffset</name></name> % <name><name>Integer</name>.<name>MAX_VALUE</name></name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><annotation>@<name>Override</name></annotation>
+        <specifier>public</specifier> <name>boolean</name></type> <name>equals</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>other</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><call><name><name>super</name>.<name>equals</name></name><argument_list>(<argument><expr><name>other</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// super.equals would return false if other were not an Entry</comment>
+                <decl_stmt><decl><type><name>Entry</name></type> <name>otherEntry</name> =<init> <expr>(<name>Entry</name>) <name>other</name></expr></init></decl>;</decl_stmt>
+                <return>return <expr><name><name>offsetEntry</name>.<name>headerOffset</name></name>
+                        == <name><name>otherEntry</name>.<name>offsetEntry</name>.<name>headerOffset</name></name>
+                    &amp;&amp; <name><name>offsetEntry</name>.<name>dataOffset</name></name>
+                        == <name><name>otherEntry</name>.<name>offsetEntry</name>.<name>dataOffset</name></name></expr>;</return>
+            }</block></then></if>
+            <return>return <expr>false</expr>;</return>
+        }</block></function>
+    }</block></class>
+}</block></class>
+</unit>

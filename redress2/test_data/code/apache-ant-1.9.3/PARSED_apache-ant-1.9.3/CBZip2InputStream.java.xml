@@ -1,0 +1,1064 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\bzip2\CBZip2InputStream.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<comment type="block">/*
+ * This package is based on the work done by Keiron Liddle, Aftex Software
+ * &lt;keiron@aftexsw.com&gt; to whom the Ant project is very grateful for his
+ * great code.
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>bzip2</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+
+<comment type="javadoc">/**
+ * An input stream that decompresses from the BZip2 format (without the file
+ * header chars) to be read as any other stream.
+ *
+ * &lt;p&gt;The decompression requires large amounts of memory. Thus you
+ * should call the {@link #close() close()} method as soon as
+ * possible, to force &lt;tt&gt;CBZip2InputStream&lt;/tt&gt; to release the
+ * allocated memory.  See {@link CBZip2OutputStream
+ * CBZip2OutputStream} for information about memory usage.&lt;/p&gt;
+ *
+ * &lt;p&gt;&lt;tt&gt;CBZip2InputStream&lt;/tt&gt; reads bytes from the compressed
+ * source stream via the single byte {@link java.io.InputStream#read()
+ * read()} method exclusively. Thus you should consider to use a
+ * buffered source stream.&lt;/p&gt;
+ * 
+ * &lt;p&gt;Instances of this class are not threadsafe.&lt;/p&gt;
+ */</comment>
+<class><specifier>public</specifier> class <name>CBZip2InputStream</name> <super><extends>extends <name>InputStream</name></extends> <implements>implements <name>BZip2Constants</name></implements></super> <block>{
+
+    <comment type="javadoc">/**
+     * Index of the last char in the block, so the block size == last + 1.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type>  <name>last</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Index in zptr[] of original string after sorting.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type>  <name>origPtr</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * always: in the range 0 .. 9.
+     * The current block size is 100000 * this number.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>blockSize100k</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>blockRandomised</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>bsBuff</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>bsLive</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>CRC</name></type> <name>crc</name> =<init> <expr>new <call><name>CRC</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>nInUse</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>InputStream</name></type> <name>in</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>boolean</name></type> <name>decompressConcatenated</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>currentChar</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>EOF</name>                  =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>START_BLOCK_STATE</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>RAND_PART_A_STATE</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>RAND_PART_B_STATE</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>RAND_PART_C_STATE</name> =<init> <expr>4</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>NO_RAND_PART_A_STATE</name> =<init> <expr>5</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>NO_RAND_PART_B_STATE</name> =<init> <expr>6</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>NO_RAND_PART_C_STATE</name> =<init> <expr>7</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>currentState</name> =<init> <expr><name>START_BLOCK_STATE</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>storedBlockCRC</name>, <name>storedCombinedCRC</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>computedBlockCRC</name>, <name>computedCombinedCRC</name></decl>;</decl_stmt>
+
+    <comment type="line">// Variables used by setup* methods exclusively</comment>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>su_count</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>su_ch2</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>su_chPrev</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>su_i2</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>su_j2</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>su_rNToGo</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>su_rTPos</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>su_tPos</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>char</name></type> <name>su_z</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * All memory intensive stuff.
+     * This field is initialized by initBlock().
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>CBZip2InputStream</name>.<name>Data</name></name></type> <name>data</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Constructs a new CBZip2InputStream which decompresses bytes read from
+     * the specified stream. This doesn't suppprt decompressing
+     * concatenated .bz2 files.
+     *
+     * &lt;p&gt;Although BZip2 headers are marked with the magic
+     * &lt;tt&gt;"Bz"&lt;/tt&gt; this constructor expects the next byte in the
+     * stream to be the first one after the magic.  Thus callers have
+     * to skip the first two bytes. Otherwise this constructor will
+     * throw an exception. &lt;/p&gt;
+     *
+     * @throws IOException
+     *  if the stream content is malformed or an I/O error occurs.
+     * @throws NullPointerException
+     *  if &lt;tt&gt;in == null&lt;/tt&gt;
+     */</comment>
+    <constructor><specifier>public</specifier> <name>CBZip2InputStream</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>InputStream</name></type> <name>in</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>in</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Constructs a new CBZip2InputStream which decompresses bytes
+     * read from the specified stream.
+     *
+     * &lt;p&gt;Although BZip2 headers are marked with the magic
+     * &lt;tt&gt;"Bz"&lt;/tt&gt; this constructor expects the next byte in the
+     * stream to be the first one after the magic.  Thus callers have
+     * to skip the first two bytes. Otherwise this constructor will
+     * throw an exception. &lt;/p&gt;
+     *
+     * @param in the InputStream from which this object should be created
+     * @param decompressConcatenated
+     *                     if true, decompress until the end of the input;
+     *                     if false, stop after the first .bz2 stream and
+     *                     leave the input position to point to the next
+     *                     byte after the .bz2 stream
+     *
+     * @throws IOException
+     *             if the stream content is malformed or an I/O error occurs.
+     * @throws NullPointerException
+     *             if &lt;tt&gt;in == null&lt;/tt&gt;
+     */</comment>
+    <constructor><specifier>public</specifier> <name>CBZip2InputStream</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>InputStream</name></type> <name>in</name></decl></param>,
+                             <param><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>decompressConcatenated</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><name><name>this</name>.<name>in</name></name> = <name>in</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>decompressConcatenated</name></name> = <name>decompressConcatenated</name></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>init</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>initBlock</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setupBlock</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/** {@inheritDoc} */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>in</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>read0</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then> <else>else <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"stream closed"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="block">/*
+     * (non-Javadoc)
+     * 
+     * @see java.io.InputStream#read(byte[], int, int)
+     */</comment>
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name><name>byte</name><index>[]</index></name></type> <name>dest</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>offs</name></decl></param>, <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>len</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>offs</name> &lt; 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IndexOutOfBoundsException</name><argument_list>(<argument><expr>"offs(" + <name>offs</name> + ") &lt; 0."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>len</name> &lt; 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IndexOutOfBoundsException</name><argument_list>(<argument><expr>"len(" + <name>len</name> + ") &lt; 0."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>offs</name> + <name>len</name> &gt; <name><name>dest</name>.<name>length</name></name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IndexOutOfBoundsException</name><argument_list>(<argument><expr>"offs(" + <name>offs</name> + ") + len("
+                                                + <name>len</name> + ") &gt; dest.length("
+                                                + <name><name>dest</name>.<name>length</name></name> + ")."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name><name>this</name>.<name>in</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"stream closed"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>hi</name> =<init> <expr><name>offs</name> + <name>len</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>destOffs</name> =<init> <expr><name>offs</name></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>b</name></decl>;</init> <condition><expr>(<name>destOffs</name> &lt; <name>hi</name>) &amp;&amp; ((<name>b</name> = <call><name>read0</name><argument_list>()</argument_list></call>) &gt;= 0)</expr>;</condition><incr/>) <block>{
+            <expr_stmt><expr><name><name>dest</name><index>[<expr><name>destOffs</name>++</expr>]</index></name> = (<name>byte</name>) <name>b</name></expr>;</expr_stmt>
+        }</block></for>
+
+        <return>return <expr>(<name>destOffs</name> == <name>offs</name>) ? -1 : (<name>destOffs</name> - <name>offs</name>)</expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>makeMaps</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>boolean</name><index>[]</index></type> <name>inUse</name>   =<init> <expr><name><name>this</name>.<name>data</name>.<name>inUse</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>seqToUnseq</name> =<init> <expr><name><name>this</name>.<name>data</name>.<name>seqToUnseq</name></name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>nInUseShadow</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; 256</expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><name><name>inUse</name><index>[<expr><name>i</name></expr>]</index></name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>seqToUnseq</name><index>[<expr><name>nInUseShadow</name>++</expr>]</index></name> = (<name>byte</name>) <name>i</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+
+        <expr_stmt><expr><name><name>this</name>.<name>nInUse</name></name> = <name>nInUseShadow</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>int</name></type> <name>read0</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>retChar</name> =<init> <expr><name><name>this</name>.<name>currentChar</name></name></expr></init></decl>;</decl_stmt>
+
+        <switch>switch <condition>(<expr><name><name>this</name>.<name>currentState</name></name></expr>)</condition> <block>{
+        <case>case <expr><name>EOF</name></expr>:
+            <return>return <expr>-1</expr>;</return>
+
+        </case><case>case <expr><name>START_BLOCK_STATE</name></expr>:
+            <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>()</argument_list></call></expr>;</throw>
+
+        </case><case>case <expr><name>RAND_PART_A_STATE</name></expr>:
+            <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>()</argument_list></call></expr>;</throw>
+
+        </case><case>case <expr><name>RAND_PART_B_STATE</name></expr>:
+            <expr_stmt><expr><call><name>setupRandPartB</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <break>break;</break>
+
+        </case><case>case <expr><name>RAND_PART_C_STATE</name></expr>:
+            <expr_stmt><expr><call><name>setupRandPartC</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <break>break;</break>
+
+        </case><case>case <expr><name>NO_RAND_PART_A_STATE</name></expr>:
+            <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>()</argument_list></call></expr>;</throw>
+
+        </case><case>case <expr><name>NO_RAND_PART_B_STATE</name></expr>:
+            <expr_stmt><expr><call><name>setupNoRandPartB</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <break>break;</break>
+
+        </case><case>case <expr><name>NO_RAND_PART_C_STATE</name></expr>:
+            <expr_stmt><expr><call><name>setupNoRandPartC</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <break>break;</break>
+
+        </case><default>default:
+            <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>()</argument_list></call></expr>;</throw>
+        </default>}</block></switch>
+
+        <return>return <expr><name>retChar</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>init</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>isFirstStream</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>null</name> == <name>in</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"No InputStream"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        
+        <if>if <condition>(<expr><name>isFirstStream</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>in</name>.<name>available</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Empty InputStream"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>magic0</name> =<init> <expr><call><name><name>this</name>.<name>in</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>magic0</name> == -1</expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>int</name></type> <name>magic1</name> =<init> <expr><call><name><name>this</name>.<name>in</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>magic0</name> != 'B' || <name>magic1</name> != 'Z'</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Garbage after a valid BZip2 stream"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></else></if>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>magic2</name> =<init> <expr><call><name><name>this</name>.<name>in</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>magic2</name> != 'h'</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr><name>isFirstStream</name>
+                    ? "Stream is not in the BZip2 format"
+                    : "Garbage after a valid BZip2 stream"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>blockSize</name> =<init> <expr><call><name><name>this</name>.<name>in</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>(<name>blockSize</name> &lt; '1') || (<name>blockSize</name> &gt; '9')</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Stream is not BZip2 formatted: illegal "
+                                  + "blocksize " + (<name>char</name>) <name>blockSize</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><name><name>this</name>.<name>blockSize100k</name></name> = <name>blockSize</name> - '0'</expr>;</expr_stmt>
+
+        <expr_stmt><expr><name><name>this</name>.<name>bsLive</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>computedCombinedCRC</name></name> = 0</expr>;</expr_stmt>
+
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>initBlock</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>char</name></type> <name>magic0</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>char</name></type> <name>magic1</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>char</name></type> <name>magic2</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>char</name></type> <name>magic3</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>char</name></type> <name>magic4</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>char</name></type> <name>magic5</name></decl>;</decl_stmt>
+
+        <while>while <condition>(<expr>true</expr>)</condition> <block>{
+            <comment type="line">// Get the block magic bytes.</comment>
+            <expr_stmt><expr><name>magic0</name> = <call><name>bsGetUByte</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>magic1</name> = <call><name>bsGetUByte</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>magic2</name> = <call><name>bsGetUByte</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>magic3</name> = <call><name>bsGetUByte</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>magic4</name> = <call><name>bsGetUByte</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>magic5</name> = <call><name>bsGetUByte</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// If isn't end of stream magic, break out of the loop.</comment>
+            <if>if <condition>(<expr><name>magic0</name> != 0x17 || <name>magic1</name> != 0x72 || <name>magic2</name> != 0x45
+                    || <name>magic3</name> != 0x38 || <name>magic4</name> != 0x50 || <name>magic5</name> != 0x90</expr>)</condition><then> <block>{
+                <break>break;</break>
+            }</block></then></if>
+
+            <comment type="line">// End of stream was reached. Check the combined CRC and</comment>
+            <comment type="line">// advance to the next .bz2 stream if decoding concatenated</comment>
+            <comment type="line">// streams.</comment>
+            <if>if <condition>(<expr><call><name>complete</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <return>return;</return>
+            }</block></then></if>
+        }</block></while>
+
+        <if>if <condition>(<expr><name>magic0</name> != 0x31 || <comment type="line">// '1'</comment>
+            <name>magic1</name> != 0x41 || <comment type="line">// ')'</comment>
+            <name>magic2</name> != 0x59 || <comment type="line">// 'Y'</comment>
+            <name>magic3</name> != 0x26 || <comment type="line">// '&amp;'</comment>
+            <name>magic4</name> != 0x53 || <comment type="line">// 'S'</comment>
+            <name>magic5</name> != 0x59</expr> <comment type="line">// 'Y'</comment>
+            )</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>currentState</name></name> = <name>EOF</name></expr>;</expr_stmt>
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"bad block header"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>storedBlockCRC</name></name> = <call><name>bsGetInt</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>blockRandomised</name></name> = <call><name>bsR</name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call> == 1</expr>;</expr_stmt>
+
+            <comment type="javadoc">/**
+             * Allocate data here instead in constructor, so we do not
+             * allocate it if the input file is empty.
+             */</comment>
+            <if>if <condition>(<expr><name><name>this</name>.<name>data</name></name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>data</name></name> = new <call><name>Data</name><argument_list>(<argument><expr><name><name>this</name>.<name>blockSize100k</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <comment type="line">// currBlockNo++;</comment>
+            <expr_stmt><expr><call><name>getAndMoveToFrontDecode</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><call><name><name>this</name>.<name>crc</name>.<name>initialiseCRC</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>currentState</name></name> = <name>START_BLOCK_STATE</name></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>endBlock</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>computedBlockCRC</name></name> = <call><name><name>this</name>.<name>crc</name>.<name>getFinalCRC</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// A bad CRC is considered a fatal error.</comment>
+        <if>if <condition>(<expr><name><name>this</name>.<name>storedBlockCRC</name></name> != <name><name>this</name>.<name>computedBlockCRC</name></name></expr>)</condition><then> <block>{
+            <comment type="line">// make next blocks readable without error</comment>
+            <comment type="line">// (repair feature, not yet documented, not tested)</comment>
+            <expr_stmt><expr><name><name>this</name>.<name>computedCombinedCRC</name></name>
+                = (<name><name>this</name>.<name>storedCombinedCRC</name></name> &lt;&lt; 1)
+                | (<name><name>this</name>.<name>storedCombinedCRC</name></name> &gt;&gt;&gt; 31)</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>computedCombinedCRC</name></name> ^= <name><name>this</name>.<name>storedBlockCRC</name></name></expr>;</expr_stmt>
+
+            <expr_stmt><expr><call><name>reportCRCError</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><name><name>this</name>.<name>computedCombinedCRC</name></name>
+            = (<name><name>this</name>.<name>computedCombinedCRC</name></name> &lt;&lt; 1)
+            | (<name><name>this</name>.<name>computedCombinedCRC</name></name> &gt;&gt;&gt; 31)</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>computedCombinedCRC</name></name> ^= <name><name>this</name>.<name>computedBlockCRC</name></name></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>complete</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>storedCombinedCRC</name></name> = <call><name>bsGetInt</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>currentState</name></name> = <name>EOF</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>data</name></name> = <name>null</name></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name><name>this</name>.<name>storedCombinedCRC</name></name> != <name><name>this</name>.<name>computedCombinedCRC</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>reportCRCError</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// Look for the next .bz2 stream if decompressing</comment>
+        <comment type="line">// concatenated files.</comment>
+        <return>return <expr>!<name>decompressConcatenated</name> || !<call><name>init</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <function><type><annotation>@<name>Override</name></annotation>
+    <specifier>public</specifier> <name>void</name></type> <name>close</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>InputStream</name></type> <name>inShadow</name> =<init> <expr><name><name>this</name>.<name>in</name></name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>inShadow</name> != <name>null</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <if>if <condition>(<expr><name>inShadow</name> != <name><name>System</name>.<name>in</name></name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>inShadow</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block> <finally>finally <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>data</name></name> = <name>null</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name><name>this</name>.<name>in</name></name> = <name>null</name></expr>;</expr_stmt>
+            }</block></finally></try>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>int</name></type> <name>bsR</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>int</name></type> <name>n</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>bsLiveShadow</name> =<init> <expr><name><name>this</name>.<name>bsLive</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>bsBuffShadow</name> =<init> <expr><name><name>this</name>.<name>bsBuff</name></name></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>bsLiveShadow</name> &lt; <name>n</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>InputStream</name></type> <name>inShadow</name> =<init> <expr><name><name>this</name>.<name>in</name></name></expr></init></decl>;</decl_stmt>
+            <do>do <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>thech</name> =<init> <expr><call><name><name>inShadow</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><name>thech</name> &lt; 0</expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"unexpected end of stream"</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+
+                <expr_stmt><expr><name>bsBuffShadow</name> = (<name>bsBuffShadow</name> &lt;&lt; 8) | <name>thech</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>bsLiveShadow</name> += 8</expr>;</expr_stmt>
+            }</block> while <condition>(<expr><name>bsLiveShadow</name> &lt; <name>n</name></expr>)</condition>;</do>
+
+            <expr_stmt><expr><name><name>this</name>.<name>bsBuff</name></name> = <name>bsBuffShadow</name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><name><name>this</name>.<name>bsLive</name></name> = <name>bsLiveShadow</name> - <name>n</name></expr>;</expr_stmt>
+        <return>return <expr>(<name>bsBuffShadow</name> &gt;&gt; (<name>bsLiveShadow</name> - <name>n</name>)) &amp; ((1 &lt;&lt; <name>n</name>) - 1)</expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>bsGetBit</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>bsLiveShadow</name> =<init> <expr><name><name>this</name>.<name>bsLive</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>bsBuffShadow</name> =<init> <expr><name><name>this</name>.<name>bsBuff</name></name></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>bsLiveShadow</name> &lt; 1</expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>thech</name> =<init> <expr><call><name><name>this</name>.<name>in</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>thech</name> &lt; 0</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"unexpected end of stream"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <expr_stmt><expr><name>bsBuffShadow</name> = (<name>bsBuffShadow</name> &lt;&lt; 8) | <name>thech</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>bsLiveShadow</name> += 8</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>bsBuff</name></name> = <name>bsBuffShadow</name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><name><name>this</name>.<name>bsLive</name></name> = <name>bsLiveShadow</name> - 1</expr>;</expr_stmt>
+        <return>return <expr>((<name>bsBuffShadow</name> &gt;&gt; (<name>bsLiveShadow</name> - 1)) &amp; 1) != 0</expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>char</name></type> <name>bsGetUByte</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <return>return <expr>(<name>char</name>) <call><name>bsR</name><argument_list>(<argument><expr>8</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>int</name></type> <name>bsGetInt</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <return>return <expr>(((((<call><name>bsR</name><argument_list>(<argument><expr>8</expr></argument>)</argument_list></call> &lt;&lt; 8) | <call><name>bsR</name><argument_list>(<argument><expr>8</expr></argument>)</argument_list></call>) &lt;&lt; 8) | <call><name>bsR</name><argument_list>(<argument><expr>8</expr></argument>)</argument_list></call>) &lt;&lt; 8) | <call><name>bsR</name><argument_list>(<argument><expr>8</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Called by createHuffmanDecodingTables() exclusively.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>hbCreateDecodeTables</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name><name>int</name><index>[]</index></name></type> <name>limit</name></decl></param>,
+                                             <param><decl><type><specifier>final</specifier> <name><name>int</name><index>[]</index></name></type> <name>base</name></decl></param>,
+                                             <param><decl><type><specifier>final</specifier> <name><name>int</name><index>[]</index></name></type> <name>perm</name></decl></param>,
+                                             <param><decl><type><specifier>final</specifier> <name><name>char</name><index>[]</index></name></type> <name>length</name></decl></param>,
+                                             <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>minLen</name></decl></param>,
+                                             <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>maxLen</name></decl></param>,
+                                             <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>alphaSize</name></decl></param>)</parameter_list> <block>{
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>minLen</name></expr></init>, <name>pp</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt;= <name>maxLen</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name>alphaSize</name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                <if>if <condition>(<expr><name><name>length</name><index>[<expr><name>j</name></expr>]</index></name> == <name>i</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name><name>perm</name><index>[<expr><name>pp</name>++</expr>]</index></name> = <name>j</name></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+        }</block></for>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>MAX_CODE_LEN</name></expr></init></decl>;</init> <condition><expr>--<name>i</name> &gt; 0</expr>;</condition><incr/>) <block>{
+            <expr_stmt><expr><name><name>base</name><index>[<expr><name>i</name></expr>]</index></name> = 0</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>limit</name><index>[<expr><name>i</name></expr>]</index></name> = 0</expr>;</expr_stmt>
+        }</block></for>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>alphaSize</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name><name>base</name><index>[<expr><name><name>length</name><index>[<expr><name>i</name></expr>]</index></name> + 1</expr>]</index></name>++</expr>;</expr_stmt>
+        }</block></for>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>1</expr></init>, <name>b</name> =<init> <expr><name><name>base</name><index>[<expr>0</expr>]</index></name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>MAX_CODE_LEN</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name>b</name> += <name><name>base</name><index>[<expr><name>i</name></expr>]</index></name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>base</name><index>[<expr><name>i</name></expr>]</index></name> = <name>b</name></expr>;</expr_stmt>
+        }</block></for>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>minLen</name></expr></init>, <name>vec</name> =<init> <expr>0</expr></init>, <name>b</name> =<init> <expr><name><name>base</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt;= <name>maxLen</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>nb</name> =<init> <expr><name><name>base</name><index>[<expr><name>i</name> + 1</expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>vec</name> += <name>nb</name> - <name>b</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>b</name> = <name>nb</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>limit</name><index>[<expr><name>i</name></expr>]</index></name> = <name>vec</name> - 1</expr>;</expr_stmt>
+            <expr_stmt><expr><name>vec</name> &lt;&lt;= 1</expr>;</expr_stmt>
+        }</block></for>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>minLen</name> + 1</expr></init></decl>;</init> <condition><expr><name>i</name> &lt;= <name>maxLen</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name><name>base</name><index>[<expr><name>i</name></expr>]</index></name> = ((<name><name>limit</name><index>[<expr><name>i</name> - 1</expr>]</index></name> + 1) &lt;&lt; 1) - <name><name>base</name><index>[<expr><name>i</name></expr>]</index></name></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>recvDecodingTables</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Data</name></type> <name>dataShadow</name>     =<init> <expr><name><name>this</name>.<name>data</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>boolean</name><index>[]</index></type> <name>inUse</name>     =<init> <expr><name><name>dataShadow</name>.<name>inUse</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>pos</name>          =<init> <expr><name><name>dataShadow</name>.<name>recvDecodingTables_pos</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>selector</name>     =<init> <expr><name><name>dataShadow</name>.<name>selector</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>selectorMtf</name>  =<init> <expr><name><name>dataShadow</name>.<name>selectorMtf</name></name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>inUse16</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <comment type="block">/* Receive the mapping table */</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; 16</expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><call><name>bsGetBit</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>inUse16</name> |= 1 &lt;&lt; <name>i</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>256</expr></init></decl>;</init> <condition><expr>--<name>i</name> &gt;= 0</expr>;</condition><incr/>) <block>{
+            <expr_stmt><expr><name><name>inUse</name><index>[<expr><name>i</name></expr>]</index></name> = false</expr>;</expr_stmt>
+        }</block></for>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; 16</expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr>(<name>inUse16</name> &amp; (1 &lt;&lt; <name>i</name>)) != 0</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>i16</name> =<init> <expr><name>i</name> &lt;&lt; 4</expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; 16</expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                    <if>if <condition>(<expr><call><name>bsGetBit</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name><name>inUse</name><index>[<expr><name>i16</name> + <name>j</name></expr>]</index></name> = true</expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></for>
+            }</block></then></if>
+        }</block></for>
+
+        <expr_stmt><expr><call><name>makeMaps</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>alphaSize</name> =<init> <expr><name><name>this</name>.<name>nInUse</name></name> + 2</expr></init></decl>;</decl_stmt>
+
+        <comment type="block">/* Now the selectors */</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>nGroups</name> =<init> <expr><call><name>bsR</name><argument_list>(<argument><expr>3</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>nSelectors</name> =<init> <expr><call><name>bsR</name><argument_list>(<argument><expr>15</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>nSelectors</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name>bsGetBit</name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <expr_stmt><expr><name>j</name>++</expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><name><name>selectorMtf</name><index>[<expr><name>i</name></expr>]</index></name> = (<name>byte</name>) <name>j</name></expr>;</expr_stmt>
+        }</block></for>
+
+        <comment type="block">/* Undo the MTF values for the selectors. */</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>v</name> =<init> <expr><name>nGroups</name></expr></init></decl>;</init> <condition><expr>--<name>v</name> &gt;= 0</expr>;</condition><incr/>) <block>{
+            <expr_stmt><expr><name><name>pos</name><index>[<expr><name>v</name></expr>]</index></name> = (<name>byte</name>) <name>v</name></expr>;</expr_stmt>
+        }</block></for>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>nSelectors</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>v</name> =<init> <expr><name><name>selectorMtf</name><index>[<expr><name>i</name></expr>]</index></name> &amp; 0xff</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name></type> <name>tmp</name> =<init> <expr><name><name>pos</name><index>[<expr><name>v</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><name>v</name> &gt; 0</expr>)</condition> <block>{
+                <comment type="line">// nearly all times v is zero, 4 in most other cases</comment>
+                <expr_stmt><expr><name><name>pos</name><index>[<expr><name>v</name></expr>]</index></name> = <name><name>pos</name><index>[<expr><name>v</name> - 1</expr>]</index></name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>v</name>--</expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><name><name>pos</name><index>[<expr>0</expr>]</index></name> = <name>tmp</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>selector</name><index>[<expr><name>i</name></expr>]</index></name> = <name>tmp</name></expr>;</expr_stmt>
+        }</block></for>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>char</name><index>[]</index><index>[]</index></type> <name>len</name>  =<init> <expr><name><name>dataShadow</name>.<name>temp_charArray2d</name></name></expr></init></decl>;</decl_stmt>
+
+        <comment type="block">/* Now the coding tables */</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>t</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>t</name> &lt; <name>nGroups</name></expr>;</condition> <incr><expr><name>t</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>curr</name> =<init> <expr><call><name>bsR</name><argument_list>(<argument><expr>5</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>char</name><index>[]</index></type> <name>len_t</name> =<init> <expr><name><name>len</name><index>[<expr><name>t</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>alphaSize</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <while>while <condition>(<expr><call><name>bsGetBit</name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                    <expr_stmt><expr><name>curr</name> += <call><name>bsGetBit</name><argument_list>()</argument_list></call> ? -1 : 1</expr>;</expr_stmt>
+                }</block></while>
+                <expr_stmt><expr><name><name>len_t</name><index>[<expr><name>i</name></expr>]</index></name> = (<name>char</name>) <name>curr</name></expr>;</expr_stmt>
+            }</block></for>
+        }</block></for>
+
+        <comment type="line">// finally create the Huffman tables</comment>
+        <expr_stmt><expr><call><name>createHuffmanDecodingTables</name><argument_list>(<argument><expr><name>alphaSize</name></expr></argument>, <argument><expr><name>nGroups</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Called by recvDecodingTables() exclusively.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>createHuffmanDecodingTables</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>int</name></type> <name>alphaSize</name></decl></param>,
+                                             <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>nGroups</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Data</name></type> <name>dataShadow</name> =<init> <expr><name><name>this</name>.<name>data</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>char</name><index>[]</index><index>[]</index></type> <name>len</name>  =<init> <expr><name><name>dataShadow</name>.<name>temp_charArray2d</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index></type> <name>minLens</name> =<init> <expr><name><name>dataShadow</name>.<name>minLens</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index><index>[]</index></type> <name>limit</name> =<init> <expr><name><name>dataShadow</name>.<name>limit</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index><index>[]</index></type> <name>base</name>  =<init> <expr><name><name>dataShadow</name>.<name>base</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index><index>[]</index></type> <name>perm</name>  =<init> <expr><name><name>dataShadow</name>.<name>perm</name></name></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>t</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>t</name> &lt; <name>nGroups</name></expr>;</condition> <incr><expr><name>t</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>minLen</name> =<init> <expr>32</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>maxLen</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>char</name><index>[]</index></type> <name>len_t</name> =<init> <expr><name><name>len</name><index>[<expr><name>t</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>alphaSize</name></expr></init></decl>;</init> <condition><expr>--<name>i</name> &gt;= 0</expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><specifier>final</specifier> <name>char</name></type> <name>lent</name> =<init> <expr><name><name>len_t</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>lent</name> &gt; <name>maxLen</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>maxLen</name> = <name>lent</name></expr>;</expr_stmt>
+                }</block></then></if>
+                <if>if <condition>(<expr><name>lent</name> &lt; <name>minLen</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>minLen</name> = <name>lent</name></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+            <expr_stmt><expr><call><name>hbCreateDecodeTables</name><argument_list>(<argument><expr><name><name>limit</name><index>[<expr><name>t</name></expr>]</index></name></expr></argument>, <argument><expr><name><name>base</name><index>[<expr><name>t</name></expr>]</index></name></expr></argument>, <argument><expr><name><name>perm</name><index>[<expr><name>t</name></expr>]</index></name></expr></argument>, <argument><expr><name><name>len</name><index>[<expr><name>t</name></expr>]</index></name></expr></argument>, <argument><expr><name>minLen</name></expr></argument>,
+                                 <argument><expr><name>maxLen</name></expr></argument>, <argument><expr><name>alphaSize</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>minLens</name><index>[<expr><name>t</name></expr>]</index></name> = <name>minLen</name></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>getAndMoveToFrontDecode</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>origPtr</name></name> = <call><name>bsR</name><argument_list>(<argument><expr>24</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>recvDecodingTables</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>InputStream</name></type> <name>inShadow</name> =<init> <expr><name><name>this</name>.<name>in</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Data</name></type> <name>dataShadow</name>   =<init> <expr><name><name>this</name>.<name>data</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>ll8</name>        =<init> <expr><name><name>dataShadow</name>.<name>ll8</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index></type> <name>unzftab</name>     =<init> <expr><name><name>dataShadow</name>.<name>unzftab</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>selector</name>   =<init> <expr><name><name>dataShadow</name>.<name>selector</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>seqToUnseq</name> =<init> <expr><name><name>dataShadow</name>.<name>seqToUnseq</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>char</name><index>[]</index></type> <name>yy</name>         =<init> <expr><name><name>dataShadow</name>.<name>getAndMoveToFrontDecode_yy</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index></type> <name>minLens</name>     =<init> <expr><name><name>dataShadow</name>.<name>minLens</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index><index>[]</index></type> <name>limit</name>     =<init> <expr><name><name>dataShadow</name>.<name>limit</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index><index>[]</index></type> <name>base</name>      =<init> <expr><name><name>dataShadow</name>.<name>base</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index><index>[]</index></type> <name>perm</name>      =<init> <expr><name><name>dataShadow</name>.<name>perm</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>limitLast</name>     =<init> <expr><name><name>this</name>.<name>blockSize100k</name></name> * 100000</expr></init></decl>;</decl_stmt>
+
+        <comment type="block">/*
+          Setting up the unzftab entries here is not strictly
+          necessary, but it does save having to do it later
+          in a separate pass, and so saves a block's worth of
+          cache misses.
+        */</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>256</expr></init></decl>;</init> <condition><expr>--<name>i</name> &gt;= 0</expr>;</condition><incr/>) <block>{
+            <expr_stmt><expr><name><name>yy</name><index>[<expr><name>i</name></expr>]</index></name> = (<name>char</name>) <name>i</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>unzftab</name><index>[<expr><name>i</name></expr>]</index></name> = 0</expr>;</expr_stmt>
+        }</block></for>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>groupNo</name>     =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>groupPos</name>    =<init> <expr><name>G_SIZE</name> - 1</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>eob</name>   =<init> <expr><name><name>this</name>.<name>nInUse</name></name> + 1</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>nextSym</name>     =<init> <expr><call><name>getAndMoveToFrontDecode0</name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>bsBuffShadow</name>      =<init> <expr><name><name>this</name>.<name>bsBuff</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>bsLiveShadow</name>      =<init> <expr><name><name>this</name>.<name>bsLive</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>lastShadow</name>        =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>zt</name>          =<init> <expr><name><name>selector</name><index>[<expr><name>groupNo</name></expr>]</index></name> &amp; 0xff</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>base_zt</name>   =<init> <expr><name><name>base</name><index>[<expr><name>zt</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>limit_zt</name>  =<init> <expr><name><name>limit</name><index>[<expr><name>zt</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>perm_zt</name>   =<init> <expr><name><name>perm</name><index>[<expr><name>zt</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>minLens_zt</name>  =<init> <expr><name><name>minLens</name><index>[<expr><name>zt</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+        <while>while <condition>(<expr><name>nextSym</name> != <name>eob</name></expr>)</condition> <block>{
+            <if>if <condition>(<expr>(<name>nextSym</name> == <name>RUNA</name>) || (<name>nextSym</name> == <name>RUNB</name>)</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>s</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+
+                <for>for (<init><decl><type><name>int</name></type> <name>n</name> =<init> <expr>1</expr></init></decl>;</init> <condition><expr>true</expr>;</condition> <incr><expr><name>n</name> &lt;&lt;= 1</expr></incr>) <block>{
+                    <if>if <condition>(<expr><name>nextSym</name> == <name>RUNA</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>s</name> += <name>n</name></expr>;</expr_stmt>
+                    }</block></then> <else>else <if>if <condition>(<expr><name>nextSym</name> == <name>RUNB</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>s</name> += <name>n</name> &lt;&lt; 1</expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <break>break;</break>
+                    }</block></else></if></else></if>
+
+                    <if>if <condition>(<expr><name>groupPos</name> == 0</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>groupPos</name>    = <name>G_SIZE</name> - 1</expr>;</expr_stmt>
+                        <expr_stmt><expr><name>zt</name>          = <name><name>selector</name><index>[<expr>++<name>groupNo</name></expr>]</index></name> &amp; 0xff</expr>;</expr_stmt>
+                        <expr_stmt><expr><name>base_zt</name>     = <name><name>base</name><index>[<expr><name>zt</name></expr>]</index></name></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>limit_zt</name>    = <name><name>limit</name><index>[<expr><name>zt</name></expr>]</index></name></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>perm_zt</name>     = <name><name>perm</name><index>[<expr><name>zt</name></expr>]</index></name></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>minLens_zt</name>  = <name><name>minLens</name><index>[<expr><name>zt</name></expr>]</index></name></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><name>groupPos</name>--</expr>;</expr_stmt>
+                    }</block></else></if>
+
+                    <decl_stmt><decl><type><name>int</name></type> <name>zn</name> =<init> <expr><name>minLens_zt</name></expr></init></decl>;</decl_stmt>
+
+                    <comment type="line">// Inlined:</comment>
+                    <comment type="line">// int zvec = bsR(zn);</comment>
+                    <while>while <condition>(<expr><name>bsLiveShadow</name> &lt; <name>zn</name></expr>)</condition> <block>{
+                        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>thech</name> =<init> <expr><call><name><name>inShadow</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr><name>thech</name> &gt;= 0</expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>bsBuffShadow</name> = (<name>bsBuffShadow</name> &lt;&lt; 8) | <name>thech</name></expr>;</expr_stmt>
+                            <expr_stmt><expr><name>bsLiveShadow</name> += 8</expr>;</expr_stmt>
+                            <continue>continue;</continue>
+                        }</block></then> <else>else <block>{
+                            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"unexpected end of stream"</expr></argument>)</argument_list></call></expr>;</throw>
+                        }</block></else></if>
+                    }</block></while>
+                    <decl_stmt><decl><type><name>int</name></type> <name>zvec</name> =<init> <expr>(<name>bsBuffShadow</name> &gt;&gt; (<name>bsLiveShadow</name> - <name>zn</name>)) &amp; ((1 &lt;&lt; <name>zn</name>) - 1)</expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><name>bsLiveShadow</name> -= <name>zn</name></expr>;</expr_stmt>
+
+                    <while>while <condition>(<expr><name>zvec</name> &gt; <name><name>limit_zt</name><index>[<expr><name>zn</name></expr>]</index></name></expr>)</condition> <block>{
+                        <expr_stmt><expr><name>zn</name>++</expr>;</expr_stmt>
+                        <while>while <condition>(<expr><name>bsLiveShadow</name> &lt; 1</expr>)</condition> <block>{
+                            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>thech</name> =<init> <expr><call><name><name>inShadow</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                            <if>if <condition>(<expr><name>thech</name> &gt;= 0</expr>)</condition><then> <block>{
+                                <expr_stmt><expr><name>bsBuffShadow</name> = (<name>bsBuffShadow</name> &lt;&lt; 8) | <name>thech</name></expr>;</expr_stmt>
+                                <expr_stmt><expr><name>bsLiveShadow</name> += 8</expr>;</expr_stmt>
+                                <continue>continue;</continue>
+                            }</block></then> <else>else <block>{
+                                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"unexpected end of stream"</expr></argument>)</argument_list></call></expr>;</throw>
+                            }</block></else></if>
+                        }</block></while>
+                        <expr_stmt><expr><name>bsLiveShadow</name>--</expr>;</expr_stmt>
+                        <expr_stmt><expr><name>zvec</name> = (<name>zvec</name> &lt;&lt; 1) | ((<name>bsBuffShadow</name> &gt;&gt; <name>bsLiveShadow</name>) &amp; 1)</expr>;</expr_stmt>
+                    }</block></while>
+                    <expr_stmt><expr><name>nextSym</name> = <name><name>perm_zt</name><index>[<expr><name>zvec</name> - <name><name>base_zt</name><index>[<expr><name>zn</name></expr>]</index></name></expr>]</index></name></expr>;</expr_stmt>
+                }</block></for>
+
+                <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name></type> <name>ch</name> =<init> <expr><name><name>seqToUnseq</name><index>[<expr><name><name>yy</name><index>[<expr>0</expr>]</index></name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name><name>unzftab</name><index>[<expr><name>ch</name> &amp; 0xff</expr>]</index></name> += <name>s</name> + 1</expr>;</expr_stmt>
+
+                <while>while <condition>(<expr><name>s</name>-- &gt;= 0</expr>)</condition> <block>{
+                    <expr_stmt><expr><name><name>ll8</name><index>[<expr>++<name>lastShadow</name></expr>]</index></name> = <name>ch</name></expr>;</expr_stmt>
+                }</block></while>
+
+                <if>if <condition>(<expr><name>lastShadow</name> &gt;= <name>limitLast</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"block overrun"</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+            }</block></then> <else>else <block>{
+                <if>if <condition>(<expr>++<name>lastShadow</name> &gt;= <name>limitLast</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"block overrun"</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+
+                <decl_stmt><decl><type><specifier>final</specifier> <name>char</name></type> <name>tmp</name> =<init> <expr><name><name>yy</name><index>[<expr><name>nextSym</name> - 1</expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name><name>unzftab</name><index>[<expr><name><name>seqToUnseq</name><index>[<expr><name>tmp</name></expr>]</index></name> &amp; 0xff</expr>]</index></name>++</expr>;</expr_stmt>
+                <expr_stmt><expr><name><name>ll8</name><index>[<expr><name>lastShadow</name></expr>]</index></name> = <name><name>seqToUnseq</name><index>[<expr><name>tmp</name></expr>]</index></name></expr>;</expr_stmt>
+
+                <comment type="block">/*
+                  This loop is hammered during decompression,
+                  hence avoid native method call overhead of
+                  System.arraycopy for very small ranges to copy.
+                */</comment>
+                <if>if <condition>(<expr><name>nextSym</name> &lt;= 16</expr>)</condition><then> <block>{
+                    <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr><name>nextSym</name> - 1</expr></init></decl>;</init> <condition><expr><name>j</name> &gt; 0</expr>;</condition><incr/>) <block>{
+                        <expr_stmt><expr><name><name>yy</name><index>[<expr><name>j</name></expr>]</index></name> = <name><name>yy</name><index>[<expr>--<name>j</name></expr>]</index></name></expr>;</expr_stmt>
+                    }</block></for>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>yy</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>yy</name></expr></argument>, <argument><expr>1</expr></argument>, <argument><expr><name>nextSym</name> - 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+
+                <expr_stmt><expr><name><name>yy</name><index>[<expr>0</expr>]</index></name> = <name>tmp</name></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><name>groupPos</name> == 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>groupPos</name>    = <name>G_SIZE</name> - 1</expr>;</expr_stmt>
+                    <expr_stmt><expr><name>zt</name>          = <name><name>selector</name><index>[<expr>++<name>groupNo</name></expr>]</index></name> &amp; 0xff</expr>;</expr_stmt>
+                    <expr_stmt><expr><name>base_zt</name>     = <name><name>base</name><index>[<expr><name>zt</name></expr>]</index></name></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>limit_zt</name>    = <name><name>limit</name><index>[<expr><name>zt</name></expr>]</index></name></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>perm_zt</name>     = <name><name>perm</name><index>[<expr><name>zt</name></expr>]</index></name></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>minLens_zt</name>  = <name><name>minLens</name><index>[<expr><name>zt</name></expr>]</index></name></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>groupPos</name>--</expr>;</expr_stmt>
+                }</block></else></if>
+
+                <decl_stmt><decl><type><name>int</name></type> <name>zn</name> =<init> <expr><name>minLens_zt</name></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// Inlined:</comment>
+                <comment type="line">// int zvec = bsR(zn);</comment>
+                <while>while <condition>(<expr><name>bsLiveShadow</name> &lt; <name>zn</name></expr>)</condition> <block>{
+                    <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>thech</name> =<init> <expr><call><name><name>inShadow</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>thech</name> &gt;= 0</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>bsBuffShadow</name> = (<name>bsBuffShadow</name> &lt;&lt; 8) | <name>thech</name></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>bsLiveShadow</name> += 8</expr>;</expr_stmt>
+                        <continue>continue;</continue>
+                    }</block></then> <else>else <block>{
+                        <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"unexpected end of stream"</expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></else></if>
+                }</block></while>
+                <decl_stmt><decl><type><name>int</name></type> <name>zvec</name> =<init> <expr>(<name>bsBuffShadow</name> &gt;&gt; (<name>bsLiveShadow</name> - <name>zn</name>)) &amp; ((1 &lt;&lt; <name>zn</name>) - 1)</expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>bsLiveShadow</name> -= <name>zn</name></expr>;</expr_stmt>
+
+                <while>while <condition>(<expr><name>zvec</name> &gt; <name><name>limit_zt</name><index>[<expr><name>zn</name></expr>]</index></name></expr>)</condition> <block>{
+                    <expr_stmt><expr><name>zn</name>++</expr>;</expr_stmt>
+                    <while>while <condition>(<expr><name>bsLiveShadow</name> &lt; 1</expr>)</condition> <block>{
+                        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>thech</name> =<init> <expr><call><name><name>inShadow</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr><name>thech</name> &gt;= 0</expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>bsBuffShadow</name> = (<name>bsBuffShadow</name> &lt;&lt; 8) | <name>thech</name></expr>;</expr_stmt>
+                            <expr_stmt><expr><name>bsLiveShadow</name> += 8</expr>;</expr_stmt>
+                            <continue>continue;</continue>
+                        }</block></then> <else>else <block>{
+                            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"unexpected end of stream"</expr></argument>)</argument_list></call></expr>;</throw>
+                        }</block></else></if>
+                    }</block></while>
+                    <expr_stmt><expr><name>bsLiveShadow</name>--</expr>;</expr_stmt>
+                    <expr_stmt><expr><name>zvec</name> = (<name>zvec</name> &lt;&lt; 1) | ((<name>bsBuffShadow</name> &gt;&gt; <name>bsLiveShadow</name>) &amp; 1)</expr>;</expr_stmt>
+                }</block></while>
+                <expr_stmt><expr><name>nextSym</name> = <name><name>perm_zt</name><index>[<expr><name>zvec</name> - <name><name>base_zt</name><index>[<expr><name>zn</name></expr>]</index></name></expr>]</index></name></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></while>
+
+        <expr_stmt><expr><name><name>this</name>.<name>last</name></name> = <name>lastShadow</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>bsLive</name></name> = <name>bsLiveShadow</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>bsBuff</name></name> = <name>bsBuffShadow</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>int</name></type> <name>getAndMoveToFrontDecode0</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>int</name></type> <name>groupNo</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>InputStream</name></type> <name>inShadow</name>  =<init> <expr><name><name>this</name>.<name>in</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>Data</name></type> <name>dataShadow</name>  =<init> <expr><name><name>this</name>.<name>data</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>zt</name>          =<init> <expr><name><name>dataShadow</name>.<name>selector</name><index>[<expr><name>groupNo</name></expr>]</index></name> &amp; 0xff</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index></type> <name>limit_zt</name>  =<init> <expr><name><name>dataShadow</name>.<name>limit</name><index>[<expr><name>zt</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>zn</name> =<init> <expr><name><name>dataShadow</name>.<name>minLens</name><index>[<expr><name>zt</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>zvec</name> =<init> <expr><call><name>bsR</name><argument_list>(<argument><expr><name>zn</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>bsLiveShadow</name> =<init> <expr><name><name>this</name>.<name>bsLive</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>bsBuffShadow</name> =<init> <expr><name><name>this</name>.<name>bsBuff</name></name></expr></init></decl>;</decl_stmt>
+
+        <while>while <condition>(<expr><name>zvec</name> &gt; <name><name>limit_zt</name><index>[<expr><name>zn</name></expr>]</index></name></expr>)</condition> <block>{
+            <expr_stmt><expr><name>zn</name>++</expr>;</expr_stmt>
+            <while>while <condition>(<expr><name>bsLiveShadow</name> &lt; 1</expr>)</condition> <block>{
+                <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>thech</name> =<init> <expr><call><name><name>inShadow</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><name>thech</name> &gt;= 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>bsBuffShadow</name> = (<name>bsBuffShadow</name> &lt;&lt; 8) | <name>thech</name></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>bsLiveShadow</name> += 8</expr>;</expr_stmt>
+                    <continue>continue;</continue>
+                }</block></then> <else>else <block>{
+                    <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"unexpected end of stream"</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></else></if>
+            }</block></while>
+            <expr_stmt><expr><name>bsLiveShadow</name>--</expr>;</expr_stmt>
+            <expr_stmt><expr><name>zvec</name> = (<name>zvec</name> &lt;&lt; 1) | ((<name>bsBuffShadow</name> &gt;&gt; <name>bsLiveShadow</name>) &amp; 1)</expr>;</expr_stmt>
+        }</block></while>
+
+        <expr_stmt><expr><name><name>this</name>.<name>bsLive</name></name> = <name>bsLiveShadow</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>bsBuff</name></name> = <name>bsBuffShadow</name></expr>;</expr_stmt>
+
+        <return>return <expr><name><name>dataShadow</name>.<name>perm</name><index>[<expr><name>zt</name></expr>]</index><index>[<expr><name>zvec</name> - <name><name>dataShadow</name>.<name>base</name><index>[<expr><name>zt</name></expr>]</index><index>[<expr><name>zn</name></expr>]</index></name></expr>]</index></name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setupBlock</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>data</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index></type> <name>cftab</name> =<init> <expr><name><name>this</name>.<name>data</name>.<name>cftab</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index></type> <name>tt</name>    =<init> <expr><call><name><name>this</name>.<name>data</name>.<name>initTT</name></name><argument_list>(<argument><expr><name><name>this</name>.<name>last</name></name> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>ll8</name>  =<init> <expr><name><name>this</name>.<name>data</name>.<name>ll8</name></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name><name>cftab</name><index>[<expr>0</expr>]</index></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name><name>this</name>.<name>data</name>.<name>unzftab</name></name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>cftab</name></expr></argument>, <argument><expr>1</expr></argument>, <argument><expr>256</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>1</expr></init>, <name>c</name> =<init> <expr><name><name>cftab</name><index>[<expr>0</expr>]</index></name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt;= 256</expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name>c</name> += <name><name>cftab</name><index>[<expr><name>i</name></expr>]</index></name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>cftab</name><index>[<expr><name>i</name></expr>]</index></name> = <name>c</name></expr>;</expr_stmt>
+        }</block></for>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init>, <name>lastShadow</name> =<init> <expr><name><name>this</name>.<name>last</name></name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt;= <name>lastShadow</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name><name>tt</name><index>[<expr><name><name>cftab</name><index>[<expr><name><name>ll8</name><index>[<expr><name>i</name></expr>]</index></name> &amp; 0xff</expr>]</index></name>++</expr>]</index></name> = <name>i</name></expr>;</expr_stmt>
+        }</block></for>
+
+        <if>if <condition>(<expr>(<name><name>this</name>.<name>origPtr</name></name> &lt; 0) || (<name><name>this</name>.<name>origPtr</name></name> &gt;= <name><name>tt</name>.<name>length</name></name>)</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"stream corrupted"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><name><name>this</name>.<name>su_tPos</name></name> = <name><name>tt</name><index>[<expr><name><name>this</name>.<name>origPtr</name></name></expr>]</index></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>su_count</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>su_i2</name></name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>su_ch2</name></name> = 256</expr>;</expr_stmt>   <comment type="block">/* not a char and not EOF */</comment>
+
+        <if>if <condition>(<expr><name><name>this</name>.<name>blockRandomised</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>su_rNToGo</name></name> = 0</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_rTPos</name></name> = 0</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setupRandPartA</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>setupNoRandPartA</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setupRandPartA</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>su_i2</name></name> &lt;= <name><name>this</name>.<name>last</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>su_chPrev</name></name> = <name><name>this</name>.<name>su_ch2</name></name></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>su_ch2Shadow</name> =<init> <expr><name><name>this</name>.<name>data</name>.<name>ll8</name><index>[<expr><name><name>this</name>.<name>su_tPos</name></name></expr>]</index></name> &amp; 0xff</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_tPos</name></name> = <name><name>this</name>.<name>data</name>.<name>tt</name><index>[<expr><name><name>this</name>.<name>su_tPos</name></name></expr>]</index></name></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name><name>this</name>.<name>su_rNToGo</name></name> == 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>su_rNToGo</name></name> = <name><name>BZip2Constants</name>.<name>rNums</name><index>[<expr><name><name>this</name>.<name>su_rTPos</name></name></expr>]</index></name> - 1</expr>;</expr_stmt>
+                <if>if <condition>(<expr>++<name><name>this</name>.<name>su_rTPos</name></name> == 512</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name><name>this</name>.<name>su_rTPos</name></name> = 0</expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>su_rNToGo</name></name>--</expr>;</expr_stmt>
+            }</block></else></if>
+            <expr_stmt><expr><name><name>this</name>.<name>su_ch2</name></name> = <name>su_ch2Shadow</name> ^= (<name><name>this</name>.<name>su_rNToGo</name></name> == 1) ? 1 : 0</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_i2</name></name>++</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>currentChar</name></name> = <name>su_ch2Shadow</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>currentState</name></name> = <name>RAND_PART_B_STATE</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>this</name>.<name>crc</name>.<name>updateCRC</name></name><argument_list>(<argument><expr><name>su_ch2Shadow</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>endBlock</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>initBlock</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setupBlock</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setupNoRandPartA</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>su_i2</name></name> &lt;= <name><name>this</name>.<name>last</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>su_chPrev</name></name> = <name><name>this</name>.<name>su_ch2</name></name></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>su_ch2Shadow</name> =<init> <expr><name><name>this</name>.<name>data</name>.<name>ll8</name><index>[<expr><name><name>this</name>.<name>su_tPos</name></name></expr>]</index></name> &amp; 0xff</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_ch2</name></name> = <name>su_ch2Shadow</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_tPos</name></name> = <name><name>this</name>.<name>data</name>.<name>tt</name><index>[<expr><name><name>this</name>.<name>su_tPos</name></name></expr>]</index></name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_i2</name></name>++</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>currentChar</name></name> = <name>su_ch2Shadow</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>currentState</name></name> = <name>NO_RAND_PART_B_STATE</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>this</name>.<name>crc</name>.<name>updateCRC</name></name><argument_list>(<argument><expr><name>su_ch2Shadow</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>currentState</name></name> = <name>NO_RAND_PART_A_STATE</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>endBlock</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>initBlock</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setupBlock</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setupRandPartB</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>su_ch2</name></name> != <name><name>this</name>.<name>su_chPrev</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>currentState</name></name> = <name>RAND_PART_A_STATE</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_count</name></name> = 1</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setupRandPartA</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>++<name><name>this</name>.<name>su_count</name></name> &gt;= 4</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>su_z</name></name> = <call>(<name>char</name>) <argument_list>(<argument><expr><name><name>this</name>.<name>data</name>.<name>ll8</name><index>[<expr><name><name>this</name>.<name>su_tPos</name></name></expr>]</index></name> &amp; 0xff</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_tPos</name></name> = <name><name>this</name>.<name>data</name>.<name>tt</name><index>[<expr><name><name>this</name>.<name>su_tPos</name></name></expr>]</index></name></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name><name>this</name>.<name>su_rNToGo</name></name> == 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>su_rNToGo</name></name> = <name><name>BZip2Constants</name>.<name>rNums</name><index>[<expr><name><name>this</name>.<name>su_rTPos</name></name></expr>]</index></name> - 1</expr>;</expr_stmt>
+                <if>if <condition>(<expr>++<name><name>this</name>.<name>su_rTPos</name></name> == 512</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name><name>this</name>.<name>su_rTPos</name></name> = 0</expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>su_rNToGo</name></name>--</expr>;</expr_stmt>
+            }</block></else></if>
+            <expr_stmt><expr><name><name>this</name>.<name>su_j2</name></name> = 0</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>currentState</name></name> = <name>RAND_PART_C_STATE</name></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name><name>this</name>.<name>su_rNToGo</name></name> == 1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>su_z</name></name> ^= 1</expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>setupRandPartC</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>currentState</name></name> = <name>RAND_PART_A_STATE</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setupRandPartA</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if></else></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setupRandPartC</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>su_j2</name></name> &lt; <name><name>this</name>.<name>su_z</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>currentChar</name></name> = <name><name>this</name>.<name>su_ch2</name></name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>this</name>.<name>crc</name>.<name>updateCRC</name></name><argument_list>(<argument><expr><name><name>this</name>.<name>su_ch2</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_j2</name></name>++</expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>currentState</name></name> = <name>RAND_PART_A_STATE</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_i2</name></name>++</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_count</name></name> = 0</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setupRandPartA</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setupNoRandPartB</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>su_ch2</name></name> != <name><name>this</name>.<name>su_chPrev</name></name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>su_count</name></name> = 1</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setupNoRandPartA</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>++<name><name>this</name>.<name>su_count</name></name> &gt;= 4</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>su_z</name></name> = <call>(<name>char</name>) <argument_list>(<argument><expr><name><name>this</name>.<name>data</name>.<name>ll8</name><index>[<expr><name><name>this</name>.<name>su_tPos</name></name></expr>]</index></name> &amp; 0xff</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_tPos</name></name> = <name><name>this</name>.<name>data</name>.<name>tt</name><index>[<expr><name><name>this</name>.<name>su_tPos</name></name></expr>]</index></name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_j2</name></name> = 0</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setupNoRandPartC</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>setupNoRandPartA</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if></else></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setupNoRandPartC</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>su_j2</name></name> &lt; <name><name>this</name>.<name>su_z</name></name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>su_ch2Shadow</name> =<init> <expr><name><name>this</name>.<name>su_ch2</name></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>currentChar</name></name> = <name>su_ch2Shadow</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>this</name>.<name>crc</name>.<name>updateCRC</name></name><argument_list>(<argument><expr><name>su_ch2Shadow</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_j2</name></name>++</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>currentState</name></name> = <name>NO_RAND_PART_C_STATE</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>su_i2</name></name>++</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>su_count</name></name> = 0</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setupNoRandPartA</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> class <name>Data</name> <super><extends>extends <name>Object</name></extends></super> <block>{
+
+        <comment type="line">// (with blockSize 900k)</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>boolean</name><index>[]</index></type> <name>inUse</name>   =<init> <expr>new <name><name>boolean</name><index>[<expr>256</expr>]</index></name></expr></init></decl>;</decl_stmt>                                   <comment type="line">//      256 byte</comment>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>seqToUnseq</name>   =<init> <expr>new <name><name>byte</name><index>[<expr>256</expr>]</index></name></expr></init></decl>;</decl_stmt>                                    <comment type="line">//      256 byte</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>selector</name>     =<init> <expr>new <name><name>byte</name><index>[<expr><name>MAX_SELECTORS</name></expr>]</index></name></expr></init></decl>;</decl_stmt>                          <comment type="line">//    18002 byte</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>selectorMtf</name>  =<init> <expr>new <name><name>byte</name><index>[<expr><name>MAX_SELECTORS</name></expr>]</index></name></expr></init></decl>;</decl_stmt>                          <comment type="line">//    18002 byte</comment>
+
+        <comment type="javadoc">/**
+         * Freq table collected to save a pass over the data during
+         * decompression.
+         */</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index></type> <name>unzftab</name> =<init> <expr>new <name><name>int</name><index>[<expr>256</expr>]</index></name></expr></init></decl>;</decl_stmt>                                           <comment type="line">//     1024 byte</comment>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index><index>[]</index></type> <name>limit</name> =<init> <expr>new <name><name>int</name><index>[<expr><name>N_GROUPS</name></expr>]</index><index>[<expr><name>MAX_ALPHA_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>                      <comment type="line">//     6192 byte</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index><index>[]</index></type> <name>base</name>  =<init> <expr>new <name><name>int</name><index>[<expr><name>N_GROUPS</name></expr>]</index><index>[<expr><name>MAX_ALPHA_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>                      <comment type="line">//     6192 byte</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index><index>[]</index></type> <name>perm</name>  =<init> <expr>new <name><name>int</name><index>[<expr><name>N_GROUPS</name></expr>]</index><index>[<expr><name>MAX_ALPHA_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>                      <comment type="line">//     6192 byte</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index></type> <name>minLens</name> =<init> <expr>new <name><name>int</name><index>[<expr><name>N_GROUPS</name></expr>]</index></name></expr></init></decl>;</decl_stmt>                                      <comment type="line">//       24 byte</comment>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name><index>[]</index></type>     <name>cftab</name>     =<init> <expr>new <name><name>int</name><index>[<expr>257</expr>]</index></name></expr></init></decl>;</decl_stmt>                                     <comment type="line">//     1028 byte</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>char</name><index>[]</index></type>    <name>getAndMoveToFrontDecode_yy</name> =<init> <expr>new <name><name>char</name><index>[<expr>256</expr>]</index></name></expr></init></decl>;</decl_stmt>                   <comment type="line">//      512 byte</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>char</name><index>[]</index><index>[]</index></type>  <name>temp_charArray2d</name>  =<init> <expr>new <name><name>char</name><index>[<expr><name>N_GROUPS</name></expr>]</index><index>[<expr><name>MAX_ALPHA_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>       <comment type="line">//     3096 byte</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>byte</name><index>[]</index></type> <name>recvDecodingTables_pos</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>N_GROUPS</name></expr>]</index></name></expr></init></decl>;</decl_stmt>                     <comment type="line">//        6 byte</comment>
+        <comment type="line">//---------------</comment>
+        <comment type="line">//    60798 byte</comment>
+
+        <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>tt</name></decl>;</decl_stmt>                                                                     <comment type="line">//  3600000 byte</comment>
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>ll8</name></decl>;</decl_stmt>                                                                   <comment type="line">//   900000 byte</comment>
+        <comment type="line">//---------------</comment>
+        <comment type="line">//  4560782 byte</comment>
+        <comment type="line">//===============</comment>
+
+        <constructor><name>Data</name><parameter_list>(<param><decl><type><name>int</name></type> <name>blockSize100k</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><name><name>this</name>.<name>ll8</name></name> = new <name><name>byte</name><index>[<expr><name>blockSize100k</name> * <name><name>BZip2Constants</name>.<name>baseBlockSize</name></name></expr>]</index></name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Initializes the {@link #tt} array.
+         *
+         * This method is called when the required length of the array
+         * is known.  I don't initialize it at construction time to
+         * avoid unneccessary memory allocation when compressing small
+         * files.
+         */</comment>
+        <function><type><specifier>final</specifier> <name>int</name><index>[]</index></type> <name>initTT</name><parameter_list>(<param><decl><type><name>int</name></type> <name>length</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>int</name><index>[]</index></type> <name>ttShadow</name> =<init> <expr><name><name>this</name>.<name>tt</name></name></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// tt.length should always be &gt;= length, but theoretically</comment>
+            <comment type="line">// it can happen, if the compressor mixed small and large</comment>
+            <comment type="line">// blocks.  Normally only the last block will be smaller</comment>
+            <comment type="line">// than others.</comment>
+            <if>if <condition>(<expr>(<name>ttShadow</name> == <name>null</name>) || (<name><name>ttShadow</name>.<name>length</name></name> &lt; <name>length</name>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>tt</name></name> = <name>ttShadow</name> = new <name><name>int</name><index>[<expr><name>length</name></expr>]</index></name></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <return>return <expr><name>ttShadow</name></expr>;</return>
+        }</block></function>
+
+    }</block></class>
+
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>reportCRCError</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <comment type="line">// The clean way would be to throw an exception.</comment>
+        <comment type="line">//throw new IOException("crc error");</comment>
+
+        <comment type="line">// Just print a message, like the previous versions of this class did</comment>
+        <expr_stmt><expr><call><name><name>System</name>.<name>err</name>.<name>println</name></name><argument_list>(<argument><expr>"BZip2 CRC error"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+}</block></class>
+
+</unit>

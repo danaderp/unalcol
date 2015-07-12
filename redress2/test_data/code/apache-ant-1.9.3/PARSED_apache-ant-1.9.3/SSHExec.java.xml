@@ -1,0 +1,427 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ssh\SSHExec.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ssh</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>ByteArrayInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>ByteArrayOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStreamReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>StringReader</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>KeepAliveOutputStream</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>TeeOutputStream</name></name>;</import>
+
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>ChannelExec</name></name>;</import>
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>JSchException</name></name>;</import>
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>Session</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Executes a command on a remote machine via ssh.
+ * @since     Ant 1.6 (created February 2, 2003)
+ */</comment>
+<class><specifier>public</specifier> class <name>SSHExec</name> <super><extends>extends <name>SSHBase</name></extends></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUFFER_SIZE</name> =<init> <expr>8192</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>RETRY_INTERVAL</name> =<init> <expr>500</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** the command to execute via ssh */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>command</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** units are milliseconds, default is 0=infinite */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>maxwait</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** for waiting for the command to finish */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Thread</name></type> <name>thread</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>outputProperty</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>   <comment type="line">// like &lt;exec&gt;</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>outputFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>   <comment type="line">// like &lt;exec&gt;</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>inputProperty</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>inputString</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>   <comment type="line">// like &lt;exec&gt;</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>inputFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>   <comment type="line">// like &lt;exec&gt;</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>append</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>   <comment type="line">// like &lt;exec&gt;</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>usePty</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Resource</name></type> <name>commandResource</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>TIMEOUT_MESSAGE</name> =<init>
+        <expr>"Timeout period exceeded, connection dropped."</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * To supress writing logs to System.out
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>suppressSystemOut</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    
+    <comment type="javadoc">/**
+     * Constructor for SSHExecTask.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>SSHExec</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Sets the command to execute on the remote host.
+     *
+     * @param command  The new command value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCommand</name><parameter_list>(<param><decl><type><name>String</name></type> <name>command</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>command</name></name> = <name>command</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets a commandResource from a file
+     * @param f the value to use.
+     * @since Ant 1.7.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCommandResource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>commandResource</name></name> = new <call><name>FileResource</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The connection can be dropped after a specified number of
+     * milliseconds. This is sometimes useful when a connection may be
+     * flaky. Default is 0, which means &amp;quot;wait forever&amp;quot;.
+     *
+     * @param timeout  The new timeout value in seconds
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTimeout</name><parameter_list>(<param><decl><type><name>long</name></type> <name>timeout</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>maxwait</name> = <name>timeout</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If used, stores the output of the command to the given file.
+     *
+     * @param output  The file to write to.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutput</name><parameter_list>(<param><decl><type><name>File</name></type> <name>output</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>outputFile</name> = <name>output</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If used, the content of the file is piped to the remote command
+     *
+     * @param input  The file which provides the input data for the remote command
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInput</name><parameter_list>(<param><decl><type><name>File</name></type> <name>input</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>inputFile</name> = <name>input</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If used, the content of the property is piped to the remote command
+     *
+     * @param inputProperty The property which contains the input data
+     * for the remote command.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInputProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inputProperty</name></decl></param>)</parameter_list> <block>{
+    	<expr_stmt><expr><name><name>this</name>.<name>inputProperty</name></name> = <name>inputProperty</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If used, the string is piped to the remote command.
+     *
+     * @param inputString the input data for the remote command.
+     *
+     * @since Ant 1.8.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInputString</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inputString</name></decl></param>)</parameter_list> <block>{
+    	<expr_stmt><expr><name><name>this</name>.<name>inputString</name></name> = <name>inputString</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Determines if the output is appended to the file given in
+     * &lt;code&gt;setOutput&lt;/code&gt;. Default is false, that is, overwrite
+     * the file.
+     *
+     * @param append  True to append to an existing file, false to overwrite.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAppend</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>append</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>append</name></name> = <name>append</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If set, the output of the command will be stored in the given property.
+     *
+     * @param property  The name of the property in which the command output
+     *      will be stored.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutputproperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>property</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>outputProperty</name> = <name>property</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether a pseudo-tty should be allocated.
+     * @since Apache Ant 1.8.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUsePty</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>usePty</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If suppressSystemOut is &lt;code&gt;true&lt;/code&gt;, output will not be sent to System.out&lt;br/&gt;
+     * If suppressSystemOut is &lt;code&gt;false&lt;/code&gt;, normal behavior
+     * @since Ant 1.9.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSuppressSystemOut</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>suppressSystemOut</name></decl></param>)</parameter_list>
+    <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>suppressSystemOut</name></name> = <name>suppressSystemOut</name></expr>;</expr_stmt>
+    }</block></function>
+    <comment type="javadoc">/**
+     * Execute the command on the remote host.
+     *
+     * @exception BuildException  Most likely a network error or bad parameter.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        
+        <if>if <condition>(<expr><call><name>getHost</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Host is required."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>getUserInfo</name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Username is required."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>getUserInfo</name><argument_list>()</argument_list></call>.<call><name>getKeyfile</name><argument_list>()</argument_list></call> == <name>null</name>
+            &amp;&amp; <call><name>getUserInfo</name><argument_list>()</argument_list></call>.<call><name>getPassword</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Password or Keyfile is required."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>command</name> == <name>null</name> &amp;&amp; <name>commandResource</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Command or commandResource is required."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>numberOfInputs</name> =<init> <expr>(<name>inputFile</name> != <name>null</name> ? 1 : 0)
+            + (<name>inputProperty</name> != <name>null</name> ? 1 : 0)
+            + (<name>inputString</name> != <name>null</name> ? 1 : 0)</expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>numberOfInputs</name> &gt; 1</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"You can't specify more than one of"
+                                     + " inputFile, inputProperty and"
+                                     + " inputString."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>inputFile</name> != <name>null</name> &amp;&amp; !<call><name><name>inputFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The input file "
+                                     + <call><name><name>inputFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>
+                                     + " does not exist."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>Session</name></type> <name>session</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>output</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>session</name> = <call><name>openSession</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <comment type="block">/* called once */</comment>
+            <if>if <condition>(<expr><name>command</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"cmd : " + <name>command</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>executeCommand</name><argument_list>(<argument><expr><name>session</name></expr></argument>, <argument><expr><name>command</name></expr></argument>, <argument><expr><name>output</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{ <comment type="line">// read command resource and execute for each command</comment>
+                <try>try <block>{
+                    <decl_stmt><decl><type><name>BufferedReader</name></type> <name>br</name> =<init> <expr>new <call><name>BufferedReader</name><argument_list>(
+                            <argument><expr>new <call><name>InputStreamReader</name><argument_list>(<argument><expr><call><name><name>commandResource</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>cmd</name></decl>;</decl_stmt>
+                    <while>while <condition>(<expr>(<name>cmd</name> = <call><name><name>br</name>.<name>readLine</name></name><argument_list>()</argument_list></call>) != <name>null</name></expr>)</condition> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"cmd : " + <name>cmd</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>output</name>.<name>append</name></name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>" : "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name>executeCommand</name><argument_list>(<argument><expr><name>session</name></expr></argument>, <argument><expr><name>cmd</name></expr></argument>, <argument><expr><name>output</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>output</name>.<name>append</name></name><argument_list>(<argument><expr>"\n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></while>
+                    <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>br</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                    <if>if <condition>(<expr><call><name>getFailonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Caught exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>,
+                            <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block></catch></try>
+            }</block></else></if>
+        }</block> <catch>catch (<param><decl><type><name>JSchException</name></type> <name>e</name></decl></param>) <block>{
+            <if>if <condition>(<expr><call><name>getFailonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Caught exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></catch> <finally>finally <block>{
+            <if>if <condition>(<expr><name>outputProperty</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>setNewProperty</name><argument_list>(<argument><expr><name>outputProperty</name></expr></argument>, <argument><expr><call><name><name>output</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>session</name> != <name>null</name> &amp;&amp; <call><name><name>session</name>.<name>isConnected</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>session</name>.<name>disconnect</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>executeCommand</name><parameter_list>(<param><decl><type><name>Session</name></type> <name>session</name></decl></param>, <param><decl><type><name>String</name></type> <name>cmd</name></decl></param>, <param><decl><type><name>StringBuffer</name></type> <name>sb</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>ByteArrayOutputStream</name></type> <name>out</name> =<init> <expr>new <call><name>ByteArrayOutputStream</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>OutputStream</name></type> <name>tee</name> =<init> <expr><name>suppressSystemOut</name> ? <name>out</name> : new <call><name>TeeOutputStream</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><call><name><name>KeepAliveOutputStream</name>.<name>wrapSystemOut</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>InputStream</name></type> <name>istream</name> =<init> <expr><name>null</name></expr></init></decl> ;</decl_stmt>
+        <if>if <condition>(<expr><name>inputFile</name> != <name>null</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>istream</name> = new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>inputFile</name></expr></argument>)</argument_list></call></expr> ;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">// because we checked the existence before, this one</comment>
+                <comment type="line">// shouldn't happen What if the file exists, but there</comment>
+                <comment type="line">// are no read permissions?</comment>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Failed to read " + <name>inputFile</name> + " because of: "
+                    + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>inputProperty</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>inputData</name> =<init> <expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr><name>inputProperty</name></expr></argument>)</argument_list></call></expr></init></decl> ;</decl_stmt>
+            <if>if <condition>(<expr><name>inputData</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>istream</name> = new <call><name>ByteArrayInputStream</name><argument_list>(<argument><expr><call><name><name>inputData</name>.<name>getBytes</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr> ;</expr_stmt>
+            }</block></then></if>        	
+        }</block></then></if>
+        <if>if <condition>(<expr><name>inputString</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>istream</name> = new <call><name>ByteArrayInputStream</name><argument_list>(<argument><expr><call><name><name>inputString</name>.<name>getBytes</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <try>try <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>ChannelExec</name></type> <name>channel</name></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>session</name>.<name>setTimeout</name></name><argument_list>(<argument><expr>(<name>int</name>) <name>maxwait</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="block">/* execute the command */</comment>
+            <expr_stmt><expr><name>channel</name> = (<name>ChannelExec</name>) <call><name><name>session</name>.<name>openChannel</name></name><argument_list>(<argument><expr>"exec"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>channel</name>.<name>setCommand</name></name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>channel</name>.<name>setOutputStream</name></name><argument_list>(<argument><expr><name>tee</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>channel</name>.<name>setExtOutputStream</name></name><argument_list>(<argument><expr><name>tee</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>istream</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>channel</name>.<name>setInputStream</name></name><argument_list>(<argument><expr><name>istream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>channel</name>.<name>setPty</name></name><argument_list>(<argument><expr><name>usePty</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>channel</name>.<name>connect</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// wait for it to finish</comment>
+            <expr_stmt><expr><name>thread</name> =
+                new <class><super><name>Thread</name></super><argument_list>()</argument_list> <block>{
+                    <function><type><specifier>public</specifier> <name>void</name></type> <name>run</name><parameter_list>()</parameter_list> <block>{
+                        <while>while <condition>(<expr>!<call><name><name>channel</name>.<name>isClosed</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                            <if>if <condition>(<expr><name>thread</name> == <name>null</name></expr>)</condition><then> <block>{
+                                <return>return;</return>
+                            }</block></then></if>
+                            <try>try <block>{
+                                <expr_stmt><expr><call><name>sleep</name><argument_list>(<argument><expr><name>RETRY_INTERVAL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+                                <comment type="line">// ignored</comment>
+                            }</block></catch></try>
+                        }</block></while>
+                    }</block></function>
+                }</block></class></expr>;</expr_stmt>
+
+            <expr_stmt><expr><call><name><name>thread</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>thread</name>.<name>join</name></name><argument_list>(<argument><expr><name>maxwait</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><call><name><name>thread</name>.<name>isAlive</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// ran out of time</comment>
+                <expr_stmt><expr><name>thread</name> = <name>null</name></expr>;</expr_stmt>
+                <if>if <condition>(<expr><call><name>getFailonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>TIMEOUT_MESSAGE</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>TIMEOUT_MESSAGE</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then> <else>else <block>{
+                <comment type="line">//success</comment>
+                <if>if <condition>(<expr><name>outputFile</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>writeToFile</name><argument_list>(<argument><expr><call><name><name>out</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>append</name></expr></argument>, <argument><expr><name>outputFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <comment type="line">// this is the wrong test if the remote OS is OpenVMS,</comment>
+                <comment type="line">// but there doesn't seem to be a way to detect it.</comment>
+                <decl_stmt><decl><type><name>int</name></type> <name>ec</name> =<init> <expr><call><name><name>channel</name>.<name>getExitStatus</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>ec</name> != 0</expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Remote command failed with exit status " + <name>ec</name></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><call><name>getFailonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block></then></if>
+            }</block></else></if>
+        }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr><name>e</name></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>JSchException</name></type> <name>e</name></decl></param>) <block>{
+            <if>if <condition>(<expr><call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call>.<call><name>indexOf</name><argument_list>(<argument><expr>"session is down"</expr></argument>)</argument_list></call> &gt;= 0</expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name>getFailonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>TIMEOUT_MESSAGE</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>TIMEOUT_MESSAGE</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then> <else>else <block>{
+                <if>if <condition>(<expr><call><name>getFailonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Caught exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></else></if>
+        }</block></catch> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <if>if <condition>(<expr><call><name>getFailonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Caught exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>out</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>istream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Writes a string to a file. If destination file exists, it may be
+     * overwritten depending on the "append" value.
+     *
+     * @param from           string to write
+     * @param to             file to write to
+     * @param append         if true, append to existing file, else overwrite
+     * @exception Exception  most likely an IOException
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>writeToFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>from</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>append</name></decl></param>, <param><decl><type><name>File</name></type> <name>to</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>FileWriter</name></type> <name>out</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>out</name> = new <call><name>FileWriter</name><argument_list>(<argument><expr><call><name><name>to</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>append</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>StringReader</name></type> <name>in</name> =<init> <expr>new <call><name>StringReader</name><argument_list>(<argument><expr><name>from</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>char</name><index>[]</index></type> <name>buffer</name> =<init> <expr>new <name><name>char</name><index>[<expr><name>BUFFER_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>bytesRead</name></decl>;</decl_stmt>
+            <while>while <condition>(<expr>true</expr>)</condition> <block>{
+                <expr_stmt><expr><name>bytesRead</name> = <call><name><name>in</name>.<name>read</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>bytesRead</name> == -1</expr>)</condition><then> <block>{
+                    <break>break;</break>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>bytesRead</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><call><name><name>out</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>out</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+}</block></class>
+</unit>

@@ -1,0 +1,973 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\types\selectors\modifiedselector\ModifiedSelector.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>selectors</name>.<name>modifiedselector</name></name>;</package>
+
+
+<comment type="line">// Java</comment>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Comparator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+<comment type="line">// Ant</comment>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>IntrospectionHelper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildListener</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildEvent</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>EnumeratedAttribute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Parameter</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>selectors</name>.<name>ResourceSelector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>selectors</name>.<name>BaseExtendSelector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>ResourceUtils</name></name>;</import>
+
+
+<comment type="javadoc">/**
+ * &lt;p&gt;Selector class that uses &lt;i&gt;Algorithm&lt;/i&gt;, &lt;i&gt;Cache&lt;/i&gt; and &lt;i&gt;Comparator&lt;/i&gt;
+ * for its work.
+ * The &lt;i&gt;Algorithm&lt;/i&gt; is used for computing a hashvalue for a file.
+ * The &lt;i&gt;Comparator&lt;/i&gt; decides whether to select or not.
+ * The &lt;i&gt;Cache&lt;/i&gt; stores the other value for comparison by the &lt;i&gt;Comparator&lt;/i&gt;
+ * in a persistent manner.&lt;/p&gt;
+ *
+ * &lt;p&gt;The ModifiedSelector is implemented as a &lt;b&gt;CoreSelector&lt;/b&gt; and uses default
+ * values for all its attributes therefore the simplest example is &lt;pre&gt;
+ *   &amp;lt;copy todir="dest"&amp;gt;
+ *       &amp;lt;filelist dir="src"&amp;gt;
+ *           &amp;lt;modified/&amp;gt;
+ *       &amp;lt;/filelist&amp;gt;
+ *   &amp;lt;/copy&amp;gt;
+ * &lt;/pre&gt;&lt;/p&gt;
+ *
+ * &lt;p&gt;The same example rewritten as CoreSelector with setting the all values
+ * (same as defaults are) would be &lt;pre&gt;
+ *   &amp;lt;copy todir="dest"&amp;gt;
+ *       &amp;lt;filelist dir="src"&amp;gt;
+ *           &amp;lt;modified update="true"
+ *                     cache="propertyfile"
+ *                     algorithm="digest"
+ *                     comparator="equal"&amp;gt;
+ *               &amp;lt;param name="cache.cachefile"     value="cache.properties"/&amp;gt;
+ *               &amp;lt;param name="algorithm.algorithm" value="MD5"/&amp;gt;
+ *           &amp;lt;/modified&amp;gt;
+ *       &amp;lt;/filelist&amp;gt;
+ *   &amp;lt;/copy&amp;gt;
+ * &lt;/pre&gt;&lt;/p&gt;
+ *
+ * &lt;p&gt;And the same rewritten as CustomSelector would be&lt;pre&gt;
+ *   &amp;lt;copy todir="dest"&amp;gt;
+ *       &amp;lt;filelist dir="src"&amp;gt;
+ *           &amp;lt;custom class="org.apache.tools.ant.type.selectors.ModifiedSelector"&amp;gt;
+ *               &amp;lt;param name="update"     value="true"/&amp;gt;
+ *               &amp;lt;param name="cache"      value="propertyfile"/&amp;gt;
+ *               &amp;lt;param name="algorithm"  value="digest"/&amp;gt;
+ *               &amp;lt;param name="comparator" value="equal"/&amp;gt;
+ *               &amp;lt;param name="cache.cachefile"     value="cache.properties"/&amp;gt;
+ *               &amp;lt;param name="algorithm.algorithm" value="MD5"/&amp;gt;
+ *           &amp;lt;/custom&amp;gt;
+ *       &amp;lt;/filelist&amp;gt;
+ *   &amp;lt;/copy&amp;gt;
+ * &lt;/pre&gt;&lt;/p&gt;
+ *
+ * &lt;p&gt;If you want to provide your own interface implementation you can do
+ * that via the *classname attributes. If the classes are not on Ant's core
+ * classpath, you will have to provide the path via nested &amp;lt;classpath&amp;gt;
+ * element, so that the selector can find the classes. &lt;pre&gt;
+ *   &amp;lt;modified cacheclassname="com.mycompany.MyCache"&amp;gt;
+ *       &amp;lt;classpath&amp;gt;
+ *           &amp;lt;pathelement location="lib/mycompany-antutil.jar"/&amp;gt;
+ *       &amp;lt;/classpath&amp;gt;
+ *   &amp;lt;/modified&amp;gt;
+ * &lt;/pre&gt;&lt;/p&gt;
+ *
+ * &lt;p&gt;All these three examples copy the files from &lt;i&gt;src&lt;/i&gt; to &lt;i&gt;dest&lt;/i&gt;
+ * using the ModifiedSelector. The ModifiedSelector uses the &lt;i&gt;PropertyfileCache
+ * &lt;/i&gt;, the &lt;i&gt;DigestAlgorithm&lt;/i&gt; and the &lt;i&gt;EqualComparator&lt;/i&gt; for its
+ * work. The PropertyfileCache stores key-value-pairs in a simple java
+ * properties file. The filename is &lt;i&gt;cache.properties&lt;/i&gt;. The &lt;i&gt;update&lt;/i&gt;
+ * flag lets the selector update the values in the cache (and on first call
+ * creates the cache). The &lt;i&gt;DigestAlgorithm&lt;/i&gt; computes a hashvalue using the
+ * java.security.MessageDigest class with its MD5-Algorithm and its standard
+ * provider. The new computed hashvalue and the stored one are compared by
+ * the &lt;i&gt;EqualComparator&lt;/i&gt; which returns 'true' (more correct a value not
+ * equals zero (1)) if the values are not the same using simple String
+ * comparison.&lt;/p&gt;
+ *
+ * &lt;p&gt;A useful scenario for this selector is inside a build environment
+ * for homepage generation (e.g. with &lt;a href="http://forrest.apache.org/"&gt;
+ * Apache Forrest&lt;/a&gt;). &lt;pre&gt;
+ * &amp;lt;target name="generate-and-upload-site"&amp;gt;
+ *     &amp;lt;echo&amp;gt; generate the site using forrest &amp;lt;/echo&amp;gt;
+ *     &amp;lt;antcall target="site"/&amp;gt;
+ *
+ *     &amp;lt;echo&amp;gt; upload the changed files &amp;lt;/echo&amp;gt;
+ *     &amp;lt;ftp server="${ftp.server}" userid="${ftp.user}" password="${ftp.pwd}"&amp;gt;
+ *         &amp;lt;fileset dir="htdocs/manual"&amp;gt;
+ *             &amp;lt;modified/&amp;gt;
+ *         &amp;lt;/fileset&amp;gt;
+ *     &amp;lt;/ftp&amp;gt;
+ * &amp;lt;/target&amp;gt;
+ * &lt;/pre&gt; Here all &lt;b&gt;changed&lt;/b&gt; files are uploaded to the server. The
+ * ModifiedSelector saves therefore much upload time.&lt;/p&gt;
+ *
+ *
+ * &lt;p&gt;This selector uses reflection for setting the values of its three interfaces
+ * (using org.apache.tools.ant.IntrospectionHelper) therefore no special
+ * 'configuration interfaces' has to be implemented by new caches, algorithms or
+ * comparators. All present &lt;i&gt;set&lt;/i&gt;XX methods can be used. E.g. the DigestAlgorithm
+ * can use a specified provider for computing its value. For selecting this
+ * there is a &lt;i&gt;setProvider(String providername)&lt;/i&gt; method. So you can use
+ * a nested &lt;i&gt;&amp;lt;param name="algorithm.provider" value="MyProvider"/&amp;gt;&lt;/i&gt;.
+ *
+ *
+ * @since  Ant 1.6
+ */</comment>
+<class><specifier>public</specifier> class <name>ModifiedSelector</name> <super><extends>extends <name>BaseExtendSelector</name></extends>
+                              <implements>implements <name>BuildListener</name>, <name>ResourceSelector</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>CACHE_PREFIX</name> =<init> <expr>"cache."</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ALGORITHM_PREFIX</name> =<init> <expr>"algorithm."</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>COMPARATOR_PREFIX</name> =<init> <expr>"comparator."</expr></init></decl>;</decl_stmt>
+
+
+    <comment type="line">// -----  attributes  -----</comment>
+
+
+    <comment type="javadoc">/** Cache name for later instantiation. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>CacheName</name></type> <name>cacheName</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** User specified classname for Cache. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>cacheClass</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Algorithm name for later instantiation. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>AlgorithmName</name></type> <name>algoName</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** User specified classname for Algorithm. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>algorithmClass</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Comparator name for later instantiation. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ComparatorName</name></type> <name>compName</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** User specified classname for Comparator. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>comparatorClass</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Should the cache be updated? */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>update</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Are directories selected? */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>selectDirectories</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Should Resources whithout an InputStream, and
+     * therefore without checking, be selected?
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>selectResourcesWithoutInputStream</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Delay the writing of the cache file */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>delayUpdate</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+
+    <comment type="line">// ----- internal member variables -----</comment>
+
+
+    <comment type="javadoc">/** How should the cached value and the new one compared? */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Comparator</name><argument_list>&lt;<argument><name>?</name> <super>super <name>String</name></super></argument>&gt;</argument_list></name></type> <name>comparator</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Algorithm for computing new values and updating the cache. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Algorithm</name></type> <name>algorithm</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The Cache containing the old values. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Cache</name></type> <name>cache</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Count of modified properties */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>modified</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Flag whether this object is configured. Configuration is only done once. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>isConfigured</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Parameter vector with parameters for later initialization.
+     * @see #configure
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>Parameter</name></argument>&gt;</argument_list></name></type> <name>configParameter</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>Parameter</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Parameter vector with special parameters for later initialization.
+     * The names have the pattern '*.*', e.g. 'cache.cachefile'.
+     * These parameters are used &lt;b&gt;after&lt;/b&gt; the parameters with the pattern '*'.
+     * @see #configure
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>Parameter</name></argument>&gt;</argument_list></name></type> <name>specialParameter</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>Parameter</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The classloader of this class. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ClassLoader</name></type> <name>myClassLoader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** provided classpath for the classloader */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>classpath</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+
+    <comment type="line">// -----  constructors  -----</comment>
+
+
+    <comment type="javadoc">/** Bean-Constructor. */</comment>
+    <constructor><specifier>public</specifier> <name>ModifiedSelector</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+
+    <comment type="line">// ----- configuration  -----</comment>
+
+
+    <comment type="javadoc">/** Overrides BaseSelector.verifySettings(). */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>verifySettings</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>configure</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>cache</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setError</name><argument_list>(<argument><expr>"Cache must be set."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>algorithm</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setError</name><argument_list>(<argument><expr>"Algorithm must be set."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>cache</name>.<name>isValid</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setError</name><argument_list>(<argument><expr>"Cache must be proper configured."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>algorithm</name>.<name>isValid</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setError</name><argument_list>(<argument><expr>"Algorithm must be proper configured."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if></else></if></else></if></else></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Configures this Selector.
+     * Does this work only once per Selector object.
+     * &lt;p&gt;Because some problems while configuring from &lt;custom&gt;Selector
+     * the configuration is done in the following order:&lt;ol&gt;
+     * &lt;li&gt; collect the configuration data &lt;/li&gt;
+     * &lt;li&gt; wait for the first isSelected() call &lt;/li&gt;
+     * &lt;li&gt; set the default values &lt;/li&gt;
+     * &lt;li&gt; set values for name pattern '*': update, cache, algorithm, comparator &lt;/li&gt;
+     * &lt;li&gt; set values for name pattern '*.*: cache.cachefile, ... &lt;/li&gt;
+     * &lt;/ol&gt;&lt;/p&gt;
+     * &lt;p&gt;This configuration algorithm is needed because you don't know
+     * the order of arriving config-data. E.g. if you first set the
+     * &lt;i&gt;cache.cachefilename&lt;/i&gt; and after that the &lt;i&gt;cache&lt;/i&gt; itself,
+     * the default value for cachefilename is used, because setting the
+     * cache implies creating a new Cache instance - with its defaults.&lt;/p&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>configure</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">//</comment>
+        <comment type="line">// -----  The "Singleton"  -----</comment>
+        <comment type="line">//</comment>
+        <if>if <condition>(<expr><name>isConfigured</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <expr_stmt><expr><name>isConfigured</name> = true</expr>;</expr_stmt>
+
+        <comment type="line">//</comment>
+        <comment type="line">// -----  Set default values  -----</comment>
+        <comment type="line">//</comment>
+        <decl_stmt><decl><type><name>Project</name></type> <name>p</name> =<init> <expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>filename</name> =<init> <expr>"cache.properties"</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>cachefile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>p</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// normal use inside Ant</comment>
+            <expr_stmt><expr><name>cachefile</name> = new <call><name>File</name><argument_list>(<argument><expr><call><name><name>p</name>.<name>getBaseDir</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// set self as a BuildListener to delay cachefile saves</comment>
+            <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>addBuildListener</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <comment type="line">// no reference to project - e.g. during normal JUnit tests</comment>
+            <expr_stmt><expr><name>cachefile</name> = new <call><name>File</name><argument_list>(<argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setDelayUpdate</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <decl_stmt><decl><type><name>Cache</name></type>      <name>defaultCache</name>      =<init> <expr>new <call><name>PropertiesfileCache</name><argument_list>(<argument><expr><name>cachefile</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Algorithm</name></type>  <name>defaultAlgorithm</name>  =<init> <expr>new <call><name>DigestAlgorithm</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Comparator</name><argument_list>&lt;<argument><name>?</name> <super>super <name>String</name></super></argument>&gt;</argument_list></name></type> <name>defaultComparator</name> =<init> <expr>new <call><name>EqualComparator</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">//</comment>
+        <comment type="line">// -----  Set the main attributes, pattern '*'  -----</comment>
+        <comment type="line">//</comment>
+        <for>for (<init><decl><type><name>Parameter</name></type> <name>parameter</name> :<range> <expr><name>configParameter</name></expr></range></decl></init>) <block>{
+            <if>if <condition>(<expr><call><name><name>parameter</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>indexOf</name><argument_list>(<argument><expr>"."</expr></argument>)</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <comment type="line">// this is a *.* parameter for later use</comment>
+                <expr_stmt><expr><call><name><name>specialParameter</name>.<name>add</name></name><argument_list>(<argument><expr><name>parameter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>useParameter</name><argument_list>(<argument><expr><name>parameter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></for>
+        <expr_stmt><expr><name>configParameter</name> = new <call><name><name>Vector</name><argument_list>&lt;<argument><name>Parameter</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// specify the algorithm classname</comment>
+        <if>if <condition>(<expr><name>algoName</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// use Algorithm defined via name</comment>
+            <if>if <condition>(<expr>"hashvalue".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>algoName</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>algorithm</name> = new <call><name>HashvalueAlgorithm</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr>"digest".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>algoName</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>algorithm</name> = new <call><name>DigestAlgorithm</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr>"checksum".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>algoName</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>algorithm</name> = new <call><name>ChecksumAlgorithm</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if></else></if>
+        }</block></then> <else>else <block>{
+            <if>if <condition>(<expr><name>algorithmClass</name> != <name>null</name></expr>)</condition><then> <block>{
+                <comment type="line">// use Algorithm specified by classname</comment>
+                <expr_stmt><expr><name>algorithm</name> = (<name>Algorithm</name>) <call><name>loadClass</name><argument_list>(
+                    <argument><expr><name>algorithmClass</name></expr></argument>,
+                    <argument><expr>"is not an Algorithm."</expr></argument>,
+                    <argument><expr><name><name>Algorithm</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">// nothing specified - use default</comment>
+                <expr_stmt><expr><name>algorithm</name> = <name>defaultAlgorithm</name></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></else></if>
+
+        <comment type="line">// specify the cache classname</comment>
+        <if>if <condition>(<expr><name>cacheName</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// use Cache defined via name</comment>
+            <if>if <condition>(<expr>"propertyfile".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>cacheName</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>cache</name> = new <call><name>PropertiesfileCache</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then> <else>else <block>{
+            <if>if <condition>(<expr><name>cacheClass</name> != <name>null</name></expr>)</condition><then> <block>{
+                <comment type="line">// use Cache specified by classname</comment>
+                <expr_stmt><expr><name>cache</name> = (<name>Cache</name>) <call><name>loadClass</name><argument_list>(<argument><expr><name>cacheClass</name></expr></argument>, <argument><expr>"is not a Cache."</expr></argument>, <argument><expr><name><name>Cache</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">// nothing specified - use default</comment>
+                <expr_stmt><expr><name>cache</name> = <name>defaultCache</name></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></else></if>
+
+        <comment type="line">// specify the comparator classname</comment>
+        <if>if <condition>(<expr><name>compName</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// use Algorithm defined via name</comment>
+            <if>if <condition>(<expr>"equal".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>compName</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>comparator</name> = new <call><name>EqualComparator</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+             }</block></then> <else>else <if>if <condition>(<expr>"rule".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>compName</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// TODO there is a problem with the constructor for the RBC.</comment>
+                <comment type="line">// you have to provide the rules in the constructors - no setters</comment>
+                <comment type="line">// available.</comment>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"RuleBasedCollator not yet supported."</expr></argument>)</argument_list></call></expr>;</throw>
+                <comment type="line">// Have to think about lazy initialization here...  JHM</comment>
+                <comment type="line">// comparator = new java.text.RuleBasedCollator();</comment>
+            }</block></then></if></else></if>
+        }</block></then> <else>else <block>{
+            <if>if <condition>(<expr><name>comparatorClass</name> != <name>null</name></expr>)</condition><then> <block>{
+                <comment type="line">// use Algorithm specified by classname</comment>
+                <decl_stmt><decl><type><annotation>@<name>SuppressWarnings</name><argument_list>("unchecked")</argument_list></annotation>
+                <name><name>Comparator</name><argument_list>&lt;<argument><name>?</name> <super>super <name>String</name></super></argument>&gt;</argument_list></name></type> <name>localComparator</name> =<init> <expr><call><name>loadClass</name><argument_list>(<argument><expr><name>comparatorClass</name></expr></argument>, <argument><expr>"is not a Comparator."</expr></argument>, <argument><expr><name><name>Comparator</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>comparator</name> = <name>localComparator</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">// nothing specified - use default</comment>
+                <expr_stmt><expr><name>comparator</name> = <name>defaultComparator</name></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></else></if>
+
+        <comment type="line">//</comment>
+        <comment type="line">// -----  Set the special attributes, pattern '*.*'  -----</comment>
+        <comment type="line">//</comment>
+        <for>for (<init><decl><type><name><name>Iterator</name><argument_list>&lt;<argument><name>Parameter</name></argument>&gt;</argument_list></name></type> <name>itSpecial</name> =<init> <expr><call><name><name>specialParameter</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>itSpecial</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>Parameter</name></type> <name>par</name> =<init> <expr><call><name><name>itSpecial</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>useParameter</name><argument_list>(<argument><expr><name>par</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <expr_stmt><expr><name>specialParameter</name> = new <call><name><name>Vector</name><argument_list>&lt;<argument><name>Parameter</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Loads the specified class and initializes an object of that class.
+     * Throws a BuildException using the given message if an error occurs during
+     * loading/instantiation or if the object is not from the given type.
+     * @param classname the classname
+     * @param msg the message-part for the BuildException
+     * @param type the type to check against
+     * @return a castable object
+     */</comment>
+    <function><type><specifier>protected</specifier> <argument_list>&lt;<argument><name>T</name></argument>&gt;</argument_list> <name>T</name></type> <name>loadClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>, <param><decl><type><name>String</name></type> <name>msg</name></decl></param>, <param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>T</name></extends></argument>&gt;</argument_list></name></type> <name>type</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <comment type="line">// load the specified class</comment>
+            <decl_stmt><decl><type><name>ClassLoader</name></type> <name>cl</name> =<init> <expr><call><name>getClassLoader</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>clazz</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>cl</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>clazz</name> = <call><name><name>cl</name>.<name>loadClass</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>clazz</name> = <call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <decl_stmt><decl><type><name>T</name></type> <name>rv</name> =<init> <expr><call><name><name>clazz</name>.<name>asSubclass</name></name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call>.<call><name>newInstance</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr>!<call><name><name>type</name>.<name>isInstance</name></name><argument_list>(<argument><expr><name>rv</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Specified class (" + <name>classname</name> + ") " + <name>msg</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <return>return <expr><name>rv</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Specified class (" + <name>classname</name> + ") not found."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+
+    <comment type="line">// -----  the selection work  -----</comment>
+
+
+    <comment type="javadoc">/**
+     * Implementation of ResourceSelector.isSelected().
+     *
+     * @param resource The resource to check
+     * @return whether the resource is selected
+     * @see ResourceSelector#isSelected(Resource)
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isSelected</name><parameter_list>(<param><decl><type><name>Resource</name></type> <name>resource</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>resource</name>.<name>isFilesystemOnly</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// We have a 'resourced' file, so reconvert it and use</comment>
+            <comment type="line">// the 'old' implementation.</comment>
+            <decl_stmt><decl><type><name>FileResource</name></type> <name>fileResource</name> =<init> <expr>(<name>FileResource</name>) <name>resource</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>file</name> =<init> <expr><call><name><name>fileResource</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>filename</name> =<init> <expr><call><name><name>fileResource</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>basedir</name> =<init> <expr><call><name><name>fileResource</name>.<name>getBaseDir</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr><call><name>isSelected</name><argument_list>(<argument><expr><name>basedir</name></expr></argument>, <argument><expr><name>filename</name></expr></argument>, <argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then> <else>else <block>{
+            <try>try <block>{
+                <comment type="line">// How to handle non-file-Resources? I copy temporarily the</comment>
+                <comment type="line">// resource to a file and use the file-implementation.</comment>
+                <decl_stmt><decl><type><name>FileUtils</name></type> <name>fu</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>tmpFile</name> =<init> <expr><call><name><name>fu</name>.<name>createTempFile</name></name><argument_list>(<argument><expr>"modified-"</expr></argument>, <argument><expr>".tmp"</expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr>true</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Resource</name></type> <name>tmpResource</name> =<init> <expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>tmpFile</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>ResourceUtils</name>.<name>copyResource</name></name><argument_list>(<argument><expr><name>resource</name></expr></argument>, <argument><expr><name>tmpResource</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>boolean</name></type> <name>isSelected</name> =<init> <expr><call><name>isSelected</name><argument_list>(<argument><expr><call><name><name>tmpFile</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                                <argument><expr><call><name><name>tmpFile</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                                <argument><expr><call><name><name>resource</name>.<name>toLongString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>tmpFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><name>isSelected</name></expr>;</return>
+            }</block> <catch>catch (<param><decl><type><name>UnsupportedOperationException</name></type> <name>uoe</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"The resource '"
+                  + <call><name><name>resource</name>.<name>getName</name></name><argument_list>()</argument_list></call>
+                  + "' does not provide an InputStream, so it is not checked. "
+                  + "Akkording to 'selres' attribute value it is "
+                  + ((<name>selectResourcesWithoutInputStream</name>) ? "" : " not")
+                  + "selected."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><name>selectResourcesWithoutInputStream</name></expr>;</return>
+            }</block></catch> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></else></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Implementation of BaseExtendSelector.isSelected().
+     *
+     * @param basedir as described in BaseExtendSelector
+     * @param filename as described in BaseExtendSelector
+     * @param file as described in BaseExtendSelector
+     * @return as described in BaseExtendSelector
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isSelected</name><parameter_list>(<param><decl><type><name>File</name></type> <name>basedir</name></decl></param>, <param><decl><type><name>String</name></type> <name>filename</name></decl></param>, <param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>isSelected</name><argument_list>(<argument><expr><name>basedir</name></expr></argument>, <argument><expr><name>filename</name></expr></argument>, <argument><expr><call><name><name>file</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * The business logic of this selector for use as ResourceSelector of
+     * FileSelector.
+     *
+     * @param basedir as described in BaseExtendSelector
+     * @param filename as described in BaseExtendSelector
+     * @param cacheKey the name for the key for storing the hashvalue
+     * @return
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isSelected</name><parameter_list>(<param><decl><type><name>File</name></type> <name>basedir</name></decl></param>, <param><decl><type><name>String</name></type> <name>filename</name></decl></param>, <param><decl><type><name>String</name></type> <name>cacheKey</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>validate</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>basedir</name></expr></argument>, <argument><expr><name>filename</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// You can not compute a value for a directory</comment>
+        <if>if <condition>(<expr><call><name><name>f</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>selectDirectories</name></expr>;</return>
+        }</block></then></if>
+
+        <comment type="line">// Get the values and do the comparison</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>cachedValue</name> =<init> <expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><call><name><name>cache</name>.<name>get</name></name><argument_list>(<argument><expr><call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>newValue</name> =<init> <expr><call><name><name>algorithm</name>.<name>getValue</name></name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>boolean</name></type> <name>rv</name> =<init> <expr>(<call><name><name>comparator</name>.<name>compare</name></name><argument_list>(<argument><expr><name>cachedValue</name></expr></argument>, <argument><expr><name>newValue</name></expr></argument>)</argument_list></call> != 0)</expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// Maybe update the cache</comment>
+        <if>if <condition>(<expr><name>update</name> &amp;&amp; <name>rv</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cache</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>newValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setModified</name><argument_list>(<argument><expr><call><name>getModified</name><argument_list>()</argument_list></call> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr>!<call><name>getDelayUpdate</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>saveCache</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+
+        <return>return <expr><name>rv</name></expr>;</return>
+    }</block></function>
+
+
+   <comment type="javadoc">/**
+    * save the cache file
+    */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>saveCache</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>getModified</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>cache</name>.<name>save</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setModified</name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+
+    <comment type="line">// -----  attribute and nested element support  -----</comment>
+
+
+    <comment type="javadoc">/**
+     * Setter for algorithmClass.
+     * @param classname  new value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAlgorithmClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>algorithmClass</name> = <name>classname</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Setter for comparatorClass.
+     * @param classname  new value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setComparatorClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>comparatorClass</name> = <name>classname</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Setter for cacheClass.
+     * @param classname  new value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCacheClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>cacheClass</name> = <name>classname</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Support for &lt;i&gt;update&lt;/i&gt; attribute.
+     * @param update new value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUpdate</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>update</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>update</name></name> = <name>update</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Support for &lt;i&gt;seldirs&lt;/i&gt; attribute.
+     * @param seldirs new value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSeldirs</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>seldirs</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>selectDirectories</name> = <name>seldirs</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Support for &lt;i&gt;selres&lt;/i&gt; attribute.
+     * @param newValue the new value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSelres</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>newValue</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>selectResourcesWithoutInputStream</name></name> = <name>newValue</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Getter for the modified count
+     * @return modified count
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>getModified</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>modified</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Setter for the modified count
+     * @param modified count
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setModified</name><parameter_list>(<param><decl><type><name>int</name></type> <name>modified</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>modified</name></name> = <name>modified</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Getter for the delay update
+     * @return true if we should delay for performance
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getDelayUpdate</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>delayUpdate</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Setter for the delay update
+     * @param delayUpdate true if we should delay for performance
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDelayUpdate</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>delayUpdate</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>delayUpdate</name></name> = <name>delayUpdate</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Add the classpath.
+     * @param path the classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"&lt;classpath&gt; can be set only once."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>classpath</name> = <name>path</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Returns and initializes the classloader for this class.
+     * @return the classloader
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ClassLoader</name></type> <name>getClassLoader</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>myClassLoader</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>myClassLoader</name> = (<name>classpath</name> == <name>null</name>)
+                <comment type="line">// the usual classloader</comment>
+                ? <call><name>getClass</name><argument_list>()</argument_list></call>.<call><name>getClassLoader</name><argument_list>()</argument_list></call>
+                <comment type="line">// additional use the provided classpath</comment>
+                <comment type="line">// Memory leak in line below</comment>
+                : <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>myClassLoader</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the used ClassLoader.
+     * If you invoke this selector by API (e.g. inside some testcases) the selector
+     * will use a different classloader for loading the interface implementations than
+     * the caller. Therefore you will get a ClassCastException if you get the
+     * implementations from the selector and cast them.
+     * @param loader the ClassLoader to use
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClassLoader</name><parameter_list>(<param><decl><type><name>ClassLoader</name></type> <name>loader</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>myClassLoader</name> = <name>loader</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Support for nested &amp;lt;param&amp;gt; tags.
+     * @param key the key of the parameter
+     * @param value the value of the parameter
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addParam</name><parameter_list>(<param><decl><type><name>String</name></type> <name>key</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Parameter</name></type> <name>par</name> =<init> <expr>new <call><name>Parameter</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>par</name>.<name>setName</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>par</name>.<name>setValue</name></name><argument_list>(<argument><expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>configParameter</name>.<name>add</name></name><argument_list>(<argument><expr><name>par</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Support for nested &amp;lt;param&amp;gt; tags.
+     * @param parameter the parameter object
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addParam</name><parameter_list>(<param><decl><type><name>Parameter</name></type> <name>parameter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>configParameter</name>.<name>add</name></name><argument_list>(<argument><expr><name>parameter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Defined in org.apache.tools.ant.types.Parameterizable.
+     * Overwrite implementation in superclass because only special
+     * parameters are valid.
+     * @see #addParam(String,Object).
+     * @param parameters the parameters to set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setParameters</name><parameter_list>(<param><decl><type><name><name>Parameter</name><index>[]</index></name></type> <name>parameters</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>parameters</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>parameters</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>configParameter</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>parameters</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Support for nested &lt;param name="" value=""/&gt; tags.
+     * Parameter named &lt;i&gt;cache&lt;/i&gt;, &lt;i&gt;algorithm&lt;/i&gt;,
+     * &lt;i&gt;comparator&lt;/i&gt; or &lt;i&gt;update&lt;/i&gt; are mapped to
+     * the respective set-Method.
+     * Parameter which names starts with &lt;i&gt;cache.&lt;/i&gt; or
+     * &lt;i&gt;algorithm.&lt;/i&gt; or &lt;i&gt;comparator.&lt;/i&gt; are tried
+     * to set on the appropriate object via its set-methods.
+     * Other parameters are invalid and an BuildException will
+     * be thrown.
+     *
+     * @param parameter  Key and value as parameter object
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>useParameter</name><parameter_list>(<param><decl><type><name>Parameter</name></type> <name>parameter</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr><call><name><name>parameter</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name><name>parameter</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>"cache".<call><name>equals</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>CacheName</name></type> <name>cn</name> =<init> <expr>new <call><name>CacheName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>cn</name>.<name>setValue</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setCache</name><argument_list>(<argument><expr><name>cn</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>"algorithm".<call><name>equals</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>AlgorithmName</name></type> <name>an</name> =<init> <expr>new <call><name>AlgorithmName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>an</name>.<name>setValue</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setAlgorithm</name><argument_list>(<argument><expr><name>an</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>"comparator".<call><name>equals</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>ComparatorName</name></type> <name>cn</name> =<init> <expr>new <call><name>ComparatorName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>cn</name>.<name>setValue</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setComparator</name><argument_list>(<argument><expr><name>cn</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>"update".<call><name>equals</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>boolean</name></type> <name>updateValue</name> =<init>
+                <expr>("true".<call><name>equalsIgnoreCase</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call>)
+                ? true
+                : false</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>setUpdate</name><argument_list>(<argument><expr><name>updateValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>"delayupdate".<call><name>equals</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>boolean</name></type> <name>updateValue</name> =<init>
+                <expr>("true".<call><name>equalsIgnoreCase</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call>)
+                ? true
+                : false</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>setDelayUpdate</name><argument_list>(<argument><expr><name>updateValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>"seldirs".<call><name>equals</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>boolean</name></type> <name>sdValue</name> =<init>
+                <expr>("true".<call><name>equalsIgnoreCase</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call>)
+                ? true
+                : false</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>setSeldirs</name><argument_list>(<argument><expr><name>sdValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>key</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>CACHE_PREFIX</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>key</name>.<name>substring</name></name><argument_list>(<argument><expr><call><name><name>CACHE_PREFIX</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>tryToSetAParameter</name><argument_list>(<argument><expr><name>cache</name></expr></argument>, <argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>key</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>ALGORITHM_PREFIX</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>key</name>.<name>substring</name></name><argument_list>(<argument><expr><call><name><name>ALGORITHM_PREFIX</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>tryToSetAParameter</name><argument_list>(<argument><expr><name>algorithm</name></expr></argument>, <argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>key</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>COMPARATOR_PREFIX</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>key</name>.<name>substring</name></name><argument_list>(<argument><expr><call><name><name>COMPARATOR_PREFIX</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>tryToSetAParameter</name><argument_list>(<argument><expr><name>comparator</name></expr></argument>, <argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>setError</name><argument_list>(<argument><expr>"Invalid parameter " + <name>key</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if></else></if></else></if></else></if></else></if></else></if></else></if></else></if></else></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Try to set a value on an object using reflection.
+     * Helper method for easier access to IntrospectionHelper.setAttribute().
+     * @param obj the object on which the attribute should be set
+     * @param name the attributename
+     * @param value the new value
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>tryToSetAParameter</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>obj</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Project</name></type> <name>prj</name> =<init> <expr>(<call><name>getProject</name><argument_list>()</argument_list></call> != <name>null</name>) ? <call><name>getProject</name><argument_list>()</argument_list></call> : new <call><name>Project</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>IntrospectionHelper</name></type> <name>iHelper</name>
+            =<init> <expr><call><name><name>IntrospectionHelper</name>.<name>getHelper</name></name><argument_list>(<argument><expr><name>prj</name></expr></argument>, <argument><expr><call><name><name>obj</name>.<name>getClass</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>iHelper</name>.<name>setAttribute</name></name><argument_list>(<argument><expr><name>prj</name></expr></argument>, <argument><expr><name>obj</name></expr></argument>, <argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// no-op</comment>
+        }</block></catch></try>
+    }</block></function>
+
+
+    <comment type="line">// ----- 'beautiful' output -----</comment>
+
+
+    <comment type="javadoc">/**
+     * Override Object.toString().
+     * @return information about this selector
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr>"{modifiedselector"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>" update="</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>update</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>" seldirs="</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>selectDirectories</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>" cache="</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>cache</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>" algorithm="</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>algorithm</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>" comparator="</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>comparator</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>"}"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>buf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+
+    <comment type="line">// ----- BuildListener interface methods -----</comment>
+
+
+    <comment type="javadoc">/**
+     * Signals that the last target has finished.
+     * @param event received BuildEvent
+    */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>getDelayUpdate</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>saveCache</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Signals that a target has finished.
+     * @param event recieved BuildEvent
+    */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>getDelayUpdate</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>saveCache</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Signals that a task has finished.
+     * @param event recieved BuildEvent
+    */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>getDelayUpdate</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>saveCache</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Signals that a build has started.
+     * @param event recieved BuildEvent
+    */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// no-op</comment>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Signals that a target is starting.
+     * @param event received BuildEvent
+    */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// no-op</comment>
+    }</block></function>
+
+
+
+    <comment type="javadoc">/**
+     * Signals that a task is starting.
+     * @param event recieved BuildEvent
+    */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// no-op</comment>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Signals a message logging event.
+     * @param event recieved BuildEvent
+    */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>messageLogged</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// no-op</comment>
+    }</block></function>
+
+
+    <comment type="line">// The EnumeratedAttributes for the three interface implementations.</comment>
+    <comment type="line">// Name-Classname mapping is done in the configure() method.</comment>
+
+
+    <comment type="javadoc">/**
+     * Get the cache type to use.
+     * @return the enumerated cache type
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Cache</name></type> <name>getCache</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>cache</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the cache type to use.
+     * @param name an enumerated cache type.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCache</name><parameter_list>(<param><decl><type><name>CacheName</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>cacheName</name> = <name>name</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The enumerated type for cache.
+     * The values are "propertyfile".
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>CacheName</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <comment type="javadoc">/**
+         * {@inheritDoc}
+         * @see EnumeratedAttribute#getValues()
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"propertyfile"</expr> }</block></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Get the algorithm type to use.
+     * @return the enumerated algorithm type
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Algorithm</name></type> <name>getAlgorithm</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>algorithm</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the algorithm type to use.
+     * @param name an enumerated algorithm type.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAlgorithm</name><parameter_list>(<param><decl><type><name>AlgorithmName</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>algoName</name> = <name>name</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The enumerated type for algorithm.
+     * The values are "hashValue", "digest" and "checksum".
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>AlgorithmName</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <comment type="javadoc">/**
+         * {@inheritDoc}
+         * @see EnumeratedAttribute#getValues()
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"hashvalue"</expr>, <expr>"digest"</expr>, <expr>"checksum"</expr> }</block></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Get the comparator type to use.
+     * @return the enumerated comparator type
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Comparator</name><argument_list>&lt;<argument><name>?</name> <super>super <name>String</name></super></argument>&gt;</argument_list></name></type> <name>getComparator</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>comparator</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the comparator type to use.
+     * @param name an enumerated comparator type.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setComparator</name><parameter_list>(<param><decl><type><name>ComparatorName</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>compName</name> = <name>name</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The enumerated type for algorithm.
+     * The values are "equal" and "rule".
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>ComparatorName</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <comment type="javadoc">/**
+         * {@inheritDoc}
+         * @see EnumeratedAttribute#getValues()
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"equal"</expr>, <expr>"rule"</expr> }</block></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+}</block></class>
+</unit>

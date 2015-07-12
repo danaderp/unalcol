@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Classloader.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>MagicNames</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>AntClassLoader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Reference</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+
+<comment type="javadoc">/**
+ * EXPERIMENTAL
+ * Create or modifies ClassLoader. The required pathRef parameter
+ * will be used to add classpath elements.
+ *
+ * The classpath is a regular path. Currently only file components are
+ * supported (future extensions may allow URLs).
+ *
+ * You can modify the core loader by not specifying any name or using
+ * "ant.coreLoader". (the core loader is used to load system ant
+ * tasks and for taskdefs that don't specify an explicit path).
+ *
+ * Taskdef and typedef can use the loader you create if the name follows
+ * the "ant.loader.NAME" pattern. NAME will be used as a pathref when
+ * calling taskdef.
+ *
+ * This tasks will not modify the core loader if "build.sysclasspath=only"
+ *
+ * The typical use is:
+ * &lt;pre&gt;
+ *  &amp;lt;path id="ant.deps" &amp;gt;
+ *     &amp;lt;fileset dir="myDir" &amp;gt;
+ *        &amp;lt;include name="junit.jar, bsf.jar, js.jar, etc"/&amp;gt;
+ *     &amp;lt;/fileset&amp;gt;
+ *  &amp;lt;/path&amp;gt;
+ *
+ *  &amp;lt;classloader pathRef="ant.deps" /&amp;gt;
+ *
+ * &lt;/pre&gt;
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>Classloader</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+    <comment type="javadoc">/** @see MagicNames#SYSTEM_LOADER_REF */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>SYSTEM_LOADER_REF</name> =<init> <expr><name><name>MagicNames</name>.<name>SYSTEM_LOADER_REF</name></name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>name</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>classpath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>reset</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>parentFirst</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>parentName</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Default constructor
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Classloader</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+    <comment type="javadoc">/** Name of the loader. If none, the default loader will be modified
+     *
+     * @param name the name of this loader
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>name</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Reset the classloader, if it already exists. A new loader will
+     * be created and all the references to the old one will be removed.
+     * (it is not possible to remove paths from a loader). The new
+     * path will be used.
+     *
+     * @param b true if the loader is to be reset.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setReset</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>reset</name></name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set reverse attribute.
+     * @param b if true reverse the normal classloader lookup.
+     * @deprecated use setParentFirst with a negated argument instead
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setReverse</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>parentFirst</name></name> = !<name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set reverse attribute.
+     * @param b if true reverse the normal classloader lookup.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setParentFirst</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>parentFirst</name></name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of the parent.
+     * @param name the parent name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setParentName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>parentName</name></name> = <name>name</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/** Specify which path will be used. If the loader already exists
+     *  and is an AntClassLoader (or any other loader we can extend),
+     *  the path will be added to the loader.
+     * @param pathRef a reference to a path.
+     * @throws BuildException if there is a problem.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>pathRef</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name>classpath</name> = (<name>Path</name>) <call><name><name>pathRef</name>.<name>getReferencedObject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath to be used when searching for component being defined
+     *
+     * @param classpath an Ant Path object containing the classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>classpath</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>classpath</name></name> = <name>classpath</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>this</name>.<name>classpath</name>.<name>append</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a classpath.
+     * @return a path for configuration.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>classpath</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>classpath</name></name> = new <call><name>Path</name><argument_list>(<argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>this</name>.<name>classpath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * do the classloader manipulation.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <comment type="line">// Gump friendly - don't mess with the core loader if only classpath</comment>
+            <if>if <condition>(<expr>"only".<call><name>equals</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr>"build.sysclasspath"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                &amp;&amp; (<name>name</name> == <name>null</name> || <call><name><name>SYSTEM_LOADER_REF</name>.<name>equals</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Changing the system loader is disabled "
+                    + "by build.sysclasspath=only"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>String</name></type> <name>loaderName</name> =<init> <expr>(<name>name</name> == <name>null</name>) ? <name>SYSTEM_LOADER_REF</name> : <name>name</name></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>Object</name></type> <name>obj</name> =<init> <expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getReference</name><argument_list>(<argument><expr><name>loaderName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>reset</name></expr>)</condition><then> <block>{
+                <comment type="line">// Are any other references held ? Can we 'close' the loader</comment>
+                <comment type="line">// so it removes the locks on jars ?</comment>
+                <expr_stmt><expr><name>obj</name> = <name>null</name></expr>;</expr_stmt> <comment type="line">// a new one will be created.</comment>
+            }</block></then></if>
+
+            <comment type="line">// TODO maybe use reflection to addPathElement (other patterns ?)</comment>
+            <if>if <condition>(<expr><name>obj</name> != <name>null</name> &amp;&amp; !(<name>obj</name> <name>instanceof</name> <name>AntClassLoader</name>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Referenced object is not an AntClassLoader"</expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>AntClassLoader</name></type> <name>acl</name> =<init> <expr>(<name>AntClassLoader</name>) <name>obj</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>boolean</name></type> <name>existingLoader</name> =<init> <expr><name>acl</name> != <name>null</name></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>acl</name> == <name>null</name></expr>)</condition><then> <block>{
+                <comment type="line">// Construct a new class loader</comment>
+                <decl_stmt><decl><type><name>Object</name></type> <name>parent</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>parentName</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>parent</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getReference</name><argument_list>(<argument><expr><name>parentName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <if>if <condition>(<expr>!(<name>parent</name> <name>instanceof</name> <name>ClassLoader</name>)</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>parent</name> = <name>null</name></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then></if>
+                <comment type="line">// TODO: allow user to request the system or no parent</comment>
+                <if>if <condition>(<expr><name>parent</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>parent</name> = <call><name><name>this</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getClassLoader</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <if>if <condition>(<expr><name>name</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <comment type="line">// The core loader must be reverse</comment>
+                    <comment type="line">//reverse=true;</comment>
+                }</block></then></if>
+                <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>log</name><argument_list>(<argument><expr>"Setting parent loader " + <name>name</name> + " "
+                    + <name>parent</name> + " " + <name>parentFirst</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// The param is "parentFirst"</comment>
+                <expr_stmt><expr><name>acl</name> = <call><name><name>AntClassLoader</name>.<name>newAntClassLoader</name></name><argument_list>(<argument><expr>(<name>ClassLoader</name>) <name>parent</name></expr></argument>,
+                         <argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>classpath</name></expr></argument>, <argument><expr><name>parentFirst</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>addReference</name><argument_list>(<argument><expr><name>loaderName</name></expr></argument>, <argument><expr><name>acl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><name>name</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <comment type="line">// This allows the core loader to load optional tasks</comment>
+                    <comment type="line">// without delegating</comment>
+                    <expr_stmt><expr><call><name><name>acl</name>.<name>addLoaderPackageRoot</name></name><argument_list>(<argument><expr>"org.apache.tools.ant.taskdefs.optional"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>setCoreLoader</name><argument_list>(<argument><expr><name>acl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>existingLoader</name> &amp;&amp; <name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>list</name> =<init> <expr><call><name><name>classpath</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>list</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>list</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Adding to class loader " +  <name>acl</name> + " " + <call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>acl</name>.<name>addPathElement</name></name><argument_list>(<argument><expr><call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></for>
+            }</block></then></if>
+
+            <comment type="line">// TODO add exceptions</comment>
+
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>ex</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name><name>ex</name>.<name>printStackTrace</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+    }</block></function>
+}</block></class>
+</unit>

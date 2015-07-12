@@ -1,0 +1,490 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Parallel.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>ExitStatusException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Location</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>TaskContainer</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>property</name>.<name>LocalProperties</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Executes the contained tasks in separate threads, continuing
+ * once all are completed.
+ * &lt;p&gt;
+ * New behavior allows for the ant script to specify a maximum number of
+ * threads that will be executed in parallel.  One should be very careful about
+ * using the &lt;code&gt;waitFor&lt;/code&gt; task when specifying &lt;code&gt;threadCount&lt;/code&gt;
+ * as it can cause deadlocks if the number of threads is too small or if one of
+ * the nested tasks fails to execute completely.  The task selection algorithm
+ * will insure that the tasks listed before a task have started before that
+ * task is started, but it will not insure a successful completion of those
+ * tasks or that those tasks will finish first (i.e. it's a classic race
+ * condition).
+ * &lt;/p&gt;
+ * @since Ant 1.4
+ *
+ * @ant.task category="control"
+ */</comment>
+<class><specifier>public</specifier> class <name>Parallel</name> <super><extends>extends <name>Task</name></extends>
+                      <implements>implements <name>TaskContainer</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>NUMBER_TRIES</name> =<init> <expr>100</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Class which holds a list of tasks to execute */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>TaskList</name> <super><implements>implements <name>TaskContainer</name></implements></super> <block>{
+        <comment type="javadoc">/** Collection holding the nested tasks */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>List</name></type> <name>tasks</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Add a nested task to execute parallel (asynchron).
+         * &lt;p&gt;
+         * @param nestedTask  Nested task to be executed in parallel.
+         *                    must not be null.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>addTask</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>nestedTask</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name><name>tasks</name>.<name>add</name></name><argument_list>(<argument><expr><name>nestedTask</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/** Collection holding the nested tasks */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>nestedTasks</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Semaphore to notify of completed threads */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>Object</name></type> <name>semaphore</name> =<init> <expr>new <call><name>Object</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Total number of threads to run */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>numThreads</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Total number of threads per processor to run.  */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>numThreadsPerProcessor</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The timeout period in milliseconds */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>timeout</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Indicates threads are still running and new threads can be issued */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>volatile</name> <name>boolean</name></type> <name>stillRunning</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Indicates that the execution timedout */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>timedOut</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Indicates whether failure of any of the nested tasks should end
+     * execution
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>failOnAny</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The dameon task list if any */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>TaskList</name></type> <name>daemonTasks</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Accumulation of exceptions messages from all nested tasks */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>StringBuffer</name></type> <name>exceptionMessage</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Number of exceptions from nested tasks */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>numExceptions</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The first exception encountered */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Throwable</name></type> <name>firstException</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The location of the first exception */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Location</name></type> <name>firstLocation</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The status of the first ExitStatusException. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Integer</name></type> <name>firstExitStatus</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Add a group of daemon threads
+     * @param daemonTasks The tasks to be executed as daemon.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addDaemons</name><parameter_list>(<param><decl><type><name>TaskList</name></type> <name>daemonTasks</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>daemonTasks</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one daemon group is supported"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>daemonTasks</name></name> = <name>daemonTasks</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Interval to poll for completed threads when threadCount or
+     * threadsPerProcessor is specified.  Integer in milliseconds.; optional
+     *
+     * @param pollInterval New value of property pollInterval.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPollInterval</name><parameter_list>(<param><decl><type><name>int</name></type> <name>pollInterval</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Control whether a failure in a nested task halts execution. Note that
+     * the task will complete but existing threads will continue to run - they
+     * are not stopped
+     *
+     * @param failOnAny if true any nested task failure causes parallel to
+     *        complete.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFailOnAny</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>failOnAny</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>failOnAny</name></name> = <name>failOnAny</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a nested task to execute in parallel.
+     * @param nestedTask  Nested task to be executed in parallel
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addTask</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>nestedTask</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>nestedTasks</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>nestedTask</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Dynamically generates the number of threads to execute based on the
+     * number of available processors (via
+     * &lt;code&gt;java.lang.Runtime.availableProcessors()&lt;/code&gt;).
+     * Will overwrite the value set in threadCount; optional
+     * @param numThreadsPerProcessor Number of threads to create per available
+     *        processor.
+     *
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setThreadsPerProcessor</name><parameter_list>(<param><decl><type><name>int</name></type> <name>numThreadsPerProcessor</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>numThreadsPerProcessor</name></name> = <name>numThreadsPerProcessor</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Statically determine the maximum number of tasks to execute
+     * simultaneously.  If there are less tasks than threads then all will be
+     * executed at once, if there are more then only &lt;code&gt;threadCount&lt;/code&gt;
+     * tasks will be executed at one time.  If &lt;code&gt;threadsPerProcessor&lt;/code&gt;
+     * is set then this value is
+     * ignored.; optional
+     *
+     * @param numThreads total number of threads.
+     *
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setThreadCount</name><parameter_list>(<param><decl><type><name>int</name></type> <name>numThreads</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>numThreads</name></name> = <name>numThreads</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the timeout on this set of tasks. If the timeout is reached
+     * before the other threads complete, the execution of this
+     * task completes with an exception.
+     *
+     * Note that existing threads continue to run.
+     *
+     * @param timeout timeout in milliseconds.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTimeout</name><parameter_list>(<param><decl><type><name>long</name></type> <name>timeout</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>timeout</name></name> = <name>timeout</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+
+    <comment type="javadoc">/**
+     * Execute the parallel tasks
+     *
+     * @exception BuildException if any of the threads failed.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>updateThreadCounts</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>numThreads</name> == 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>numThreads</name> = <call><name><name>nestedTasks</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>spinThreads</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Determine the number of threads based on the number of processors
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>updateThreadCounts</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>numThreadsPerProcessor</name> != 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>numThreads</name> = <call><name><name>Runtime</name>.<name>getRuntime</name></name><argument_list>()</argument_list></call>.<call><name>availableProcessors</name><argument_list>()</argument_list></call> *
+                    <name>numThreadsPerProcessor</name></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>processExceptions</name><parameter_list>(<param><decl><type><name><name>TaskRunnable</name><index>[]</index></name></type> <name>runnables</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>runnables</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>runnables</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Throwable</name></type> <name>t</name> =<init> <expr><name><name>runnables</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getException</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>t</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>numExceptions</name>++</expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>firstException</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>firstException</name> = <name>t</name></expr>;</expr_stmt>
+                }</block></then></if>
+                <if>if <condition>(<expr><name>t</name> <name>instanceof</name> <name>BuildException</name>
+                    &amp;&amp; <name>firstLocation</name> == <name><name>Location</name>.<name>UNKNOWN_LOCATION</name></name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>firstLocation</name> = ((<name>BuildException</name>) <name>t</name>).<call><name>getLocation</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <if>if <condition>(<expr><name>t</name> <name>instanceof</name> <name>ExitStatusException</name>
+                    &amp;&amp; <name>firstExitStatus</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>ExitStatusException</name></type> <name>ex</name> =<init> <expr>(<name>ExitStatusException</name>) <name>t</name></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><name>firstExitStatus</name> = <call><name><name>ex</name>.<name>getStatus</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <comment type="line">// potentially overwriting existing value but the</comment>
+                    <comment type="line">// location should match the exit status</comment>
+                    <expr_stmt><expr><name>firstLocation</name> = <call><name><name>ex</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>exceptionMessage</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>exceptionMessage</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>t</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Spin up required threads with a maximum number active at any given time.
+     *
+     * @exception BuildException if any of the threads failed.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>spinThreads</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>numTasks</name> =<init> <expr><call><name><name>nestedTasks</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>TaskRunnable</name><index>[]</index></type> <name>runnables</name> =<init> <expr>new <name><name>TaskRunnable</name><index>[<expr><name>numTasks</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>stillRunning</name> = true</expr>;</expr_stmt>
+        <expr_stmt><expr><name>timedOut</name> = false</expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>interrupted</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>threadNumber</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>nestedTasks</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition>
+             <incr><expr><name>threadNumber</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Task</name></type> <name>nestedTask</name> =<init> <expr>(<name>Task</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name><name>runnables</name><index>[<expr><name>threadNumber</name></expr>]</index></name>
+                = new <call><name>TaskRunnable</name><argument_list>(<argument><expr><name>nestedTask</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>maxRunning</name> =<init> <expr><name>numTasks</name> &lt; <name>numThreads</name> ? <name>numTasks</name> : <name>numThreads</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>TaskRunnable</name><index>[]</index></type> <name>running</name> =<init> <expr>new <name><name>TaskRunnable</name><index>[<expr><name>maxRunning</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><name>threadNumber</name> = 0</expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>ThreadGroup</name></type> <name>group</name> =<init> <expr>new <call><name>ThreadGroup</name><argument_list>(<argument><expr>"parallel"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>TaskRunnable</name><index>[]</index></type> <name>daemons</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>daemonTasks</name> != <name>null</name> &amp;&amp; <call><name><name>daemonTasks</name>.<name>tasks</name>.<name>size</name></name><argument_list>()</argument_list></call> != 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>daemons</name> = new <name><name>TaskRunnable</name><index>[<expr><call><name><name>daemonTasks</name>.<name>tasks</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <synchronized>synchronized (<expr><name>semaphore</name></expr>) <block>{
+            <comment type="line">// When we leave this block we can be sure all data is really</comment>
+            <comment type="line">// stored in main memory before the new threads start, the new</comment>
+            <comment type="line">// threads will for sure load the data from main memory.</comment>
+            <comment type="line">//</comment>
+            <comment type="line">// This probably is slightly paranoid.</comment>
+        }</block></synchronized>
+
+        <synchronized>synchronized (<expr><name>semaphore</name></expr>) <block>{
+            <comment type="line">// start any daemon threads</comment>
+            <if>if <condition>(<expr><name>daemons</name> != <name>null</name></expr>)</condition><then> <block>{
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>daemons</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                    <expr_stmt><expr><name><name>daemons</name><index>[<expr><name>i</name></expr>]</index></name> = new <call><name>TaskRunnable</name><argument_list>(<argument><expr>(<name>Task</name>) <call><name><name>daemonTasks</name>.<name>tasks</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>Thread</name></type> <name>daemonThread</name> =<init>  <expr>new <call><name>Thread</name><argument_list>(<argument><expr><name>group</name></expr></argument>, <argument><expr><name><name>daemons</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>daemonThread</name>.<name>setDaemon</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>daemonThread</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+            }</block></then></if>
+
+            <comment type="line">// now run main threads in limited numbers...</comment>
+            <comment type="line">// start initial batch of threads</comment>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>maxRunning</name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                <expr_stmt><expr><name><name>running</name><index>[<expr><name>i</name></expr>]</index></name> = <name><name>runnables</name><index>[<expr><name>threadNumber</name>++</expr>]</index></name></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>Thread</name></type> <name>thread</name> =<init>  <expr>new <call><name>Thread</name><argument_list>(<argument><expr><name>group</name></expr></argument>, <argument><expr><name><name>running</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>thread</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+
+            <if>if <condition>(<expr><name>timeout</name> != 0</expr>)</condition><then> <block>{
+                <comment type="line">// start the timeout thread</comment>
+                <decl_stmt><decl><type><name>Thread</name></type> <name>timeoutThread</name> =<init> <expr>new <class><super><name>Thread</name></super><argument_list>()</argument_list> <block>{
+                    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>run</name><parameter_list>()</parameter_list> <block>{
+                        <try>try <block>{
+                            <expr_stmt><expr><call><name>wait</name><argument_list>(<argument><expr><name>timeout</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <synchronized>synchronized (<expr><name>semaphore</name></expr>) <block>{
+                                <expr_stmt><expr><name>stillRunning</name> = false</expr>;</expr_stmt>
+                                <expr_stmt><expr><name>timedOut</name> = true</expr>;</expr_stmt>
+                                <expr_stmt><expr><call><name><name>semaphore</name>.<name>notifyAll</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            }</block></synchronized>
+                        }</block> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>e</name></decl></param>) <block>{
+                            <comment type="line">// ignore</comment>
+                        }</block></catch></try>
+                    }</block></function>
+                }</block></class></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>timeoutThread</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <try>try <block>{
+                <comment type="line">// now find available running slots for the remaining threads</comment>
+                <label><name>outer</name>:</label> <while>while <condition>(<expr><name>threadNumber</name> &lt; <name>numTasks</name> &amp;&amp; <name>stillRunning</name></expr>)</condition> <block>{
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>maxRunning</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                        <if>if <condition>(<expr><name><name>running</name><index>[<expr><name>i</name></expr>]</index></name> == <name>null</name> || <name><name>running</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>isFinished</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name><name>running</name><index>[<expr><name>i</name></expr>]</index></name> = <name><name>runnables</name><index>[<expr><name>threadNumber</name>++</expr>]</index></name></expr>;</expr_stmt>
+                            <decl_stmt><decl><type><name>Thread</name></type> <name>thread</name> =<init> <expr>new <call><name>Thread</name><argument_list>(<argument><expr><name>group</name></expr></argument>, <argument><expr><name><name>running</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                            <expr_stmt><expr><call><name><name>thread</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            <comment type="line">// continue on outer while loop to get another</comment>
+                            <comment type="line">// available slot</comment>
+                            <continue>continue outer;</continue>
+                        }</block></then></if>
+                    }</block></for>
+
+                    <comment type="line">// if we got here all slots in use, so sleep until</comment>
+                    <comment type="line">// something happens</comment>
+                    <expr_stmt><expr><call><name><name>semaphore</name>.<name>wait</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></while>
+
+                <comment type="line">// are all threads finished</comment>
+                <label><name>outer2</name>:</label> <while>while <condition>(<expr><name>stillRunning</name></expr>)</condition> <block>{
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>maxRunning</name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                        <if>if <condition>(<expr><name><name>running</name><index>[<expr><name>i</name></expr>]</index></name> != <name>null</name> &amp;&amp; !<name><name>running</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>isFinished</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                            <comment type="line">// System.out.println("Thread " + i + " is still</comment>
+                            <comment type="line">// alive ");</comment>
+                            <comment type="line">// still running - wait for it</comment>
+                            <expr_stmt><expr><call><name><name>semaphore</name>.<name>wait</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            <continue>continue outer2;</continue>
+                        }</block></then></if>
+                    }</block></for>
+                    <expr_stmt><expr><name>stillRunning</name> = false</expr>;</expr_stmt>
+                }</block></while>
+            }</block> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>ie</name></decl></param>) <block>{
+                <expr_stmt><expr><name>interrupted</name> = true</expr>;</expr_stmt>
+            }</block></catch></try>
+
+            <if>if <condition>(<expr>!<name>timedOut</name> &amp;&amp; !<name>failOnAny</name></expr>)</condition><then> <block>{
+                <comment type="line">// https://issues.apache.org/bugzilla/show_bug.cgi?id=49527</comment>
+                <expr_stmt><expr><call><name>killAll</name><argument_list>(<argument><expr><name>running</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></synchronized>
+
+        <if>if <condition>(<expr><name>interrupted</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Parallel execution interrupted."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>timedOut</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Parallel execution timed out"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <comment type="line">// now did any of the threads throw an exception</comment>
+        <expr_stmt><expr><name>exceptionMessage</name> = new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>numExceptions</name> = 0</expr>;</expr_stmt>
+        <expr_stmt><expr><name>firstException</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>firstExitStatus</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>firstLocation</name> = <name><name>Location</name>.<name>UNKNOWN_LOCATION</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>processExceptions</name><argument_list>(<argument><expr><name>daemons</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>processExceptions</name><argument_list>(<argument><expr><name>runnables</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>numExceptions</name> == 1</expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>firstException</name> <name>instanceof</name> <name>BuildException</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>(<name>BuildException</name>) <name>firstException</name></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>firstException</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></else></if>
+        }</block></then> <else>else <if>if <condition>(<expr><name>numExceptions</name> &gt; 1</expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>firstExitStatus</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name><name>exceptionMessage</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                         <argument><expr><name>firstLocation</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <throw>throw <expr>new <call><name>ExitStatusException</name><argument_list>(<argument><expr><call><name><name>exceptionMessage</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                              <argument><expr><name>firstExitStatus</name></expr></argument>, <argument><expr><name>firstLocation</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></else></if>
+        }</block></then></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Doesn't do anything if all threads where already gone,
+     * else it tries to interrupt the threads 100 times.
+     * @param running The list of tasks that may currently be running.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>killAll</name><parameter_list>(<param><decl><type><name><name>TaskRunnable</name><index>[]</index></name></type> <name>running</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>boolean</name></type> <name>oneAlive</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>tries</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <do>do <block>{
+            <expr_stmt><expr><name>oneAlive</name> = false</expr>;</expr_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>running</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <if>if <condition>(<expr><name><name>running</name><index>[<expr><name>i</name></expr>]</index></name> != <name>null</name> &amp;&amp; !<name><name>running</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>isFinished</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name><name>running</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>interrupt</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>Thread</name>.<name>yield</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>oneAlive</name> = true</expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+            <if>if <condition>(<expr><name>oneAlive</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>tries</name>++</expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>Thread</name>.<name>yield</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> while <condition>(<expr><name>oneAlive</name> &amp;&amp; <name>tries</name> &lt; <name>NUMBER_TRIES</name></expr>)</condition>;</do>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * thread that execs a task
+     */</comment>
+    <class><specifier>private</specifier> class <name>TaskRunnable</name> <super><implements>implements <name>Runnable</name></implements></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Throwable</name></type> <name>exception</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Task</name></type> <name>task</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>finished</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>volatile</name> <name>Thread</name></type> <name>thread</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Construct a new TaskRunnable.&lt;p&gt;
+         *
+         * @param task the Task to be executed in a separate thread
+         */</comment>
+        <constructor><name>TaskRunnable</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>task</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>task</name></name> = <name>task</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Executes the task within a thread and takes care about
+         * Exceptions raised within the task.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>run</name><parameter_list>()</parameter_list> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>LocalProperties</name>.<name>get</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>copy</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>thread</name> = <call><name><name>Thread</name>.<name>currentThread</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>task</name>.<name>perform</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>Throwable</name></type> <name>t</name></decl></param>) <block>{
+                <expr_stmt><expr><name>exception</name> = <name>t</name></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>failOnAny</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>stillRunning</name> = false</expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></catch> <finally>finally <block>{
+                <synchronized>synchronized (<expr><name>semaphore</name></expr>) <block>{
+                    <expr_stmt><expr><name>finished</name> = true</expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>semaphore</name>.<name>notifyAll</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></synchronized>
+            }</block></finally></try>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * get any exception that got thrown during execution;
+         * @return an exception or null for no exception/not yet finished
+         */</comment>
+        <function><type><specifier>public</specifier> <name>Throwable</name></type> <name>getException</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>exception</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Provides the indicator that the task has been finished.
+         * @return Returns true when the task is finished.
+         */</comment>
+        <function><type><name>boolean</name></type> <name>isFinished</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>finished</name></expr>;</return>
+        }</block></function>
+
+        <function><type><name>void</name></type> <name>interrupt</name><parameter_list>()</parameter_list> <block>{
+            <expr_stmt><expr><call><name><name>thread</name>.<name>interrupt</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+
+}</block></class>
+</unit>

@@ -1,0 +1,691 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\types\Commandline.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>StringTokenizer</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ListIterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>ProjectComponent</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>Os</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Commandline objects help handling command lines specifying processes to
+ * execute.
+ *
+ * The class can be used to define a command line as nested elements or as a
+ * helper to define a command line by an application.
+ * &lt;p&gt;
+ * &lt;code&gt;
+ * &amp;lt;someelement&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;acommandline executable="/executable/to/run"&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;lt;argument value="argument 1" /&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;lt;argument line="argument_1 argument_2 argument_3" /&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;lt;argument value="argument 4" /&amp;gt;&lt;br&gt;
+ * &amp;nbsp;&amp;nbsp;&amp;lt;/acommandline&amp;gt;&lt;br&gt;
+ * &amp;lt;/someelement&amp;gt;&lt;br&gt;
+ * &lt;/code&gt;
+ * The element &lt;code&gt;someelement&lt;/code&gt; must provide a method
+ * &lt;code&gt;createAcommandline&lt;/code&gt; which returns an instance of this class.
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>Commandline</name> <super><implements>implements <name>Cloneable</name></implements></super> <block>{
+    <comment type="javadoc">/** win9x uses a (shudder) bat file (antRun.bat) for executing commands */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>boolean</name></type> <name>IS_WIN_9X</name> =<init> <expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"win9x"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The arguments of the command
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>List</name><argument_list>&lt;<argument><name>Argument</name></argument>&gt;</argument_list></name></type> <name>arguments</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>Argument</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * the program to execute
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>executable</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DISCLAIMER</name> =<init>
+        <expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name>
+        + "The \' characters around the executable and arguments are"
+        + <name><name>StringUtils</name>.<name>LINE_SEP</name></name>
+        + "not part of the command."
+        + <name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Create a command line from a string.
+     * @param toProcess the line: the first element becomes the executable, the rest
+     * the arguments.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Commandline</name><parameter_list>(<param><decl><type><name>String</name></type> <name>toProcess</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>tmp</name> =<init> <expr><call><name>translateCommandline</name><argument_list>(<argument><expr><name>toProcess</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>tmp</name> != <name>null</name> &amp;&amp; <name><name>tmp</name>.<name>length</name></name> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setExecutable</name><argument_list>(<argument><expr><name><name>tmp</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>1</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>tmp</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name>createArgument</name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name><name>tmp</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     *  Create an empty command line.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Commandline</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Used for nested xml command line definitions.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>Argument</name> <super><extends>extends <name>ProjectComponent</name></extends></super> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>parts</name></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>prefix</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>suffix</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Set a single commandline argument.
+         *
+         * @param value a single commandline argument.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setValue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>parts</name> = new <name><name>String</name><index>[]</index></name> <block>{<expr><name>value</name></expr>}</block></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the line to split into several commandline arguments.
+         *
+         * @param line line to split into several commandline arguments.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setLine</name><parameter_list>(<param><decl><type><name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>line</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return;</return>
+            }</block></then></if>
+            <expr_stmt><expr><name>parts</name> = <call><name>translateCommandline</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set a single commandline argument and treats it like a
+         * PATH--ensuring the right separator for the local platform
+         * is used.
+         *
+         * @param value a single commandline argument.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setPath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>parts</name> = new <name><name>String</name><index>[]</index></name> <block>{<expr><call><name><name>value</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>}</block></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set a single commandline argument from a reference to a
+         * path--ensuring the right separator for the local platform
+         * is used.
+         *
+         * @param value a single commandline argument.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setPathref</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>Path</name></type> <name>p</name> =<init> <expr>new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>p</name>.<name>setRefid</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>parts</name> = new <name><name>String</name><index>[]</index></name> <block>{<expr><call><name><name>p</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>}</block></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set a single commandline argument to the absolute filename
+         * of the given file.
+         *
+         * @param value a single commandline argument.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>parts</name> = new <name><name>String</name><index>[]</index></name> <block>{<expr><call><name><name>value</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr>}</block></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the prefix to be placed in front of every part of the
+         * argument.
+         *
+         * @param prefix fixed prefix string.
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setPrefix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>prefix</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>prefix</name></name> = <name>prefix</name> != <name>null</name> ? <name>prefix</name> : ""</expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the suffix to be placed at the end of every part of the
+         * argument.
+         *
+         * @param suffix fixed suffix string.
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setSuffix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>suffix</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>suffix</name></name> = <name>suffix</name> != <name>null</name> ? <name>suffix</name> : ""</expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Return the constituent parts of this Argument.
+         * @return an array of strings.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getParts</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>parts</name> == <name>null</name> || <name><name>parts</name>.<name>length</name></name> == 0
+                || (<call><name><name>prefix</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0 &amp;&amp; <call><name><name>suffix</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0)</expr>)</condition><then> <block>{
+                <return>return <expr><name>parts</name></expr>;</return>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>fullParts</name> =<init> <expr>new <name><name>String</name><index>[<expr><name><name>parts</name>.<name>length</name></name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>fullParts</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                <expr_stmt><expr><name><name>fullParts</name><index>[<expr><name>i</name></expr>]</index></name> = <name>prefix</name> + <name><name>parts</name><index>[<expr><name>i</name></expr>]</index></name> + <name>suffix</name></expr>;</expr_stmt>
+            }</block></for>
+            <return>return <expr><name>fullParts</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Class to keep track of the position of an Argument.
+     *
+     * &lt;p&gt;This class is there to support the srcfile and targetfile
+     * elements of &amp;lt;apply&amp;gt;.&lt;/p&gt;
+     */</comment>
+    <class><specifier>public</specifier> class <name>Marker</name> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>position</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>realPos</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>prefix</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>suffix</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Construct a marker for the specified position.
+         * @param position the position to mark.
+         */</comment>
+        <constructor><name>Marker</name><parameter_list>(<param><decl><type><name>int</name></type> <name>position</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>position</name></name> = <name>position</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Return the number of arguments that preceded this marker.
+         *
+         * &lt;p&gt;The name of the executable -- if set -- is counted as the
+         * first argument.&lt;/p&gt;
+         * @return the position of this marker.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>getPosition</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>realPos</name> == -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>realPos</name> = (<name>executable</name> == <name>null</name> ? 0 : 1)</expr>;</expr_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>position</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <decl_stmt><decl><type><name>Argument</name></type> <name>arg</name> =<init> <expr>(<name>Argument</name>) <call><name><name>arguments</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><name>realPos</name> += <call><name><name>arg</name>.<name>getParts</name></name><argument_list>()</argument_list></call>.<name>length</name></expr>;</expr_stmt>
+                }</block></for>
+            }</block></then></if>
+            <return>return <expr><name>realPos</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the prefix to be placed in front of the inserted argument.
+         *
+         * @param prefix fixed prefix string.
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setPrefix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>prefix</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>prefix</name></name> = <name>prefix</name> != <name>null</name> ? <name>prefix</name> : ""</expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the prefix to be placed in front of the inserted argument.
+         *
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getPrefix</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>prefix</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the suffix to be placed at the end of the inserted argument.
+         *
+         * @param suffix fixed suffix string.
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setSuffix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>suffix</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>suffix</name></name> = <name>suffix</name> != <name>null</name> ? <name>suffix</name> : ""</expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the suffix to be placed at the end of the inserted argument.
+         *
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getSuffix</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>suffix</name></expr>;</return>
+        }</block></function>
+
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Create an argument object.
+     *
+     * &lt;p&gt;Each commandline object has at most one instance of the
+     * argument class.  This method calls
+     * &lt;code&gt;this.createArgument(false)&lt;/code&gt;.&lt;/p&gt;
+     *
+     * @see #createArgument(boolean)
+     * @return the argument object.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Argument</name></type> <name>createArgument</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>this</name>.<name>createArgument</name></name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create an argument object and add it to our list of args.
+     *
+     * &lt;p&gt;Each commandline object has at most one instance of the
+     * argument class.&lt;/p&gt;
+     *
+     * @param insertAtStart if true, the argument is inserted at the
+     * beginning of the list of args, otherwise it is appended.
+     * @return an argument to be configured
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Argument</name></type> <name>createArgument</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>insertAtStart</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Argument</name></type> <name>argument</name> =<init> <expr>new <call><name>Argument</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>insertAtStart</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>argument</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr><name>argument</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <return>return <expr><name>argument</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the executable to run. All file separators in the string
+     * are converted to the platform specific value.
+     * @param executable the String executable name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setExecutable</name><parameter_list>(<param><decl><type><name>String</name></type> <name>executable</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>executable</name> == <name>null</name> || <call><name><name>executable</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>executable</name></name> = <call><name><name>executable</name>.<name>replace</name></name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call>
+            .<call><name>replace</name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the executable.
+     * @return the program to run--null if not yet set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getExecutable</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>executable</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Append the arguments to the existing command.
+     * @param line an array of arguments to append.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addArguments</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>line</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name>createArgument</name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name><name>line</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the executable and all defined arguments.
+     * @return the commandline as an array of strings.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getCommandline</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name><name>List</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>commands</name> =<init> <expr>new <call><name><name>LinkedList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>addCommandToList</name><argument_list>(<argument><expr><call><name><name>commands</name>.<name>listIterator</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>commands</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>commands</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add the entire command, including (optional) executable to a list.
+     * @param list the list to add to.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addCommandToList</name><parameter_list>(<param><decl><type><name><name>ListIterator</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>list</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>executable</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>list</name>.<name>add</name></name><argument_list>(<argument><expr><name>executable</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>addArgumentsToList</name><argument_list>(<argument><expr><name>list</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns all arguments defined by &lt;code&gt;addLine&lt;/code&gt;,
+     * &lt;code&gt;addValue&lt;/code&gt; or the argument object.
+     * @return the arguments as an array of strings.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getArguments</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>List</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>result</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><call><name><name>arguments</name>.<name>size</name></name><argument_list>()</argument_list></call> * 2</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>addArgumentsToList</name><argument_list>(<argument><expr><call><name><name>result</name>.<name>listIterator</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>result</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>result</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Append all the arguments to the tail of a supplied list.
+     * @param list the list of arguments.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addArgumentsToList</name><parameter_list>(<param><decl><type><name><name>ListIterator</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>list</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>arguments</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Argument</name></type> <name>arg</name> =<init> <expr><call><name><name>arguments</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>s</name> =<init> <expr><call><name><name>arg</name>.<name>getParts</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>s</name> != <name>null</name></expr>)</condition><then> <block>{
+                <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>s</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                    <expr_stmt><expr><call><name><name>list</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>s</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the command line as a string.
+     * @return the command line.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>toString</name><argument_list>(<argument><expr><call><name>getCommandline</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Put quotes around the given String if necessary.
+     *
+     * &lt;p&gt;If the argument doesn't include spaces or quotes, return it
+     * as is. If it contains double quotes, use single quotes - else
+     * surround the argument by double quotes.&lt;/p&gt;
+     * @param argument the argument to quote if necessary.
+     * @return the quoted argument.
+     * @exception BuildException if the argument contains both, single
+     *                           and double quotes.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>quoteArgument</name><parameter_list>(<param><decl><type><name>String</name></type> <name>argument</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>argument</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"\""</expr></argument>)</argument_list></call> &gt; -1</expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>argument</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"\'"</expr></argument>)</argument_list></call> &gt; -1</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Can\'t handle single and double"
+                        + " quotes in same argument"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <return>return <expr>'\'' + <name>argument</name> + '\''</expr>;</return>
+            }</block></else></if>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>argument</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"\'"</expr></argument>)</argument_list></call> &gt; -1
+                   || <call><name><name>argument</name>.<name>indexOf</name></name><argument_list>(<argument><expr>" "</expr></argument>)</argument_list></call> &gt; -1
+                   <comment type="line">// WIN9x uses a bat file for executing commands</comment>
+                   || (<name>IS_WIN_9X</name> &amp;&amp; <call><name><name>argument</name>.<name>indexOf</name></name><argument_list>(<argument><expr>';'</expr></argument>)</argument_list></call> != -1)</expr>)</condition><then> <block>{
+            <return>return <expr>'\"' + <name>argument</name> + '\"'</expr>;</return>
+        }</block></then> <else>else <block>{
+            <return>return <expr><name>argument</name></expr>;</return>
+        }</block></else></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Quote the parts of the given array in way that makes them
+     * usable as command line arguments.
+     * @param line the list of arguments to quote.
+     * @return empty string for null or no command, else every argument split
+     * by spaces and quoted by quoting rules.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>toString</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// empty path return empty string</comment>
+        <if>if <condition>(<expr><name>line</name> == <name>null</name> || <name><name>line</name>.<name>length</name></name> == 0</expr>)</condition><then> <block>{
+            <return>return <expr>""</expr>;</return>
+        }</block></then></if>
+        <comment type="line">// path containing one or more elements</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>StringBuilder</name></type> <name>result</name> =<init> <expr>new <call><name>StringBuilder</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>line</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><name>i</name> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>result</name>.<name>append</name></name><argument_list>(<argument><expr>' '</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>result</name>.<name>append</name></name><argument_list>(<argument><expr><call><name>quoteArgument</name><argument_list>(<argument><expr><name><name>line</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><call><name><name>result</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Crack a command line.
+     * @param toProcess the command line to process.
+     * @return the command line broken into strings.
+     * An empty or null toProcess parameter results in a zero sized array.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name><index>[]</index></type> <name>translateCommandline</name><parameter_list>(<param><decl><type><name>String</name></type> <name>toProcess</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>toProcess</name> == <name>null</name> || <call><name><name>toProcess</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <comment type="line">//no command? no string</comment>
+            <return>return <expr>new <name><name>String</name><index>[<expr>0</expr>]</index></name></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// parse with a simple finite state machine</comment>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>normal</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>inQuote</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>inDoubleQuote</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>state</name> =<init> <expr><name>normal</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>StringTokenizer</name></type> <name>tok</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><name>toProcess</name></expr></argument>, <argument><expr>"\"\' "</expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name><name>ArrayList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>result</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>StringBuilder</name></type> <name>current</name> =<init> <expr>new <call><name>StringBuilder</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>lastTokenHasBeenQuoted</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+        <while>while <condition>(<expr><call><name><name>tok</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>nextTok</name> =<init> <expr><call><name><name>tok</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <switch>switch <condition>(<expr><name>state</name></expr>)</condition> <block>{
+            <case>case <expr><name>inQuote</name></expr>:
+                <if>if <condition>(<expr>"\'".<call><name>equals</name><argument_list>(<argument><expr><name>nextTok</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>lastTokenHasBeenQuoted</name> = true</expr>;</expr_stmt>
+                    <expr_stmt><expr><name>state</name> = <name>normal</name></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>current</name>.<name>append</name></name><argument_list>(<argument><expr><name>nextTok</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <break>break;</break>
+            </case><case>case <expr><name>inDoubleQuote</name></expr>:
+                <if>if <condition>(<expr>"\"".<call><name>equals</name><argument_list>(<argument><expr><name>nextTok</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>lastTokenHasBeenQuoted</name> = true</expr>;</expr_stmt>
+                    <expr_stmt><expr><name>state</name> = <name>normal</name></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>current</name>.<name>append</name></name><argument_list>(<argument><expr><name>nextTok</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <break>break;</break>
+            </case><default>default:
+                <if>if <condition>(<expr>"\'".<call><name>equals</name><argument_list>(<argument><expr><name>nextTok</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>state</name> = <name>inQuote</name></expr>;</expr_stmt>
+                }</block></then> <else>else <if>if <condition>(<expr>"\"".<call><name>equals</name><argument_list>(<argument><expr><name>nextTok</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>state</name> = <name>inDoubleQuote</name></expr>;</expr_stmt>
+                }</block></then> <else>else <if>if <condition>(<expr>" ".<call><name>equals</name><argument_list>(<argument><expr><name>nextTok</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr><name>lastTokenHasBeenQuoted</name> || <call><name><name>current</name>.<name>length</name></name><argument_list>()</argument_list></call> != 0</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>result</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>current</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>current</name>.<name>setLength</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>current</name>.<name>append</name></name><argument_list>(<argument><expr><name>nextTok</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if></else></if></else></if>
+                <expr_stmt><expr><name>lastTokenHasBeenQuoted</name> = false</expr>;</expr_stmt>
+                <break>break;</break>
+            </default>}</block></switch>
+        }</block></while>
+        <if>if <condition>(<expr><name>lastTokenHasBeenQuoted</name> || <call><name><name>current</name>.<name>length</name></name><argument_list>()</argument_list></call> != 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>result</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>current</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>state</name> == <name>inQuote</name> || <name>state</name> == <name>inDoubleQuote</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"unbalanced quotes in " + <name>toProcess</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><call><name><name>result</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>result</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Size operator. This actually creates the command line, so it is not
+     * a zero cost operation.
+     * @return number of elements in the command, including the executable.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>size</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getCommandline</name><argument_list>()</argument_list></call>.<name>length</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Generate a deep clone of the contained object.
+     * @return a clone of the contained object
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Commandline</name></type> <name>c</name> =<init> <expr>(<name>Commandline</name>) <call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name><name>c</name>.<name>arguments</name></name> = new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>Argument</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>arguments</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>c</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>CloneNotSupportedException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Clear out the whole command line.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>clear</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>executable</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>arguments</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Clear out the arguments but leave the executable in place for
+     * another operation.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>clearArgs</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>arguments</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a marker.
+     *
+     * &lt;p&gt;This marker can be used to locate a position on the
+     * commandline--to insert something for example--when all
+     * parameters have been set.&lt;/p&gt;
+     * @return a marker
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Marker</name></type> <name>createMarker</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>new <call><name>Marker</name><argument_list>(<argument><expr><call><name><name>arguments</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a String that describes the command and arguments suitable for
+     * verbose output before a call to &lt;code&gt;Runtime.exec(String[])&lt;code&gt;.
+     * @return a string that describes the command and arguments.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>describeCommand</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>describeCommand</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a String that describes the arguments suitable for
+     * verbose output before a call to &lt;code&gt;Runtime.exec(String[])&lt;code&gt;.
+     * @return a string that describes the arguments.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>describeArguments</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>describeArguments</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a String that describes the command and arguments suitable for
+     * verbose output before a call to &lt;code&gt;Runtime.exec(String[])&lt;code&gt;.
+     * @param line the Commandline to describe.
+     * @return a string that describes the command and arguments.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>describeCommand</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>describeCommand</name><argument_list>(<argument><expr><call><name><name>line</name>.<name>getCommandline</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a String that describes the arguments suitable for
+     * verbose output before a call to &lt;code&gt;Runtime.exec(String[])&lt;code&gt;.
+     * @param line the Commandline whose arguments to describe.
+     * @return a string that describes the arguments.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>describeArguments</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>describeArguments</name><argument_list>(<argument><expr><call><name><name>line</name>.<name>getArguments</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a String that describes the command and arguments suitable for
+     * verbose output before a call to &lt;code&gt;Runtime.exec(String[])&lt;code&gt;.
+     *
+     * &lt;p&gt;This method assumes that the first entry in the array is the
+     * executable to run.&lt;/p&gt;
+     * @param args the command line to describe as an array of strings
+     * @return a string that describes the command and arguments.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>describeCommand</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>args</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>args</name> == <name>null</name> || <name><name>args</name>.<name>length</name></name> == 0</expr>)</condition><then> <block>{
+            <return>return <expr>""</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr>"Executing \'"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>args</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>"\'"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name><name>args</name>.<name>length</name></name> &gt; 1</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>" with "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><call><name>describeArguments</name><argument_list>(<argument><expr><name>args</name></expr></argument>, <argument><expr>1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><name>DISCLAIMER</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <return>return <expr><call><name><name>buf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a String that describes the arguments suitable for
+     * verbose output before a call to &lt;code&gt;Runtime.exec(String[])&lt;code&gt;.
+     * @param args the command line to describe as an array of strings.
+     * @return a string that describes the arguments.
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>describeArguments</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>args</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>describeArguments</name><argument_list>(<argument><expr><name>args</name></expr></argument>, <argument><expr>0</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return a String that describes the arguments suitable for
+     * verbose output before a call to &lt;code&gt;Runtime.exec(String[])&lt;code&gt;.
+     *
+     * @param args the command line to describe as an array of strings.
+     * @param offset ignore entries before this index.
+     * @return a string that describes the arguments
+     *
+     * @since Ant 1.5
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>static</specifier> <name>String</name></type> <name>describeArguments</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>args</name></decl></param>, <param><decl><type><name>int</name></type> <name>offset</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>args</name> == <name>null</name> || <name><name>args</name>.<name>length</name></name> &lt;= <name>offset</name></expr>)</condition><then> <block>{
+            <return>return <expr>""</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr>"argument"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name><name>args</name>.<name>length</name></name> &gt; <name>offset</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>"s"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>":"</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name>offset</name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>args</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>"\'"</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>"\'"</expr></argument>)</argument_list></call>
+                .<call><name>append</name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><name>DISCLAIMER</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>buf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get an iterator to the arguments list.
+     * @since Ant 1.7
+     * @return an Iterator.
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Iterator</name><argument_list>&lt;<argument><name>Argument</name></argument>&gt;</argument_list></name></type> <name>iterator</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>arguments</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

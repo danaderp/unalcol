@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\Cab.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>ExecTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Execute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>LogOutputStream</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>MatchingTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>StreamPumper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>Os</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+
+<comment type="javadoc">/**
+ * Create a CAB archive.
+ *
+ */</comment>
+
+<class><specifier>public</specifier> class <name>Cab</name> <super><extends>extends <name>MatchingTask</name></extends></super> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEFAULT_RESULT</name> =<init> <expr>-99</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>cabFile</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>baseDir</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>filesets</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>doCompress</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>doVerbose</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>cmdOptions</name></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>archiveType</name> =<init> <expr>"cab"</expr></init></decl>;</decl_stmt>
+    <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The name/location of where to create the .cab file.
+     * @param cabFile the location of the cab file.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCabfile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>cabFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>cabFile</name></name> = <name>cabFile</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Base directory to look in for files to CAB.
+     * @param baseDir base directory for files to cab.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBasedir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>baseDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>baseDir</name></name> = <name>baseDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, compress the files otherwise only store them.
+     * @param compress a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCompress</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>compress</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>doCompress</name> = <name>compress</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, display cabarc output.
+     * @param verbose a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVerbose</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>verbose</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>doVerbose</name> = <name>verbose</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets additional cabarc options that are not supported directly.
+     * @param options cabarc command line options.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOptions</name><parameter_list>(<param><decl><type><name>String</name></type> <name>options</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>cmdOptions</name> = <name>options</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a set of files to archive.
+     * @param set a set of files to archive.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileset</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>set</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>filesets</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one nested fileset allowed"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>filesets</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>set</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="block">/*
+     * I'm not fond of this pattern: "sub-method expected to throw
+     * task-cancelling exceptions".  It feels too much like programming
+     * for side-effects to me...
+     */</comment>
+    <comment type="javadoc">/**
+     * Check if the attributes and nested elements are correct.
+     * @throws BuildException on error.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>checkConfiguration</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>baseDir</name> == <name>null</name> &amp;&amp; <call><name><name>filesets</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"basedir attribute or one "
+                                     + "nested fileset is required!"</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>baseDir</name> != <name>null</name> &amp;&amp; !<call><name><name>baseDir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"basedir does not exist!"</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>baseDir</name> != <name>null</name> &amp;&amp; <call><name><name>filesets</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                <argument><expr>"Both basedir attribute and a nested fileset is not allowed"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>cabFile</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"cabfile attribute must be set!"</expr></argument>,
+                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a new exec delegate.  The delegate task is populated so that
+     * it appears in the logs to be the same task as this one.
+     * @return the delegate.
+     * @throws BuildException on error.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>ExecTask</name></type> <name>createExec</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>ExecTask</name></type> <name>exec</name> =<init> <expr>new <call><name>ExecTask</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>exec</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Check to see if the target is up to date with respect to input files.
+     * @param files the list of files to check.
+     * @return true if the cab file is newer than its dependents.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>isUpToDate</name><parameter_list>(<param><decl><type><name>Vector</name></type> <name>files</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>boolean</name></type> <name>upToDate</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>files</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name> &amp;&amp; <name>upToDate</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>file</name> =<init> <expr><call><name><name>files</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>FILE_UTILS</name>.<name>resolveFile</name></name><argument_list>(<argument><expr><name>baseDir</name></expr></argument>, <argument><expr><name>file</name></expr></argument>)</argument_list></call>.<call><name>lastModified</name><argument_list>()</argument_list></call>
+                    &gt; <call><name><name>cabFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>upToDate</name> = false</expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr><name>upToDate</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates a list file.  This temporary file contains a list of all files
+     * to be included in the cab, one file per line.
+     *
+     * &lt;p&gt;This method expects to only be called on Windows and thus
+     * quotes the file names.&lt;/p&gt;
+     * @param files the list of files to use.
+     * @return the list file created.
+     * @throws IOException if there is an error.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>File</name></type> <name>createListFile</name><parameter_list>(<param><decl><type><name>Vector</name></type> <name>files</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>listFile</name> =<init> <expr><call><name><name>FILE_UTILS</name>.<name>createTempFile</name></name><argument_list>(<argument><expr>"ant"</expr></argument>, <argument><expr>""</expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr>true</expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>BufferedWriter</name></type> <name>writer</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>writer</name> = new <call><name>BufferedWriter</name><argument_list>(<argument><expr>new <call><name>FileWriter</name><argument_list>(<argument><expr><name>listFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>files</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr>'\"' + <call><name><name>files</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call> + '\"'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>writer</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>writer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+
+        <return>return <expr><name>listFile</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Append all files found by a directory scanner to a vector.
+     * @param files the vector to append the files to.
+     * @param ds the scanner to get the files from.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>appendFiles</name><parameter_list>(<param><decl><type><name>Vector</name></type> <name>files</name></decl></param>, <param><decl><type><name>DirectoryScanner</name></type> <name>ds</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>dsfiles</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>dsfiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>files</name>.<name>addElement</name></name><argument_list>(<argument><expr><name><name>dsfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the complete list of files to be included in the cab.  Filenames
+     * are gathered from the fileset if it has been added, otherwise from the
+     * traditional include parameters.
+     * @return the list of files.
+     * @throws BuildException if there is an error.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Vector</name></type> <name>getFileList</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Vector</name></type> <name>files</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>baseDir</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// get files from old methods - includes and nested include</comment>
+            <expr_stmt><expr><call><name>appendFiles</name><argument_list>(<argument><expr><name>files</name></expr></argument>, <argument><expr><call><name><name>super</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><name>baseDir</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>FileSet</name></type> <name>fs</name> =<init> <expr>(<name>FileSet</name>) <call><name><name>filesets</name>.<name>elementAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>baseDir</name> = <call><name><name>fs</name>.<name>getDir</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>appendFiles</name><argument_list>(<argument><expr><name>files</name></expr></argument>, <argument><expr><call><name><name>fs</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <return>return <expr><name>files</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * execute this task.
+     * @throws BuildException on error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <expr_stmt><expr><call><name>checkConfiguration</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>Vector</name></type> <name>files</name> =<init> <expr><call><name>getFileList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// quick exit if the target is up to date</comment>
+        <if>if <condition>(<expr><call><name>isUpToDate</name><argument_list>(<argument><expr><name>files</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Building " + <name>archiveType</name> + ": " + <call><name><name>cabFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr>!<call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"windows"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Using listcab/libcabinet"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>StringBuffer</name></type> <name>sb</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>Enumeration</name></type> <name>fileEnum</name> =<init> <expr><call><name><name>files</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <while>while <condition>(<expr><call><name><name>fileEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>fileEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>"\n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>"\n"</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><call><name><name>cabFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>"\n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <try>try <block>{
+                <decl_stmt><decl><type><name>Process</name></type> <name>p</name> =<init> <expr><call><name><name>Execute</name>.<name>launch</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>,
+                                           <argument><expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"listcab"</expr>}</block></expr></argument>, <argument><expr><name>null</name></expr></argument>,
+                                           <argument><expr><name>baseDir</name> != <name>null</name> ? <name>baseDir</name>
+                                                   : <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getBaseDir</name><argument_list>()</argument_list></call></expr></argument>,
+                                           <argument><expr>true</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>OutputStream</name></type> <name>out</name> =<init> <expr><call><name><name>p</name>.<name>getOutputStream</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// Create the stream pumpers to forward listcab's stdout and stderr to the log</comment>
+                <comment type="line">// note: listcab is an interactive program, and issues prompts for every new line.</comment>
+                <comment type="line">//       Therefore, make it show only with verbose logging turned on.</comment>
+                <decl_stmt><decl><type><name>LogOutputStream</name></type> <name>outLog</name> =<init> <expr>new <call><name>LogOutputStream</name><argument_list>(<argument><expr><name>this</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>LogOutputStream</name></type> <name>errLog</name> =<init> <expr>new <call><name>LogOutputStream</name><argument_list>(<argument><expr><name>this</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>StreamPumper</name></type>    <name>outPump</name> =<init> <expr>new <call><name>StreamPumper</name><argument_list>(<argument><expr><call><name><name>p</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>outLog</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>StreamPumper</name></type>    <name>errPump</name> =<init> <expr>new <call><name>StreamPumper</name><argument_list>(<argument><expr><call><name><name>p</name>.<name>getErrorStream</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>errLog</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// Pump streams asynchronously</comment>
+                <expr_stmt><expr>(new <call><name>Thread</name><argument_list>(<argument><expr><name>outPump</name></expr></argument>)</argument_list></call>).<call><name>start</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr>(new <call><name>Thread</name><argument_list>(<argument><expr><name>errPump</name></expr></argument>)</argument_list></call>).<call><name>start</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name><name>out</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call>.<call><name>getBytes</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>out</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>out</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// A wild default for when the thread is interrupted</comment>
+                <decl_stmt><decl><type><name>int</name></type> <name>result</name> =<init> <expr><name>DEFAULT_RESULT</name></expr></init></decl>;</decl_stmt>
+
+                <try>try <block>{
+                    <comment type="line">// Wait for the process to finish</comment>
+                    <expr_stmt><expr><name>result</name> = <call><name><name>p</name>.<name>waitFor</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                    <comment type="line">// Wait for the end of output and error streams</comment>
+                    <expr_stmt><expr><call><name><name>outPump</name>.<name>waitFor</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>outLog</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>errPump</name>.<name>waitFor</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>errLog</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>ie</name></decl></param>) <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Thread interrupted: " + <name>ie</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></catch></try>
+
+                <comment type="line">// Informative summary message in case of errors</comment>
+                <if>if <condition>(<expr><call><name><name>Execute</name>.<name>isFailure</name></name><argument_list>(<argument><expr><name>result</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Error executing listcab; error code: " + <name>result</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex</name></decl></param>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Problem creating " + <name>cabFile</name> + " " + <call><name><name>ex</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></then> <else>else <block>{
+            <try>try <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>listFile</name> =<init> <expr><call><name>createListFile</name><argument_list>(<argument><expr><name>files</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>ExecTask</name></type> <name>exec</name> =<init> <expr><call><name>createExec</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>outFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// die if cabarc fails</comment>
+                <expr_stmt><expr><call><name><name>exec</name>.<name>setFailonerror</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>exec</name>.<name>setDir</name></name><argument_list>(<argument><expr><name>baseDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr>!<name>doVerbose</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>outFile</name> = <call><name><name>FILE_UTILS</name>.<name>createTempFile</name></name><argument_list>(<argument><expr>"ant"</expr></argument>, <argument><expr>""</expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr>true</expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>exec</name>.<name>setOutput</name></name><argument_list>(<argument><expr><name>outFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <expr_stmt><expr><call><name><name>exec</name>.<name>setExecutable</name></name><argument_list>(<argument><expr>"cabarc"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>exec</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-r"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>exec</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-p"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr>!<name>doCompress</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>exec</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-m"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>exec</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"none"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <if>if <condition>(<expr><name>cmdOptions</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>exec</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setLine</name><argument_list>(<argument><expr><name>cmdOptions</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <expr_stmt><expr><call><name><name>exec</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>exec</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setFile</name><argument_list>(<argument><expr><name>cabFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>exec</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"@" + <call><name><name>listFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name><name>exec</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><name>outFile</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>outFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <expr_stmt><expr><call><name><name>listFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Problem creating " + <name>cabFile</name> + " " + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></else></if>
+    }</block></function>
+}</block></class>
+</unit>

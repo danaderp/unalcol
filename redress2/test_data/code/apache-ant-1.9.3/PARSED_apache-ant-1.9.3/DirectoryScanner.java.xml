@@ -1,0 +1,1887 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\DirectoryScanner.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Arrays</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashSet</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Set</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>Os</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>ResourceFactory</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>selectors</name>.<name>FileSelector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>selectors</name>.<name>SelectorScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>selectors</name>.<name>SelectorUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>selectors</name>.<name>TokenizedPath</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>selectors</name>.<name>TokenizedPattern</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>CollectionUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>SymbolicLinkUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>VectorSet</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Class for scanning a directory for files/directories which match certain
+ * criteria.
+ * &lt;p&gt;
+ * These criteria consist of selectors and patterns which have been specified.
+ * With the selectors you can select which files you want to have included.
+ * Files which are not selected are excluded. With patterns you can include
+ * or exclude files based on their filename.
+ * &lt;p&gt;
+ * The idea is simple. A given directory is recursively scanned for all files
+ * and directories. Each file/directory is matched against a set of selectors,
+ * including special support for matching against filenames with include and
+ * and exclude patterns. Only files/directories which match at least one
+ * pattern of the include pattern list or other file selector, and don't match
+ * any pattern of the exclude pattern list or fail to match against a required
+ * selector will be placed in the list of files/directories found.
+ * &lt;p&gt;
+ * When no list of include patterns is supplied, "**" will be used, which
+ * means that everything will be matched. When no list of exclude patterns is
+ * supplied, an empty list is used, such that nothing will be excluded. When
+ * no selectors are supplied, none are applied.
+ * &lt;p&gt;
+ * The filename pattern matching is done as follows:
+ * The name to be matched is split up in path segments. A path segment is the
+ * name of a directory or file, which is bounded by
+ * &lt;code&gt;File.separator&lt;/code&gt; ('/' under UNIX, '\' under Windows).
+ * For example, "abc/def/ghi/xyz.java" is split up in the segments "abc",
+ * "def","ghi" and "xyz.java".
+ * The same is done for the pattern against which should be matched.
+ * &lt;p&gt;
+ * The segments of the name and the pattern are then matched against each
+ * other. When '**' is used for a path segment in the pattern, it matches
+ * zero or more path segments of the name.
+ * &lt;p&gt;
+ * There is a special case regarding the use of &lt;code&gt;File.separator&lt;/code&gt;s
+ * at the beginning of the pattern and the string to match:&lt;br&gt;
+ * When a pattern starts with a &lt;code&gt;File.separator&lt;/code&gt;, the string
+ * to match must also start with a &lt;code&gt;File.separator&lt;/code&gt;.
+ * When a pattern does not start with a &lt;code&gt;File.separator&lt;/code&gt;, the
+ * string to match may not start with a &lt;code&gt;File.separator&lt;/code&gt;.
+ * When one of these rules is not obeyed, the string will not
+ * match.
+ * &lt;p&gt;
+ * When a name path segment is matched against a pattern path segment, the
+ * following special characters can be used:&lt;br&gt;
+ * '*' matches zero or more characters&lt;br&gt;
+ * '?' matches one character.
+ * &lt;p&gt;
+ * Examples:
+ * &lt;p&gt;
+ * "**\*.class" matches all .class files/dirs in a directory tree.
+ * &lt;p&gt;
+ * "test\a??.java" matches all files/dirs which start with an 'a', then two
+ * more characters and then ".java", in a directory called test.
+ * &lt;p&gt;
+ * "**" matches everything in a directory tree.
+ * &lt;p&gt;
+ * "**\test\**\XYZ*" matches all files/dirs which start with "XYZ" and where
+ * there is a parent directory called test (e.g. "abc\test\def\ghi\XYZ123").
+ * &lt;p&gt;
+ * Case sensitivity may be turned off if necessary. By default, it is
+ * turned on.
+ * &lt;p&gt;
+ * Example of usage:
+ * &lt;pre&gt;
+ *   String[] includes = {"**\\*.class"};
+ *   String[] excludes = {"modules\\*\\**"};
+ *   ds.setIncludes(includes);
+ *   ds.setExcludes(excludes);
+ *   ds.setBasedir(new File("test"));
+ *   ds.setCaseSensitive(true);
+ *   ds.scan();
+ *
+ *   System.out.println("FILES:");
+ *   String[] files = ds.getIncludedFiles();
+ *   for (int i = 0; i &lt; files.length; i++) {
+ *     System.out.println(files[i]);
+ *   }
+ * &lt;/pre&gt;
+ * This will scan a directory called test for .class files, but excludes all
+ * files in all proper subdirectories of a directory called "modules"
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>DirectoryScanner</name>
+       <super><implements>implements <name>FileScanner</name>, <name>SelectorScanner</name>, <name>ResourceFactory</name></implements></super> <block>{
+
+    <comment type="javadoc">/** Is OpenVMS the operating system we're running on? */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>boolean</name></type> <name>ON_VMS</name> =<init> <expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"openvms"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Patterns which should be excluded by default.
+     *
+     * &lt;p&gt;Note that you can now add patterns to the list of default
+     * excludes.  Added patterns will not become part of this array
+     * that has only been kept around for backwards compatibility
+     * reasons.&lt;/p&gt;
+     *
+     * @deprecated since 1.6.x.
+     *             Use the {@link #getDefaultExcludes getDefaultExcludes}
+     *             method instead.
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name><index>[]</index></type> <name>DEFAULTEXCLUDES</name> =<init> <expr><block>{
+        <comment type="line">// Miscellaneous typical temporary files</comment>
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/*~"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/#*#"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.#*"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/%*%"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/._*"</expr>,
+
+        <comment type="line">// CVS</comment>
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/CVS"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/CVS/" + <name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.cvsignore"</expr>,
+
+        <comment type="line">// SCCS</comment>
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/SCCS"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/SCCS/" + <name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr>,
+
+        <comment type="line">// Visual SourceSafe</comment>
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/vssver.scc"</expr>,
+
+        <comment type="line">// Subversion</comment>
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.svn"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.svn/" + <name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr>,
+
+        <comment type="line">// Git</comment>
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.git"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.git/" + <name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.gitattributes"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.gitignore"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.gitmodules"</expr>,
+
+        <comment type="line">// Mercurial</comment>
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.hg"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.hg/" + <name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.hgignore"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.hgsub"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.hgsubstate"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.hgtags"</expr>,
+
+        <comment type="line">// Bazaar</comment>
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.bzr"</expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.bzr/" + <name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr>,
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.bzrignore"</expr>,
+
+        <comment type="line">// Mac</comment>
+        <expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name> + "/.DS_Store"</expr>
+    }</block></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * default value for {@link #maxLevelsOfSymlinks maxLevelsOfSymlinks}
+     * @since Ant 1.8.0
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAX_LEVELS_OF_SYMLINKS</name> =<init> <expr>5</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * The end of the exception message if something that should be
+     * there doesn't exist.
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DOES_NOT_EXIST_POSTFIX</name> =<init> <expr>" does not exist."</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Helper. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Helper. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>SymbolicLinkUtils</name></type> <name>SYMLINK_UTILS</name> =<init>
+        <expr><call><name><name>SymbolicLinkUtils</name>.<name>getSymbolicLinkUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Patterns which should be excluded by default.
+     *
+     * @see #addDefaultExcludes()
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name><name>Set</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>defaultExcludes</name> =<init> <expr>new <call><name><name>HashSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    static <block>{
+        <constructor_decl><name>resetDefaultExcludes</name><parameter_list>()</parameter_list>;</constructor_decl>
+    }</block>
+
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+
+    <comment type="javadoc">/** The base directory to be scanned. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>File</name></type> <name>basedir</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The patterns for the files to be included. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name><index>[]</index></type> <name>includes</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The patterns for the files to be excluded. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name><index>[]</index></type> <name>excludes</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Selectors that will filter which files are in our candidate list. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>FileSelector</name><index>[]</index></type> <name>selectors</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The files which matched at least one include and no excludes
+     * and were selected.
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>filesIncluded</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The files which did not match any includes or selectors. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>filesNotIncluded</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The files which matched at least one include and at least
+     * one exclude.
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>filesExcluded</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The directories which matched at least one include and no excludes
+     * and were selected.
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>dirsIncluded</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The directories which were found and did not match any includes. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>dirsNotIncluded</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The directories which matched at least one include and at least one
+     * exclude.
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>dirsExcluded</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The files which matched at least one include and no excludes and
+     * which a selector discarded.
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>filesDeselected</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The directories which matched at least one include and no excludes
+     * but which a selector discarded.
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>dirsDeselected</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Whether or not our results were built by a slow scan. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>haveSlowResults</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether or not the file system should be treated as a case sensitive
+     * one.
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>isCaseSensitive</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether a missing base directory is an error.
+     * @since Ant 1.7.1
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>errorOnMissingDir</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether or not symbolic links should be followed.
+     *
+     * @since Ant 1.5
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>followSymlinks</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Whether or not everything tested so far has been included. */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>everythingIncluded</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+
+    <comment type="javadoc">/**
+     * List of all scanned directories.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Set</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>scannedDirs</name> =<init> <expr>new <call><name><name>HashSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Map of all include patterns that are full file names and don't
+     * contain any wildcards.
+     *
+     * &lt;p&gt;Maps pattern string to TokenizedPath.&lt;/p&gt;
+     *
+     * &lt;p&gt;If this instance is not case sensitive, the file names get
+     * turned to upper case.&lt;/p&gt;
+     *
+     * &lt;p&gt;Gets lazily initialized on the first invocation of
+     * isIncluded or isExcluded and cleared at the end of the scan
+     * method (cleared in clearCaches, actually).&lt;/p&gt;
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>TokenizedPath</name></argument>&gt;</argument_list></name></type> <name>includeNonPatterns</name> =<init> <expr>new <call><name><name>HashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>TokenizedPath</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Map of all exclude patterns that are full file names and don't
+     * contain any wildcards.
+     *
+     * &lt;p&gt;Maps pattern string to TokenizedPath.&lt;/p&gt;
+     *
+     * &lt;p&gt;If this instance is not case sensitive, the file names get
+     * turned to upper case.&lt;/p&gt;
+     *
+     * &lt;p&gt;Gets lazily initialized on the first invocation of
+     * isIncluded or isExcluded and cleared at the end of the scan
+     * method (cleared in clearCaches, actually).&lt;/p&gt;
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>TokenizedPath</name></argument>&gt;</argument_list></name></type> <name>excludeNonPatterns</name> =<init> <expr>new <call><name><name>HashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>TokenizedPath</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Array of all include patterns that contain wildcards.
+     *
+     * &lt;p&gt;Gets lazily initialized on the first invocation of
+     * isIncluded or isExcluded and cleared at the end of the scan
+     * method (cleared in clearCaches, actually).&lt;/p&gt;
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>TokenizedPattern</name><index>[]</index></type> <name>includePatterns</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Array of all exclude patterns that contain wildcards.
+     *
+     * &lt;p&gt;Gets lazily initialized on the first invocation of
+     * isIncluded or isExcluded and cleared at the end of the scan
+     * method (cleared in clearCaches, actually).&lt;/p&gt;
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>TokenizedPattern</name><index>[]</index></type> <name>excludePatterns</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Have the non-pattern sets and pattern arrays for in- and
+     * excludes been initialized?
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>areNonPatternSetsReady</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Scanning flag.
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>scanning</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Scanning lock.
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>scanLock</name> =<init> <expr>new <call><name>Object</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Slow scanning flag.
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>slowScanning</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Slow scanning lock.
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>slowScanLock</name> =<init> <expr>new <call><name>Object</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Exception thrown during scan.
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>IllegalStateException</name></type> <name>illegal</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The maximum number of times a symbolic link may be followed
+     * during a scan.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>maxLevelsOfSymlinks</name> =<init> <expr><name>MAX_LEVELS_OF_SYMLINKS</name></expr></init></decl>;</decl_stmt>
+
+
+    <comment type="javadoc">/**
+     * Absolute paths of all symlinks that haven't been followed but
+     * would have been if followsymlinks had been true or
+     * maxLevelsOfSymlinks had been higher.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Set</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>notFollowedSymlinks</name> =<init> <expr>new <call><name><name>HashSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Sole constructor.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>DirectoryScanner</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Test whether or not a given path matches the start of a given
+     * pattern up to the first "**".
+     * &lt;p&gt;
+     * This is not a general purpose test and should only be used if you
+     * can live with false positives. For example, &lt;code&gt;pattern=**\a&lt;/code&gt;
+     * and &lt;code&gt;str=b&lt;/code&gt; will yield &lt;code&gt;true&lt;/code&gt;.
+     *
+     * @param pattern The pattern to match against. Must not be
+     *                &lt;code&gt;null&lt;/code&gt;.
+     * @param str     The path to match, as a String. Must not be
+     *                &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return whether or not a given path matches the start of a given
+     * pattern up to the first "**".
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>matchPatternStart</name><parameter_list>(<param><decl><type><name>String</name></type> <name>pattern</name></decl></param>, <param><decl><type><name>String</name></type> <name>str</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>SelectorUtils</name>.<name>matchPatternStart</name></name><argument_list>(<argument><expr><name>pattern</name></expr></argument>, <argument><expr><name>str</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a given path matches the start of a given
+     * pattern up to the first "**".
+     * &lt;p&gt;
+     * This is not a general purpose test and should only be used if you
+     * can live with false positives. For example, &lt;code&gt;pattern=**\a&lt;/code&gt;
+     * and &lt;code&gt;str=b&lt;/code&gt; will yield &lt;code&gt;true&lt;/code&gt;.
+     *
+     * @param pattern The pattern to match against. Must not be
+     *                &lt;code&gt;null&lt;/code&gt;.
+     * @param str     The path to match, as a String. Must not be
+     *                &lt;code&gt;null&lt;/code&gt;.
+     * @param isCaseSensitive Whether or not matching should be performed
+     *                        case sensitively.
+     *
+     * @return whether or not a given path matches the start of a given
+     * pattern up to the first "**".
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>matchPatternStart</name><parameter_list>(<param><decl><type><name>String</name></type> <name>pattern</name></decl></param>, <param><decl><type><name>String</name></type> <name>str</name></decl></param>,
+                                               <param><decl><type><name>boolean</name></type> <name>isCaseSensitive</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>SelectorUtils</name>.<name>matchPatternStart</name></name><argument_list>(<argument><expr><name>pattern</name></expr></argument>, <argument><expr><name>str</name></expr></argument>, <argument><expr><name>isCaseSensitive</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a given path matches a given pattern.
+     *
+     * @param pattern The pattern to match against. Must not be
+     *                &lt;code&gt;null&lt;/code&gt;.
+     * @param str     The path to match, as a String. Must not be
+     *                &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if the pattern matches against the string,
+     *         or &lt;code&gt;false&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>matchPath</name><parameter_list>(<param><decl><type><name>String</name></type> <name>pattern</name></decl></param>, <param><decl><type><name>String</name></type> <name>str</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>SelectorUtils</name>.<name>matchPath</name></name><argument_list>(<argument><expr><name>pattern</name></expr></argument>, <argument><expr><name>str</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a given path matches a given pattern.
+     *
+     * @param pattern The pattern to match against. Must not be
+     *                &lt;code&gt;null&lt;/code&gt;.
+     * @param str     The path to match, as a String. Must not be
+     *                &lt;code&gt;null&lt;/code&gt;.
+     * @param isCaseSensitive Whether or not matching should be performed
+     *                        case sensitively.
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if the pattern matches against the string,
+     *         or &lt;code&gt;false&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>matchPath</name><parameter_list>(<param><decl><type><name>String</name></type> <name>pattern</name></decl></param>, <param><decl><type><name>String</name></type> <name>str</name></decl></param>,
+                                       <param><decl><type><name>boolean</name></type> <name>isCaseSensitive</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>SelectorUtils</name>.<name>matchPath</name></name><argument_list>(<argument><expr><name>pattern</name></expr></argument>, <argument><expr><name>str</name></expr></argument>, <argument><expr><name>isCaseSensitive</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a string matches against a pattern.
+     * The pattern may contain two special characters:&lt;br&gt;
+     * '*' means zero or more characters&lt;br&gt;
+     * '?' means one and only one character
+     *
+     * @param pattern The pattern to match against.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param str     The string which must be matched against the pattern.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if the string matches against the pattern,
+     *         or &lt;code&gt;false&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>match</name><parameter_list>(<param><decl><type><name>String</name></type> <name>pattern</name></decl></param>, <param><decl><type><name>String</name></type> <name>str</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>SelectorUtils</name>.<name>match</name></name><argument_list>(<argument><expr><name>pattern</name></expr></argument>, <argument><expr><name>str</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a string matches against a pattern.
+     * The pattern may contain two special characters:&lt;br&gt;
+     * '*' means zero or more characters&lt;br&gt;
+     * '?' means one and only one character
+     *
+     * @param pattern The pattern to match against.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param str     The string which must be matched against the pattern.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param isCaseSensitive Whether or not matching should be performed
+     *                        case sensitively.
+     *
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if the string matches against the pattern,
+     *         or &lt;code&gt;false&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>match</name><parameter_list>(<param><decl><type><name>String</name></type> <name>pattern</name></decl></param>, <param><decl><type><name>String</name></type> <name>str</name></decl></param>,
+                                   <param><decl><type><name>boolean</name></type> <name>isCaseSensitive</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>SelectorUtils</name>.<name>match</name></name><argument_list>(<argument><expr><name>pattern</name></expr></argument>, <argument><expr><name>str</name></expr></argument>, <argument><expr><name>isCaseSensitive</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Get the list of patterns that should be excluded by default.
+     *
+     * @return An array of &lt;code&gt;String&lt;/code&gt; based on the current
+     *         contents of the &lt;code&gt;defaultExcludes&lt;/code&gt;
+     *         &lt;code&gt;Set&lt;/code&gt;.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name><index>[]</index></type> <name>getDefaultExcludes</name><parameter_list>()</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>defaultExcludes</name></expr>) <block>{
+            <return>return <expr>(<name><name>String</name><index>[]</index></name>) <call><name><name>defaultExcludes</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>defaultExcludes</name>
+                                                                 .<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a pattern to the default excludes unless it is already a
+     * default exclude.
+     *
+     * @param s   A string to add as an exclude pattern.
+     * @return    &lt;code&gt;true&lt;/code&gt; if the string was added;
+     *            &lt;code&gt;false&lt;/code&gt; if it already existed.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>addDefaultExclude</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>defaultExcludes</name></expr>) <block>{
+            <return>return <expr><call><name><name>defaultExcludes</name>.<name>add</name></name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Remove a string if it is a default exclude.
+     *
+     * @param s   The string to attempt to remove.
+     * @return    &lt;code&gt;true&lt;/code&gt; if &lt;code&gt;s&lt;/code&gt; was a default
+     *            exclude (and thus was removed);
+     *            &lt;code&gt;false&lt;/code&gt; if &lt;code&gt;s&lt;/code&gt; was not
+     *            in the default excludes list to begin with.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>removeDefaultExclude</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>defaultExcludes</name></expr>) <block>{
+            <return>return <expr><call><name><name>defaultExcludes</name>.<name>remove</name></name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Go back to the hardwired default exclude patterns.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>resetDefaultExcludes</name><parameter_list>()</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>defaultExcludes</name></expr>) <block>{
+            <expr_stmt><expr><call><name><name>defaultExcludes</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>DEFAULTEXCLUDES</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>defaultExcludes</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>DEFAULTEXCLUDES</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the base directory to be scanned. This is the directory which is
+     * scanned recursively. All '/' and '\' characters are replaced by
+     * &lt;code&gt;File.separatorChar&lt;/code&gt;, so the separator used need not match
+     * &lt;code&gt;File.separatorChar&lt;/code&gt;.
+     *
+     * @param basedir The base directory to scan.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBasedir</name><parameter_list>(<param><decl><type><name>String</name></type> <name>basedir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setBasedir</name><argument_list>(<argument><expr><name>basedir</name> == <name>null</name> ? (<name>File</name>) <name>null</name>
+            : new <call><name>File</name><argument_list>(<argument><expr><call><name><name>basedir</name>.<name>replace</name></name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call>.<call><name>replace</name><argument_list>(
+            <argument><expr>'\\'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the base directory to be scanned. This is the directory which is
+     * scanned recursively.
+     *
+     * @param basedir The base directory for scanning.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setBasedir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>basedir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>basedir</name></name> = <name>basedir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the base directory to be scanned.
+     * This is the directory which is scanned recursively.
+     *
+     * @return the base directory to be scanned.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>File</name></type> <name>getBasedir</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>basedir</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find out whether include exclude patterns are matched in a
+     * case sensitive way.
+     * @return whether or not the scanning is case sensitive.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>boolean</name></type> <name>isCaseSensitive</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>isCaseSensitive</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether or not include and exclude patterns are matched
+     * in a case sensitive way.
+     *
+     * @param isCaseSensitive whether or not the file system should be
+     *                        regarded as a case sensitive one.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setCaseSensitive</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>isCaseSensitive</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>isCaseSensitive</name></name> = <name>isCaseSensitive</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets whether or not a missing base directory is an error
+     *
+     * @param errorOnMissingDir whether or not a missing base directory
+     *                        is an error
+     * @since Ant 1.7.1
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setErrorOnMissingDir</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>errorOnMissingDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>errorOnMissingDir</name></name> = <name>errorOnMissingDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get whether or not a DirectoryScanner follows symbolic links.
+     *
+     * @return flag indicating whether symbolic links should be followed.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>boolean</name></type> <name>isFollowSymlinks</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>followSymlinks</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether or not symbolic links should be followed.
+     *
+     * @param followSymlinks whether or not symbolic links should be followed.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setFollowSymlinks</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>followSymlinks</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>followSymlinks</name></name> = <name>followSymlinks</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The maximum number of times a symbolic link may be followed
+     * during a scan.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMaxLevelsOfSymlinks</name><parameter_list>(<param><decl><type><name>int</name></type> <name>max</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>maxLevelsOfSymlinks</name> = <name>max</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the list of include patterns to use. All '/' and '\' characters
+     * are replaced by &lt;code&gt;File.separatorChar&lt;/code&gt;, so the separator used
+     * need not match &lt;code&gt;File.separatorChar&lt;/code&gt;.
+     * &lt;p&gt;
+     * When a pattern ends with a '/' or '\', "**" is appended.
+     *
+     * @param includes A list of include patterns.
+     *                 May be &lt;code&gt;null&lt;/code&gt;, indicating that all files
+     *                 should be included. If a non-&lt;code&gt;null&lt;/code&gt;
+     *                 list is given, all elements must be
+     *                 non-&lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setIncludes</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>includes</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>includes</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>includes</name></name> = <name>null</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>includes</name></name> = new <name><name>String</name><index>[<expr><name><name>includes</name>.<name>length</name></name></expr>]</index></name></expr>;</expr_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>includes</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>includes</name><index>[<expr><name>i</name></expr>]</index></name> = <call><name>normalizePattern</name><argument_list>(<argument><expr><name><name>includes</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the list of exclude patterns to use. All '/' and '\' characters
+     * are replaced by &lt;code&gt;File.separatorChar&lt;/code&gt;, so the separator used
+     * need not match &lt;code&gt;File.separatorChar&lt;/code&gt;.
+     * &lt;p&gt;
+     * When a pattern ends with a '/' or '\', "**" is appended.
+     *
+     * @param excludes A list of exclude patterns.
+     *                 May be &lt;code&gt;null&lt;/code&gt;, indicating that no files
+     *                 should be excluded. If a non-&lt;code&gt;null&lt;/code&gt; list is
+     *                 given, all elements must be non-&lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setExcludes</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>excludes</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>excludes</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>excludes</name></name> = <name>null</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>excludes</name></name> = new <name><name>String</name><index>[<expr><name><name>excludes</name>.<name>length</name></name></expr>]</index></name></expr>;</expr_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>excludes</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>excludes</name><index>[<expr><name>i</name></expr>]</index></name> = <call><name>normalizePattern</name><argument_list>(<argument><expr><name><name>excludes</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add to the list of exclude patterns to use. All '/' and '\'
+     * characters are replaced by &lt;code&gt;File.separatorChar&lt;/code&gt;, so
+     * the separator used need not match &lt;code&gt;File.separatorChar&lt;/code&gt;.
+     * &lt;p&gt;
+     * When a pattern ends with a '/' or '\', "**" is appended.
+     *
+     * @param excludes A list of exclude patterns.
+     *                 May be &lt;code&gt;null&lt;/code&gt;, in which case the
+     *                 exclude patterns don't get changed at all.
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>addExcludes</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>excludes</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>excludes</name> != <name>null</name> &amp;&amp; <name><name>excludes</name>.<name>length</name></name> &gt; 0</expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name><name>this</name>.<name>excludes</name></name> != <name>null</name> &amp;&amp; <name><name>this</name>.<name>excludes</name>.<name>length</name></name> &gt; 0</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>tmp</name> =<init> <expr>new <name><name>String</name><index>[<expr><name><name>excludes</name>.<name>length</name></name>
+                                          + <name><name>this</name>.<name>excludes</name>.<name>length</name></name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name><name>this</name>.<name>excludes</name></name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>tmp</name></expr></argument>, <argument><expr>0</expr></argument>,
+                                 <argument><expr><name><name>this</name>.<name>excludes</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>excludes</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <expr_stmt><expr><name><name>tmp</name><index>[<expr><name><name>this</name>.<name>excludes</name>.<name>length</name></name> + <name>i</name></expr>]</index></name> =
+                        <call><name>normalizePattern</name><argument_list>(<argument><expr><name><name>excludes</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+                <expr_stmt><expr><name><name>this</name>.<name>excludes</name></name> = <name>tmp</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>setExcludes</name><argument_list>(<argument><expr><name>excludes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * All '/' and '\' characters are replaced by
+     * &lt;code&gt;File.separatorChar&lt;/code&gt;, so the separator used need not
+     * match &lt;code&gt;File.separatorChar&lt;/code&gt;.
+     *
+     * &lt;p&gt; When a pattern ends with a '/' or '\', "**" is appended.
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>String</name></type> <name>normalizePattern</name><parameter_list>(<param><decl><type><name>String</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>pattern</name> =<init> <expr><call><name><name>p</name>.<name>replace</name></name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call>
+            .<call><name>replace</name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>pattern</name>.<name>endsWith</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>pattern</name> += <name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>pattern</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the selectors that will select the filelist.
+     *
+     * @param selectors specifies the selectors to be invoked on a scan.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setSelectors</name><parameter_list>(<param><decl><type><name><name>FileSelector</name><index>[]</index></name></type> <name>selectors</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>selectors</name></name> = <name>selectors</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return whether or not the scanner has included all the files or
+     * directories it has come across so far.
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if all files and directories which have
+     *         been found so far have been included.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>boolean</name></type> <name>isEverythingIncluded</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>everythingIncluded</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Scan for files which match at least one include pattern and don't match
+     * any exclude patterns. If there are selectors then the files must pass
+     * muster there, as well.  Scans under basedir, if set; otherwise the
+     * include patterns without leading wildcards specify the absolute paths of
+     * the files that may be included.
+     *
+     * @exception IllegalStateException if the base directory was set
+     *            incorrectly (i.e. if it doesn't exist or isn't a directory).
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>scan</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IllegalStateException</name></expr></argument></throws> <block>{
+        <synchronized>synchronized (<expr><name>scanLock</name></expr>) <block>{
+            <if>if <condition>(<expr><name>scanning</name></expr>)</condition><then> <block>{
+                <while>while <condition>(<expr><name>scanning</name></expr>)</condition> <block>{
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name><name>scanLock</name>.<name>wait</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>e</name></decl></param>) <block>{
+                        <continue>continue;</continue>
+                    }</block></catch></try>
+                }</block></while>
+                <if>if <condition>(<expr><name>illegal</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr><name>illegal</name></expr>;</throw>
+                }</block></then></if>
+                <return>return;</return>
+            }</block></then></if>
+            <expr_stmt><expr><name>scanning</name> = true</expr>;</expr_stmt>
+        }</block></synchronized>
+        <decl_stmt><decl><type><name>File</name></type> <name>savedBase</name> =<init> <expr><name>basedir</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+                <expr_stmt><expr><name>illegal</name> = <name>null</name></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>clearResults</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// set in/excludes to reasonable defaults if needed:</comment>
+                <decl_stmt><decl><type><name>boolean</name></type> <name>nullIncludes</name> =<init> <expr>(<name>includes</name> == <name>null</name>)</expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>includes</name> = <name>nullIncludes</name>
+                    ? new <name><name>String</name><index>[]</index></name> <block>{<expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr>}</block> : <name>includes</name></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>boolean</name></type> <name>nullExcludes</name> =<init> <expr>(<name>excludes</name> == <name>null</name>)</expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>excludes</name> = <name>nullExcludes</name> ? new <name><name>String</name><index>[<expr>0</expr>]</index></name> : <name>excludes</name></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><name>basedir</name> != <name>null</name> &amp;&amp; !<name>followSymlinks</name>
+                    &amp;&amp; <call><name><name>SYMLINK_UTILS</name>.<name>isSymbolicLink</name></name><argument_list>(<argument><expr><name>basedir</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>notFollowedSymlinks</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>basedir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>basedir</name> = <name>null</name></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <if>if <condition>(<expr><name>basedir</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <comment type="line">// if no basedir and no includes, nothing to do:</comment>
+                    <if>if <condition>(<expr><name>nullIncludes</name></expr>)</condition><then> <block>{
+                        <return>return;</return>
+                    }</block></then></if>
+                }</block></then> <else>else <block>{
+                    <if>if <condition>(<expr>!<call><name><name>basedir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <if>if <condition>(<expr><name>errorOnMissingDir</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>illegal</name> = new <call><name>IllegalStateException</name><argument_list>(<argument><expr>"basedir "
+                                                                + <name>basedir</name>
+                                                                + <name>DOES_NOT_EXIST_POSTFIX</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then> <else>else <block>{
+                            <comment type="line">// Nothing to do - basedir does not exist</comment>
+                            <return>return;</return>
+                        }</block></else></if>
+                    }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>basedir</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>illegal</name> = new <call><name>IllegalStateException</name><argument_list>(<argument><expr>"basedir "
+                                                            + <name>basedir</name>
+                                                            + " is not a"
+                                                            + " directory."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if></else></if>
+                    <if>if <condition>(<expr><name>illegal</name> != <name>null</name></expr>)</condition><then> <block>{
+                        <throw>throw <expr><name>illegal</name></expr>;</throw>
+                    }</block></then></if>
+                }</block></else></if>
+                <if>if <condition>(<expr><call><name>isIncluded</name><argument_list>(<argument><expr><name><name>TokenizedPath</name>.<name>EMPTY_PATH</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr>!<call><name>isExcluded</name><argument_list>(<argument><expr><name><name>TokenizedPath</name>.<name>EMPTY_PATH</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <if>if <condition>(<expr><call><name>isSelected</name><argument_list>(<argument><expr>""</expr></argument>, <argument><expr><name>basedir</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name><name>dirsIncluded</name>.<name>addElement</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then> <else>else <block>{
+                            <expr_stmt><expr><call><name><name>dirsDeselected</name>.<name>addElement</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></else></if>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><call><name><name>dirsExcluded</name>.<name>addElement</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>dirsNotIncluded</name>.<name>addElement</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <expr_stmt><expr><call><name>checkIncludePatterns</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>clearCaches</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>includes</name> = <name>nullIncludes</name> ? <name>null</name> : <name>includes</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>excludes</name> = <name>nullExcludes</name> ? <name>null</name> : <name>excludes</name></expr>;</expr_stmt>
+            }</block></synchronized>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><name>basedir</name> = <name>savedBase</name></expr>;</expr_stmt>
+            <synchronized>synchronized (<expr><name>scanLock</name></expr>) <block>{
+                <expr_stmt><expr><name>scanning</name> = false</expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>scanLock</name>.<name>notifyAll</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></synchronized>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This routine is actually checking all the include patterns in
+     * order to avoid scanning everything under base dir.
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>checkIncludePatterns</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>ensureNonPatternSetsReady</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>TokenizedPath</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></type> <name>newroots</name> =<init> <expr>new <call><name><name>HashMap</name><argument_list>&lt;<argument><name>TokenizedPath</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// put in the newroots map the include patterns without</comment>
+        <comment type="line">// wildcard tokens</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>includePatterns</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>pattern</name> =<init> <expr><name><name>includePatterns</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>toString</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name>shouldSkipPattern</name><argument_list>(<argument><expr><name>pattern</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>newroots</name>.<name>put</name></name><argument_list>(<argument><expr><name><name>includePatterns</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>rtrimWildcardTokens</name><argument_list>()</argument_list></call></expr></argument>,
+                             <argument><expr><name>pattern</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+        <for>for (<init><decl><type><name><name>Map</name>.<name><name>Entry</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>TokenizedPath</name></argument>&gt;</argument_list></name></name></type> <name>entry</name> :<range> <expr><call><name><name>includeNonPatterns</name>.<name>entrySet</name></name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>pattern</name> =<init> <expr><call><name><name>entry</name>.<name>getKey</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name>shouldSkipPattern</name><argument_list>(<argument><expr><name>pattern</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>newroots</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>pattern</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+
+        <if>if <condition>(<expr><call><name><name>newroots</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name><name>TokenizedPath</name>.<name>EMPTY_PATH</name></name></expr></argument>)</argument_list></call>
+            &amp;&amp; <name>basedir</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// we are going to scan everything anyway</comment>
+            <expr_stmt><expr><call><name>scandir</name><argument_list>(<argument><expr><name>basedir</name></expr></argument>, <argument><expr>""</expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>canonBase</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>basedir</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><name>canonBase</name> = <call><name><name>basedir</name>.<name>getCanonicalFile</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></then></if>
+            <comment type="line">// only scan directories that can include matched files or</comment>
+            <comment type="line">// directories</comment>
+            <for>for (<init><decl><type><name><name>Map</name>.<name><name>Entry</name><argument_list>&lt;<argument><name>TokenizedPath</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name></name></type> <name>entry</name> :<range> <expr><call><name><name>newroots</name>.<name>entrySet</name></name><argument_list>()</argument_list></call></expr></range></decl></init>) <block>{
+                <decl_stmt><decl><type><name>TokenizedPath</name></type> <name>currentPath</name> =<init> <expr><call><name><name>entry</name>.<name>getKey</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>currentelement</name> =<init> <expr><call><name><name>currentPath</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>basedir</name> == <name>null</name>
+                    &amp;&amp; !<call><name><name>FileUtils</name>.<name>isAbsolutePath</name></name><argument_list>(<argument><expr><name>currentelement</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <continue>continue;</continue>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>File</name></type> <name>myfile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>basedir</name></expr></argument>, <argument><expr><name>currentelement</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><call><name><name>myfile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <comment type="line">// may be on a case insensitive file system.  We want</comment>
+                    <comment type="line">// the results to show what's really on the disk, so</comment>
+                    <comment type="line">// we need to double check.</comment>
+                    <try>try <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>path</name> =<init> <expr>(<name>basedir</name> == <name>null</name>)
+                            ? <call><name><name>myfile</name>.<name>getCanonicalPath</name></name><argument_list>()</argument_list></call>
+                            : <call><name><name>FILE_UTILS</name>.<name>removeLeadingPath</name></name><argument_list>(<argument><expr><name>canonBase</name></expr></argument>,
+                                         <argument><expr><call><name><name>myfile</name>.<name>getCanonicalFile</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr>!<call><name><name>path</name>.<name>equals</name></name><argument_list>(<argument><expr><name>currentelement</name></expr></argument>)</argument_list></call> || <name>ON_VMS</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>myfile</name> = <call><name><name>currentPath</name>.<name>findFile</name></name><argument_list>(<argument><expr><name>basedir</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <if>if <condition>(<expr><name>myfile</name> != <name>null</name> &amp;&amp; <name>basedir</name> != <name>null</name></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><name>currentelement</name> = <call><name><name>FILE_UTILS</name>.<name>removeLeadingPath</name></name><argument_list>(
+                                    <argument><expr><name>basedir</name></expr></argument>, <argument><expr><name>myfile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                <if>if <condition>(<expr>!<call><name><name>currentPath</name>.<name>toString</name></name><argument_list>()</argument_list></call>
+                                    .<call><name>equals</name><argument_list>(<argument><expr><name>currentelement</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                    <expr_stmt><expr><name>currentPath</name> =
+                                        new <call><name>TokenizedPath</name><argument_list>(<argument><expr><name>currentelement</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                }</block></then></if>
+                            }</block></then></if>
+                        }</block></then></if>
+                    }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex</name></decl></param>) <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch></try>
+                }</block></then></if>
+
+                <if>if <condition>(<expr>(<name>myfile</name> == <name>null</name> || !<call><name><name>myfile</name>.<name>exists</name></name><argument_list>()</argument_list></call>) &amp;&amp; !<call><name>isCaseSensitive</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr><call><name><name>currentPath</name>.<name>findFile</name></name><argument_list>(<argument><expr><name>basedir</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>f</name> != <name>null</name> &amp;&amp; <call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// adapt currentelement to the case we've</comment>
+                        <comment type="line">// actually found</comment>
+                        <expr_stmt><expr><name>currentelement</name> = (<name>basedir</name> == <name>null</name>)
+                            ? <call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>
+                            : <call><name><name>FILE_UTILS</name>.<name>removeLeadingPath</name></name><argument_list>(<argument><expr><name>basedir</name></expr></argument>, <argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>myfile</name> = <name>f</name></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>currentPath</name> = new <call><name>TokenizedPath</name><argument_list>(<argument><expr><name>currentelement</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then></if>
+
+                <if>if <condition>(<expr><name>myfile</name> != <name>null</name> &amp;&amp; <call><name><name>myfile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr>!<name>followSymlinks</name> &amp;&amp; <call><name><name>currentPath</name>.<name>isSymlink</name></name><argument_list>(<argument><expr><name>basedir</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <if>if <condition>(<expr>!<call><name>isExcluded</name><argument_list>(<argument><expr><name>currentPath</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name><name>notFollowedSymlinks</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>myfile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                        <continue>continue;</continue>
+                    }</block></then></if>
+                    <if>if <condition>(<expr><call><name><name>myfile</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <if>if <condition>(<expr><call><name>isIncluded</name><argument_list>(<argument><expr><name>currentPath</name></expr></argument>)</argument_list></call>
+                            &amp;&amp; <call><name><name>currentelement</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name>accountForIncludedDir</name><argument_list>(<argument><expr><name>currentPath</name></expr></argument>, <argument><expr><name>myfile</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then>  <else>else <block>{
+                            <expr_stmt><expr><call><name>scandir</name><argument_list>(<argument><expr><name>myfile</name></expr></argument>, <argument><expr><name>currentPath</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></else></if>
+                    }</block></then> <else>else <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>originalpattern</name> =<init> <expr>(<name>String</name>) <call><name><name>entry</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <decl_stmt><decl><type><name>boolean</name></type> <name>included</name> =<init> <expr><call><name>isCaseSensitive</name><argument_list>()</argument_list></call>
+                            ? <call><name><name>originalpattern</name>.<name>equals</name></name><argument_list>(<argument><expr><name>currentelement</name></expr></argument>)</argument_list></call>
+                            : <call><name><name>originalpattern</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr><name>currentelement</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr><name>included</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name>accountForIncludedFile</name><argument_list>(<argument><expr><name>currentPath</name></expr></argument>, <argument><expr><name>myfile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block></else></if>
+                }</block></then></if>
+            }</block></for>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * true if the pattern specifies a relative path without basedir
+     * or an absolute path not inside basedir.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>shouldSkipPattern</name><parameter_list>(<param><decl><type><name>String</name></type> <name>pattern</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>FileUtils</name>.<name>isAbsolutePath</name></name><argument_list>(<argument><expr><name>pattern</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">//skip abs. paths not under basedir, if set:</comment>
+            <if>if <condition>(<expr><name>basedir</name> != <name>null</name>
+                &amp;&amp; !<call><name><name>SelectorUtils</name>.<name>matchPatternStart</name></name><argument_list>(<argument><expr><name>pattern</name></expr></argument>,
+                                                    <argument><expr><call><name><name>basedir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                                    <argument><expr><call><name>isCaseSensitive</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block></then> <else>else <if>if <condition>(<expr><name>basedir</name> == <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">//skip non-abs. paths if basedir == null:</comment>
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if></else></if>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Clear the result caches for a scan.
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>clearResults</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>filesIncluded</name>    = new <call><name><name>VectorSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>filesNotIncluded</name> = new <call><name><name>VectorSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>filesExcluded</name>    = new <call><name><name>VectorSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>filesDeselected</name>  = new <call><name><name>VectorSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>dirsIncluded</name>     = new <call><name><name>VectorSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>dirsNotIncluded</name>  = new <call><name><name>VectorSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>dirsExcluded</name>     = new <call><name><name>VectorSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>dirsDeselected</name>   = new <call><name><name>VectorSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>everythingIncluded</name> = (<name>basedir</name> != <name>null</name>)</expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>scannedDirs</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>notFollowedSymlinks</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Top level invocation for a slow scan. A slow scan builds up a full
+     * list of excluded/included files/directories, whereas a fast scan
+     * will only have full results for included files, as it ignores
+     * directories which can't possibly hold any included files/directories.
+     * &lt;p&gt;
+     * Returns immediately if a slow scan has already been completed.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>slowScan</name><parameter_list>()</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>slowScanLock</name></expr>) <block>{
+            <if>if <condition>(<expr><name>haveSlowResults</name></expr>)</condition><then> <block>{
+                <return>return;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>slowScanning</name></expr>)</condition><then> <block>{
+                <while>while <condition>(<expr><name>slowScanning</name></expr>)</condition> <block>{
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name><name>slowScanLock</name>.<name>wait</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>e</name></decl></param>) <block>{
+                        <comment type="line">// Empty</comment>
+                    }</block></catch></try>
+                }</block></while>
+                <return>return;</return>
+            }</block></then></if>
+            <expr_stmt><expr><name>slowScanning</name> = true</expr>;</expr_stmt>
+        }</block></synchronized>
+        <try>try <block>{
+            <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+
+                <comment type="line">// set in/excludes to reasonable defaults if needed:</comment>
+                <decl_stmt><decl><type><name>boolean</name></type> <name>nullIncludes</name> =<init> <expr>(<name>includes</name> == <name>null</name>)</expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>includes</name> = <name>nullIncludes</name>
+                    ? new <name><name>String</name><index>[]</index></name> <block>{<expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr>}</block> : <name>includes</name></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>boolean</name></type> <name>nullExcludes</name> =<init> <expr>(<name>excludes</name> == <name>null</name>)</expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>excludes</name> = <name>nullExcludes</name> ? new <name><name>String</name><index>[<expr>0</expr>]</index></name> : <name>excludes</name></expr>;</expr_stmt>
+
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>excl</name> =<init> <expr>new <name><name>String</name><index>[<expr><call><name><name>dirsExcluded</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>dirsExcluded</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>excl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>notIncl</name> =<init> <expr>new <name><name>String</name><index>[<expr><call><name><name>dirsNotIncluded</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>dirsNotIncluded</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>notIncl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name>ensureNonPatternSetsReady</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name>processSlowScan</name><argument_list>(<argument><expr><name>excl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>processSlowScan</name><argument_list>(<argument><expr><name>notIncl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>clearCaches</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>includes</name> = <name>nullIncludes</name> ? <name>null</name> : <name>includes</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>excludes</name> = <name>nullExcludes</name> ? <name>null</name> : <name>excludes</name></expr>;</expr_stmt>
+            }</block></synchronized>
+        }</block> <finally>finally <block>{
+            <synchronized>synchronized (<expr><name>slowScanLock</name></expr>) <block>{
+                <expr_stmt><expr><name>haveSlowResults</name> = true</expr>;</expr_stmt>
+                <expr_stmt><expr><name>slowScanning</name> = false</expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>slowScanLock</name>.<name>notifyAll</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></synchronized>
+        }</block></finally></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>processSlowScan</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>arr</name></decl></param>)</parameter_list> <block>{
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>arr</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>TokenizedPath</name></type> <name>path</name>  =<init> <expr>new <call><name>TokenizedPath</name><argument_list>(<argument><expr><name><name>arr</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name>couldHoldIncluded</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call> || <call><name>contentsExcluded</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>scandir</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>basedir</name></expr></argument>, <argument><expr><name><name>arr</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>path</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Scan the given directory for files and directories. Found files and
+     * directories are placed in their respective collections, based on the
+     * matching of includes, excludes, and the selectors.  When a directory
+     * is found, it is scanned recursively.
+     *
+     * @param dir   The directory to scan. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param vpath The path relative to the base directory (needed to
+     *              prevent problems with an absolute path when using
+     *              dir). Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param fast  Whether or not this call is part of a fast scan.
+     *
+     * @see #filesIncluded
+     * @see #filesNotIncluded
+     * @see #filesExcluded
+     * @see #dirsIncluded
+     * @see #dirsNotIncluded
+     * @see #dirsExcluded
+     * @see #slowScan
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>scandir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dir</name></decl></param>, <param><decl><type><name>String</name></type> <name>vpath</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>fast</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>scandir</name><argument_list>(<argument><expr><name>dir</name></expr></argument>, <argument><expr>new <call><name>TokenizedPath</name><argument_list>(<argument><expr><name>vpath</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>fast</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Scan the given directory for files and directories. Found files and
+     * directories are placed in their respective collections, based on the
+     * matching of includes, excludes, and the selectors.  When a directory
+     * is found, it is scanned recursively.
+     *
+     * @param dir   The directory to scan. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param path The path relative to the base directory (needed to
+     *              prevent problems with an absolute path when using
+     *              dir). Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param fast  Whether or not this call is part of a fast scan.
+     *
+     * @see #filesIncluded
+     * @see #filesNotIncluded
+     * @see #filesExcluded
+     * @see #dirsIncluded
+     * @see #dirsNotIncluded
+     * @see #dirsExcluded
+     * @see #slowScan
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>scandir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dir</name></decl></param>, <param><decl><type><name>TokenizedPath</name></type> <name>path</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>fast</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>dir</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"dir must not be null."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>newfiles</name> =<init> <expr><call><name><name>dir</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>newfiles</name> == <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr>!<call><name><name>dir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>dir</name> + <name>DOES_NOT_EXIST_POSTFIX</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>dir</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>dir</name> + " is not a directory."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"IO error scanning directory '"
+                                         + <call><name><name>dir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call> + "'"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></else></if></else></if>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>scandir</name><argument_list>(<argument><expr><name>dir</name></expr></argument>, <argument><expr><name>path</name></expr></argument>, <argument><expr><name>fast</name></expr></argument>, <argument><expr><name>newfiles</name></expr></argument>, <argument><expr>new <call><name><name>LinkedList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>scandir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dir</name></decl></param>, <param><decl><type><name>TokenizedPath</name></type> <name>path</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>fast</name></decl></param>,
+                         <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>newfiles</name></decl></param>, <param><decl><type><name><name>LinkedList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>directoryNamesFollowed</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>vpath</name> =<init> <expr><call><name><name>path</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>vpath</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0 &amp;&amp; !<call><name><name>vpath</name>.<name>endsWith</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>vpath</name> += <name><name>File</name>.<name>separator</name></name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// avoid double scanning of directories, can only happen in fast mode</comment>
+        <if>if <condition>(<expr><name>fast</name> &amp;&amp; <call><name>hasBeenScanned</name><argument_list>(<argument><expr><name>vpath</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<name>followSymlinks</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name><name>ArrayList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>noLinks</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>newfiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <try>try <block>{
+                    <if>if <condition>(<expr><call><name><name>SYMLINK_UTILS</name>.<name>isSymbolicLink</name></name><argument_list>(<argument><expr><name>dir</name></expr></argument>, <argument><expr><name><name>newfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><name>vpath</name> + <name><name>newfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                        <decl_stmt><decl><type><name>File</name></type> <name>file</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>dir</name></expr></argument>, <argument><expr><name><name>newfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr>(<call><name><name>file</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call>
+                            ? <name>dirsExcluded</name> : <name>filesExcluded</name>).<call><name>addElement</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <if>if <condition>(<expr>!<call><name>isExcluded</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name><name>notFollowedSymlinks</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>file</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><call><name><name>noLinks</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>newfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"IOException caught while checking "
+                        + "for links, couldn't get canonical path!"</expr></init></decl>;</decl_stmt>
+                    <comment type="line">// will be caught and redirected to Ant's logging system</comment>
+                    <expr_stmt><expr><call><name><name>System</name>.<name>err</name>.<name>println</name></name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>noLinks</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>newfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></catch></try>
+            }</block></for>
+            <expr_stmt><expr><name>newfiles</name> = (<name><name>String</name><index>[]</index></name>) (<call><name><name>noLinks</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>noLinks</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call>)</expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>directoryNamesFollowed</name>.<name>addFirst</name></name><argument_list>(<argument><expr><call><name><name>dir</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>newfiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><name>vpath</name> + <name><name>newfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>TokenizedPath</name></type> <name>newPath</name> =<init> <expr>new <call><name>TokenizedPath</name><argument_list>(<argument><expr><name>path</name></expr></argument>, <argument><expr><name><name>newfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>file</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>dir</name></expr></argument>, <argument><expr><name><name>newfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>children</name> =<init> <expr><call><name><name>file</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>children</name> == <name>null</name> || (<name><name>children</name>.<name>length</name></name> == 0 &amp;&amp; <call><name><name>file</name>.<name>isFile</name></name><argument_list>()</argument_list></call>)</expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name>isIncluded</name><argument_list>(<argument><expr><name>newPath</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>accountForIncludedFile</name><argument_list>(<argument><expr><name>newPath</name></expr></argument>, <argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>everythingIncluded</name> = false</expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>filesNotIncluded</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then> <else>else <block>{ <comment type="line">// dir</comment>
+
+                <if>if <condition>(<expr><name>followSymlinks</name>
+                    &amp;&amp; <call><name>causesIllegalSymlinkLoop</name><argument_list>(<argument><expr><name><name>newfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>, <argument><expr><name>dir</name></expr></argument>,
+                                                <argument><expr><name>directoryNamesFollowed</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <comment type="line">// will be caught and redirected to Ant's logging system</comment>
+                    <expr_stmt><expr><call><name><name>System</name>.<name>err</name>.<name>println</name></name><argument_list>(<argument><expr>"skipping symbolic link "
+                                       + <call><name><name>file</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>
+                                       + " -- too many levels of symbolic"
+                                       + " links."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>notFollowedSymlinks</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>file</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <continue>continue;</continue>
+                }</block></then></if>
+
+                <if>if <condition>(<expr><call><name>isIncluded</name><argument_list>(<argument><expr><name>newPath</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>accountForIncludedDir</name><argument_list>(<argument><expr><name>newPath</name></expr></argument>, <argument><expr><name>file</name></expr></argument>, <argument><expr><name>fast</name></expr></argument>, <argument><expr><name>children</name></expr></argument>,
+                                          <argument><expr><name>directoryNamesFollowed</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>everythingIncluded</name> = false</expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>dirsNotIncluded</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <if>if <condition>(<expr><name>fast</name> &amp;&amp; <call><name>couldHoldIncluded</name><argument_list>(<argument><expr><name>newPath</name></expr></argument>)</argument_list></call>
+                        &amp;&amp; !<call><name>contentsExcluded</name><argument_list>(<argument><expr><name>newPath</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>scandir</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>newPath</name></expr></argument>, <argument><expr><name>fast</name></expr></argument>, <argument><expr><name>children</name></expr></argument>,
+                                <argument><expr><name>directoryNamesFollowed</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></else></if>
+                <if>if <condition>(<expr>!<name>fast</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>scandir</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>newPath</name></expr></argument>, <argument><expr><name>fast</name></expr></argument>, <argument><expr><name>children</name></expr></argument>, <argument><expr><name>directoryNamesFollowed</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></else></if>
+        }</block></for>
+
+        <if>if <condition>(<expr><name>followSymlinks</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>directoryNamesFollowed</name>.<name>removeFirst</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process included file.
+     * @param name  path of the file relative to the directory of the FileSet.
+     * @param file  included File.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>accountForIncludedFile</name><parameter_list>(<param><decl><type><name>TokenizedPath</name></type> <name>name</name></decl></param>, <param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>processIncluded</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>file</name></expr></argument>, <argument><expr><name>filesIncluded</name></expr></argument>, <argument><expr><name>filesExcluded</name></expr></argument>,
+                        <argument><expr><name>filesDeselected</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process included directory.
+     * @param name path of the directory relative to the directory of
+     *             the FileSet.
+     * @param file directory as File.
+     * @param fast whether to perform fast scans.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>accountForIncludedDir</name><parameter_list>(<param><decl><type><name>TokenizedPath</name></type> <name>name</name></decl></param>, <param><decl><type><name>File</name></type> <name>file</name></decl></param>,
+                                       <param><decl><type><name>boolean</name></type> <name>fast</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>processIncluded</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>file</name></expr></argument>, <argument><expr><name>dirsIncluded</name></expr></argument>, <argument><expr><name>dirsExcluded</name></expr></argument>, <argument><expr><name>dirsDeselected</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>fast</name> &amp;&amp; <call><name>couldHoldIncluded</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> &amp;&amp; !<call><name>contentsExcluded</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>scandir</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>name</name></expr></argument>, <argument><expr><name>fast</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>accountForIncludedDir</name><parameter_list>(<param><decl><type><name>TokenizedPath</name></type> <name>name</name></decl></param>,
+                                       <param><decl><type><name>File</name></type> <name>file</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>fast</name></decl></param>,
+                                       <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>children</name></decl></param>,
+                                       <param><decl><type><name><name>LinkedList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>directoryNamesFollowed</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>processIncluded</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>file</name></expr></argument>, <argument><expr><name>dirsIncluded</name></expr></argument>, <argument><expr><name>dirsExcluded</name></expr></argument>, <argument><expr><name>dirsDeselected</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>fast</name> &amp;&amp; <call><name>couldHoldIncluded</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> &amp;&amp; !<call><name>contentsExcluded</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>scandir</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>name</name></expr></argument>, <argument><expr><name>fast</name></expr></argument>, <argument><expr><name>children</name></expr></argument>, <argument><expr><name>directoryNamesFollowed</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>processIncluded</name><parameter_list>(<param><decl><type><name>TokenizedPath</name></type> <name>path</name></decl></param>,
+                                 <param><decl><type><name>File</name></type> <name>file</name></decl></param>, <param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>inc</name></decl></param>, <param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>exc</name></decl></param>,
+                                 <param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>des</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>path</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>inc</name>.<name>contains</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> || <call><name><name>exc</name>.<name>contains</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> || <call><name><name>des</name>.<name>contains</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>boolean</name></type> <name>included</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name>isExcluded</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>exc</name>.<name>add</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name>isSelected</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>included</name> = true</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>inc</name>.<name>add</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>des</name>.<name>add</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if></else></if>
+        <expr_stmt><expr><name>everythingIncluded</name> &amp;= <name>included</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a name matches against at least one include
+     * pattern.
+     *
+     * @param name The name to match. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @return &lt;code&gt;true&lt;/code&gt; when the name matches against at least one
+     *         include pattern, or &lt;code&gt;false&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>isIncluded</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>isIncluded</name><argument_list>(<argument><expr>new <call><name>TokenizedPath</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a name matches against at least one include
+     * pattern.
+     *
+     * @param name The name to match. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @return &lt;code&gt;true&lt;/code&gt; when the name matches against at least one
+     *         include pattern, or &lt;code&gt;false&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isIncluded</name><parameter_list>(<param><decl><type><name>TokenizedPath</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>ensureNonPatternSetsReady</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name>isCaseSensitive</name><argument_list>()</argument_list></call>
+            ? <call><name><name>includeNonPatterns</name>.<name>containsKey</name></name><argument_list>(<argument><expr><call><name><name>path</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+            : <call><name><name>includeNonPatterns</name>.<name>containsKey</name></name><argument_list>(<argument><expr><call><name><name>path</name>.<name>toString</name></name><argument_list>()</argument_list></call>.<call><name>toUpperCase</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>includePatterns</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><name><name>includePatterns</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>matchPath</name><argument_list>(<argument><expr><name>path</name></expr></argument>, <argument><expr><call><name>isCaseSensitive</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a name matches the start of at least one include
+     * pattern.
+     *
+     * @param name The name to match. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @return &lt;code&gt;true&lt;/code&gt; when the name matches against the start of at
+     *         least one include pattern, or &lt;code&gt;false&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>couldHoldIncluded</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>couldHoldIncluded</name><argument_list>(<argument><expr>new <call><name>TokenizedPath</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a name matches the start of at least one include
+     * pattern.
+     *
+     * @param tokenizedName The name to match. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @return &lt;code&gt;true&lt;/code&gt; when the name matches against the start of at
+     *         least one include pattern, or &lt;code&gt;false&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>couldHoldIncluded</name><parameter_list>(<param><decl><type><name>TokenizedPath</name></type> <name>tokenizedName</name></decl></param>)</parameter_list> <block>{
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>includePatterns</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><call><name>couldHoldIncluded</name><argument_list>(<argument><expr><name>tokenizedName</name></expr></argument>, <argument><expr><name><name>includePatterns</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <for>for (<init><decl><type><name><name>Iterator</name><argument_list>&lt;<argument><name>TokenizedPath</name></argument>&gt;</argument_list></name></type> <name>iter</name> =<init> <expr><call><name><name>includeNonPatterns</name>.<name>values</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init>
+             <condition><expr><call><name><name>iter</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr/>) <block>{
+            <if>if <condition>(<expr><call><name>couldHoldIncluded</name><argument_list>(<argument><expr><name>tokenizedName</name></expr></argument>,
+                                  <argument><expr><call><name><name>iter</name>.<name>next</name></name><argument_list>()</argument_list></call>.<call><name>toPattern</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a name matches the start of the given
+     * include pattern.
+     *
+     * @param tokenizedName The name to match. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @return &lt;code&gt;true&lt;/code&gt; when the name matches against the start of the
+     *         include pattern, or &lt;code&gt;false&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>couldHoldIncluded</name><parameter_list>(<param><decl><type><name>TokenizedPath</name></type> <name>tokenizedName</name></decl></param>,
+                                      <param><decl><type><name>TokenizedPattern</name></type> <name>tokenizedInclude</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>tokenizedInclude</name>.<name>matchStartOf</name></name><argument_list>(<argument><expr><name>tokenizedName</name></expr></argument>, <argument><expr><call><name>isCaseSensitive</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+            &amp;&amp; <call><name>isMorePowerfulThanExcludes</name><argument_list>(<argument><expr><call><name><name>tokenizedName</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+            &amp;&amp; <call><name>isDeeper</name><argument_list>(<argument><expr><name>tokenizedInclude</name></expr></argument>, <argument><expr><name>tokenizedName</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Verify that a pattern specifies files deeper
+     * than the level of the specified file.
+     * @param pattern the pattern to check.
+     * @param name the name to check.
+     * @return whether the pattern is deeper than the name.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isDeeper</name><parameter_list>(<param><decl><type><name>TokenizedPattern</name></type> <name>pattern</name></decl></param>, <param><decl><type><name>TokenizedPath</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>pattern</name>.<name>containsPattern</name></name><argument_list>(<argument><expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr></argument>)</argument_list></call>
+            || <call><name><name>pattern</name>.<name>depth</name></name><argument_list>()</argument_list></call> &gt; <call><name><name>name</name>.<name>depth</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     *  Find out whether one particular include pattern is more powerful
+     *  than all the excludes.
+     *  Note:  the power comparison is based on the length of the include pattern
+     *  and of the exclude patterns without the wildcards.
+     *  Ideally the comparison should be done based on the depth
+     *  of the match; that is to say how many file separators have been matched
+     *  before the first ** or the end of the pattern.
+     *
+     *  IMPORTANT : this function should return false "with care".
+     *
+     *  @param name the relative path to test.
+     *  @return true if there is no exclude pattern more powerful than
+     *  this include pattern.
+     *  @since Ant 1.6
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isMorePowerfulThanExcludes</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>soughtexclude</name> =<init>
+            <expr><name>name</name> + <name><name>File</name>.<name>separatorChar</name></name> + <name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>counter</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>counter</name> &lt; <name><name>excludePatterns</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>counter</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><name><name>excludePatterns</name><index>[<expr><name>counter</name></expr>]</index></name>.<call><name>toString</name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name>soughtexclude</name></expr></argument>)</argument_list></call></expr>)</condition><then>  <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether all contents of the specified directory must be excluded.
+     * @param path the path to check.
+     * @return whether all the specified directory's contents are excluded.
+     */</comment>
+    <comment type="block">/* package */</comment> <function><type><name>boolean</name></type> <name>contentsExcluded</name><parameter_list>(<param><decl><type><name>TokenizedPath</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>excludePatterns</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><name><name>excludePatterns</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>endsWith</name><argument_list>(<argument><expr><name><name>SelectorUtils</name>.<name>DEEP_TREE_MATCH</name></name></expr></argument>)</argument_list></call>
+                &amp;&amp; <name><name>excludePatterns</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>withoutLastToken</name><argument_list>()</argument_list></call>
+                   .<call><name>matchPath</name><argument_list>(<argument><expr><name>path</name></expr></argument>, <argument><expr><call><name>isCaseSensitive</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a name matches against at least one exclude
+     * pattern.
+     *
+     * @param name The name to match. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @return &lt;code&gt;true&lt;/code&gt; when the name matches against at least one
+     *         exclude pattern, or &lt;code&gt;false&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>isExcluded</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>isExcluded</name><argument_list>(<argument><expr>new <call><name>TokenizedPath</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether or not a name matches against at least one exclude
+     * pattern.
+     *
+     * @param name The name to match. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @return &lt;code&gt;true&lt;/code&gt; when the name matches against at least one
+     *         exclude pattern, or &lt;code&gt;false&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isExcluded</name><parameter_list>(<param><decl><type><name>TokenizedPath</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>ensureNonPatternSetsReady</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name>isCaseSensitive</name><argument_list>()</argument_list></call>
+            ? <call><name><name>excludeNonPatterns</name>.<name>containsKey</name></name><argument_list>(<argument><expr><call><name><name>name</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+            : <call><name><name>excludeNonPatterns</name>.<name>containsKey</name></name><argument_list>(<argument><expr><call><name><name>name</name>.<name>toString</name></name><argument_list>()</argument_list></call>.<call><name>toUpperCase</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>excludePatterns</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><name><name>excludePatterns</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>matchPath</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><call><name>isCaseSensitive</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Test whether a file should be selected.
+     *
+     * @param name the filename to check for selecting.
+     * @param file the java.io.File object for this filename.
+     * @return &lt;code&gt;false&lt;/code&gt; when the selectors says that the file
+     *         should not be selected, &lt;code&gt;true&lt;/code&gt; otherwise.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>isSelected</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>selectors</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>selectors</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <if>if <condition>(<expr>!<name><name>selectors</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>isSelected</name><argument_list>(<argument><expr><name>basedir</name></expr></argument>, <argument><expr><name>name</name></expr></argument>, <argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <return>return <expr>false</expr>;</return>
+                }</block></then></if>
+            }</block></for>
+        }</block></then></if>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the names of the files which matched at least one of the
+     * include patterns and none of the exclude patterns.
+     * The names are relative to the base directory.
+     *
+     * @return the names of the files which matched at least one of the
+     *         include patterns and none of the exclude patterns.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getIncludedFiles</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name></decl>;</decl_stmt>
+        <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+            <if>if <condition>(<expr><name>filesIncluded</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>(<argument><expr>"Must call scan() first"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><name>files</name> = new <name><name>String</name><index>[<expr><call><name><name>filesIncluded</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>filesIncluded</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>files</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+        <expr_stmt><expr><call><name><name>Arrays</name>.<name>sort</name></name><argument_list>(<argument><expr><name>files</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>files</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the count of included files.
+     * @return &lt;code&gt;int&lt;/code&gt;.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>int</name></type> <name>getIncludedFilesCount</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>filesIncluded</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>(<argument><expr>"Must call scan() first"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><call><name><name>filesIncluded</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the names of the files which matched none of the include
+     * patterns. The names are relative to the base directory. This involves
+     * performing a slow scan if one has not already been completed.
+     *
+     * @return the names of the files which matched none of the include
+     *         patterns.
+     *
+     * @see #slowScan
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>String</name><index>[]</index></type> <name>getNotIncludedFiles</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>slowScan</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr>new <name><name>String</name><index>[<expr><call><name><name>filesNotIncluded</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>filesNotIncluded</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>files</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>files</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the names of the files which matched at least one of the
+     * include patterns and at least one of the exclude patterns.
+     * The names are relative to the base directory. This involves
+     * performing a slow scan if one has not already been completed.
+     *
+     * @return the names of the files which matched at least one of the
+     *         include patterns and at least one of the exclude patterns.
+     *
+     * @see #slowScan
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>String</name><index>[]</index></type> <name>getExcludedFiles</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>slowScan</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr>new <name><name>String</name><index>[<expr><call><name><name>filesExcluded</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>filesExcluded</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>files</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>files</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * &lt;p&gt;Return the names of the files which were selected out and
+     * therefore not ultimately included.&lt;/p&gt;
+     *
+     * &lt;p&gt;The names are relative to the base directory. This involves
+     * performing a slow scan if one has not already been completed.&lt;/p&gt;
+     *
+     * @return the names of the files which were deselected.
+     *
+     * @see #slowScan
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>String</name><index>[]</index></type> <name>getDeselectedFiles</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>slowScan</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr>new <name><name>String</name><index>[<expr><call><name><name>filesDeselected</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>filesDeselected</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>files</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>files</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the names of the directories which matched at least one of the
+     * include patterns and none of the exclude patterns.
+     * The names are relative to the base directory.
+     *
+     * @return the names of the directories which matched at least one of the
+     * include patterns and none of the exclude patterns.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getIncludedDirectories</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>directories</name></decl>;</decl_stmt>
+        <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+            <if>if <condition>(<expr><name>dirsIncluded</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>(<argument><expr>"Must call scan() first"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><name>directories</name> = new <name><name>String</name><index>[<expr><call><name><name>dirsIncluded</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>dirsIncluded</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>directories</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+        <expr_stmt><expr><call><name><name>Arrays</name>.<name>sort</name></name><argument_list>(<argument><expr><name>directories</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>directories</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the count of included directories.
+     * @return &lt;code&gt;int&lt;/code&gt;.
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>int</name></type> <name>getIncludedDirsCount</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>dirsIncluded</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>IllegalStateException</name><argument_list>(<argument><expr>"Must call scan() first"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><call><name><name>dirsIncluded</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the names of the directories which matched none of the include
+     * patterns. The names are relative to the base directory. This involves
+     * performing a slow scan if one has not already been completed.
+     *
+     * @return the names of the directories which matched none of the include
+     * patterns.
+     *
+     * @see #slowScan
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>String</name><index>[]</index></type> <name>getNotIncludedDirectories</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>slowScan</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>directories</name> =<init> <expr>new <name><name>String</name><index>[<expr><call><name><name>dirsNotIncluded</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>dirsNotIncluded</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>directories</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>directories</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the names of the directories which matched at least one of the
+     * include patterns and at least one of the exclude patterns.
+     * The names are relative to the base directory. This involves
+     * performing a slow scan if one has not already been completed.
+     *
+     * @return the names of the directories which matched at least one of the
+     * include patterns and at least one of the exclude patterns.
+     *
+     * @see #slowScan
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>String</name><index>[]</index></type> <name>getExcludedDirectories</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>slowScan</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>directories</name> =<init> <expr>new <name><name>String</name><index>[<expr><call><name><name>dirsExcluded</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>dirsExcluded</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>directories</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>directories</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * &lt;p&gt;Return the names of the directories which were selected out and
+     * therefore not ultimately included.&lt;/p&gt;
+     *
+     * &lt;p&gt;The names are relative to the base directory. This involves
+     * performing a slow scan if one has not already been completed.&lt;/p&gt;
+     *
+     * @return the names of the directories which were deselected.
+     *
+     * @see #slowScan
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>String</name><index>[]</index></type> <name>getDeselectedDirectories</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>slowScan</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>directories</name> =<init> <expr>new <name><name>String</name><index>[<expr><call><name><name>dirsDeselected</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>dirsDeselected</name>.<name>copyInto</name></name><argument_list>(<argument><expr><name>directories</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>directories</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Absolute paths of all symbolic links that haven't been followed
+     * but would have been followed had followsymlinks been true or
+     * maxLevelsOfSymlinks been bigger.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>String</name><index>[]</index></type> <name>getNotFollowedSymlinks</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>links</name></decl>;</decl_stmt>
+        <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+            <expr_stmt><expr><name>links</name> = (<name><name>String</name><index>[]</index></name>) <call><name><name>notFollowedSymlinks</name>
+                .<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>notFollowedSymlinks</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+        <expr_stmt><expr><call><name><name>Arrays</name>.<name>sort</name></name><argument_list>(<argument><expr><name>links</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>links</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add default exclusions to the current exclusions set.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>addDefaultExcludes</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>excludesLength</name> =<init> <expr><name>excludes</name> == <name>null</name> ? 0 : <name><name>excludes</name>.<name>length</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>newExcludes</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>defaultExcludesTemp</name> =<init> <expr><call><name>getDefaultExcludes</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>newExcludes</name> = new <name><name>String</name><index>[<expr><name>excludesLength</name> + <name><name>defaultExcludesTemp</name>.<name>length</name></name></expr>]</index></name></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>excludesLength</name> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>arraycopy</name></name><argument_list>(<argument><expr><name>excludes</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>newExcludes</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>excludesLength</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>defaultExcludesTemp</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><name><name>newExcludes</name><index>[<expr><name>i</name> + <name>excludesLength</name></expr>]</index></name> =
+                <name><name>defaultExcludesTemp</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>replace</name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call>
+                .<call><name>replace</name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <expr_stmt><expr><name>excludes</name> = <name>newExcludes</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the named resource.
+     * @param name path name of the file relative to the dir attribute.
+     *
+     * @return the resource with the given name.
+     * @since Ant 1.5.2
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>Resource</name></type> <name>getResource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>basedir</name></expr></argument>, <argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Has the directory with the given path relative to the base
+     * directory already been scanned?
+     *
+     * &lt;p&gt;Registers the given directory as scanned as a side effect.&lt;/p&gt;
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>hasBeenScanned</name><parameter_list>(<param><decl><type><name>String</name></type> <name>vpath</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>!<call><name><name>scannedDirs</name>.<name>add</name></name><argument_list>(<argument><expr><name>vpath</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This method is of interest for testing purposes.  The returned
+     * Set is live and should not be modified.
+     * @return the Set of relative directory names that have been scanned.
+     */</comment>
+    <comment type="block">/* package-private */</comment> <function><type><name><name>Set</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>getScannedDirs</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>scannedDirs</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Clear internal caches.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>clearCaches</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>includeNonPatterns</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>excludeNonPatterns</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>includePatterns</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>excludePatterns</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>areNonPatternSetsReady</name> = false</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Ensure that the in|exclude &amp;quot;patterns&amp;quot;
+     * have been properly divided up.
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <comment type="block">/* package */</comment> <function><type><specifier>synchronized</specifier> <name>void</name></type> <name>ensureNonPatternSetsReady</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr>!<name>areNonPatternSetsReady</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>includePatterns</name> = <call><name>fillNonPatternSet</name><argument_list>(<argument><expr><name>includeNonPatterns</name></expr></argument>, <argument><expr><name>includes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>excludePatterns</name> = <call><name>fillNonPatternSet</name><argument_list>(<argument><expr><name>excludeNonPatterns</name></expr></argument>, <argument><expr><name>excludes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>areNonPatternSetsReady</name> = true</expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add all patterns that are not real patterns (do not contain
+     * wildcards) to the set and returns the real patterns.
+     *
+     * @param map Map to populate.
+     * @param patterns String[] of patterns.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>private</specifier> <name>TokenizedPattern</name><index>[]</index></type> <name>fillNonPatternSet</name><parameter_list>(<param><decl><type><name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>TokenizedPath</name></argument>&gt;</argument_list></name></type> <name>map</name></decl></param>, <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>patterns</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>ArrayList</name><argument_list>&lt;<argument><name>TokenizedPattern</name></argument>&gt;</argument_list></name></type> <name>al</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>TokenizedPattern</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name><name>patterns</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>patterns</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr>!<call><name><name>SelectorUtils</name>.<name>hasWildcards</name></name><argument_list>(<argument><expr><name><name>patterns</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>s</name> =<init> <expr><call><name>isCaseSensitive</name><argument_list>()</argument_list></call>
+                    ? <name><name>patterns</name><index>[<expr><name>i</name></expr>]</index></name> : <name><name>patterns</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>toUpperCase</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>map</name>.<name>put</name></name><argument_list>(<argument><expr><name>s</name></expr></argument>, <argument><expr>new <call><name>TokenizedPath</name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>al</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name>TokenizedPattern</name><argument_list>(<argument><expr><name><name>patterns</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></for>
+        <return>return <expr>(<name><name>TokenizedPattern</name><index>[]</index></name>) <call><name><name>al</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>TokenizedPattern</name><index>[<expr><call><name><name>al</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Would following the given directory cause a loop of symbolic
+     * links deeper than allowed?
+     *
+     * &lt;p&gt;Can only happen if the given directory has been seen at
+     * least more often than allowed during the current scan and it is
+     * a symbolic link and enough other occurences of the same name
+     * higher up are symbolic links that point to the same place.&lt;/p&gt;
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>causesIllegalSymlinkLoop</name><parameter_list>(<param><decl><type><name>String</name></type> <name>dirName</name></decl></param>, <param><decl><type><name>File</name></type> <name>parent</name></decl></param>,
+                                             <param><decl><type><name><name>LinkedList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>directoryNamesFollowed</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <if>if <condition>(<expr><call><name><name>directoryNamesFollowed</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt;= <name>maxLevelsOfSymlinks</name>
+                &amp;&amp; <call><name><name>CollectionUtils</name>.<name>frequency</name></name><argument_list>(<argument><expr><name>directoryNamesFollowed</name></expr></argument>, <argument><expr><name>dirName</name></expr></argument>)</argument_list></call>
+                   &gt;= <name>maxLevelsOfSymlinks</name>
+                &amp;&amp; <call><name><name>SYMLINK_UTILS</name>.<name>isSymbolicLink</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>dirName</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+
+                <decl_stmt><decl><type><name><name>ArrayList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>files</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr><call><name><name>FILE_UTILS</name>.<name>resolveFile</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>dirName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>target</name> =<init> <expr><call><name><name>f</name>.<name>getCanonicalPath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>files</name>.<name>add</name></name><argument_list>(<argument><expr><name>target</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <decl_stmt><decl><type><name>String</name></type> <name>relPath</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>String</name></type> <name>dir</name> :<range> <expr><name>directoryNamesFollowed</name></expr></range></decl></init>) <block>{
+                    <expr_stmt><expr><name>relPath</name> += "../"</expr>;</expr_stmt>
+                    <if>if <condition>(<expr><call><name><name>dirName</name>.<name>equals</name></name><argument_list>(<argument><expr><name>dir</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>f</name> = <call><name><name>FILE_UTILS</name>.<name>resolveFile</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>relPath</name> + <name>dir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>files</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>f</name>.<name>getCanonicalPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <if>if <condition>(<expr><call><name><name>files</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; <name>maxLevelsOfSymlinks</name>
+                            &amp;&amp; <call><name><name>CollectionUtils</name>.<name>frequency</name></name><argument_list>(<argument><expr><name>files</name></expr></argument>, <argument><expr><name>target</name></expr></argument>)</argument_list></call>
+                                 &gt; <name>maxLevelsOfSymlinks</name></expr>)</condition><then> <block>{
+                            <return>return <expr>true</expr>;</return>
+                        }</block></then></if>
+                    }</block></then></if>
+                }</block></for>
+
+            }</block></then></if>
+            <return>return <expr>false</expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Caught error while checking for"
+                                     + " symbolic links"</expr></argument>, <argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+}</block></class>
+</unit>

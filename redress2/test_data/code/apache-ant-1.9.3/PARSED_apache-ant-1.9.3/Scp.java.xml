@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ssh\Scp.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ssh</name></name>;</package>
+
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>JSchException</name></name>;</import>
+<import>import <name><name>com</name>.<name>jcraft</name>.<name>jsch</name>.<name>Session</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Ant task for sending files to remote machine over ssh/scp.
+ *
+ * @since Ant 1.6
+ */</comment>
+<class><specifier>public</specifier> class <name>Scp</name> <super><extends>extends <name>SSHBase</name></extends></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name><index>[]</index></type> <name>FROM_ATTRS</name> =<init> <expr><block>{
+        <expr>"file"</expr>, <expr>"localfile"</expr>, <expr>"remotefile"</expr> }</block></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name><index>[]</index></type> <name>TO_ATTRS</name> =<init> <expr><block>{
+        <expr>"todir"</expr>, <expr>"localtodir"</expr>, <expr>"remotetodir"</expr>, <expr>"localtofile"</expr>, <expr>"remotetofile"</expr> }</block></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>fromUri</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>toUri</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>preserveLastModified</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>List</name></type> <name>fileSets</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>isFromRemote</name>, <name>isToRemote</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>isSftp</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Sets the file to be transferred.  This can either be a remote
+     * file or a local file.  Remote files take the form:&lt;br&gt;
+     * &lt;i&gt;user:password@host:/directory/path/file.example&lt;/i&gt;&lt;br&gt;
+     * Files to transfer can also include a wildcard to include all
+     * files in a remote directory.  For example:&lt;br&gt;
+     * &lt;i&gt;user:password@host:/directory/path/*&lt;/i&gt;&lt;br&gt;
+     * @param aFromUri a string representing the file to transfer.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aFromUri</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setFromUri</name><argument_list>(<argument><expr><name>aFromUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>isFromRemote</name></name> = <call><name>isRemoteUri</name><argument_list>(<argument><expr><name><name>this</name>.<name>fromUri</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the location where files will be transferred to.
+     * This can either be a remote directory or a local directory.
+     * Remote directories take the form of:&lt;br&gt;
+     * &lt;i&gt;user:password@host:/directory/path/&lt;/i&gt;&lt;br&gt;
+     * This parameter is required.
+
+     * @param aToUri a string representing the target of the copy.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTodir</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aToUri</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setToUri</name><argument_list>(<argument><expr><name>aToUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>isToRemote</name></name> = <call><name>isRemoteUri</name><argument_list>(<argument><expr><name><name>this</name>.<name>toUri</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Similiar to {@link #setFile setFile} but explicitly states that
+     * the file is a local file.  This is the only way to specify a
+     * local file with a @ character.
+     * @param aFromUri a string representing the source of the copy.
+     * @since Ant 1.6.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLocalFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aFromUri</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setFromUri</name><argument_list>(<argument><expr><name>aFromUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>isFromRemote</name></name> = false</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Similiar to {@link #setFile setFile} but explicitly states that
+     * the file is a remote file.
+     * @param aFromUri a string representing the source of the copy.
+     * @since Ant 1.6.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRemoteFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aFromUri</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>validateRemoteUri</name><argument_list>(<argument><expr>"remoteFile"</expr></argument>, <argument><expr><name>aFromUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setFromUri</name><argument_list>(<argument><expr><name>aFromUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>isFromRemote</name></name> = true</expr>;</expr_stmt>
+     }</block></function>
+
+    <comment type="javadoc">/**
+     * Similiar to {@link #setTodir setTodir} but explicitly states
+     * that the directory is a local.  This is the only way to specify
+     * a local directory with a @ character.
+     * @param aToUri a string representing the target of the copy.
+     * @since Ant 1.6.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLocalTodir</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aToUri</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setToUri</name><argument_list>(<argument><expr><name>aToUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>isToRemote</name></name> = false</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets flag to determine if file timestamp from
+     * remote system is to be preserved during copy.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPreservelastmodified</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>yesOrNo</name></decl></param>)</parameter_list> <block>{
+    	<expr_stmt><expr><name><name>this</name>.<name>preserveLastModified</name></name> = <name>yesOrNo</name></expr>;</expr_stmt>
+    }</block></function>    
+
+    <comment type="javadoc">/**
+     * Similiar to {@link #setTodir setTodir} but explicitly states
+     * that the directory is a remote.
+     * @param aToUri a string representing the target of the copy.
+     * @since Ant 1.6.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRemoteTodir</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aToUri</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>validateRemoteUri</name><argument_list>(<argument><expr>"remoteToDir"</expr></argument>, <argument><expr><name>aToUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setToUri</name><argument_list>(<argument><expr><name>aToUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>isToRemote</name></name> = true</expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>validateRemoteUri</name><parameter_list>(<param><decl><type><name>String</name></type> <name>type</name></decl></param>, <param><decl><type><name>String</name></type> <name>aToUri</name></decl></param>)</parameter_list> <block>{
+    	<if>if <condition>(<expr>!<call><name>isRemoteUri</name><argument_list>(<argument><expr><name>aToUri</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>type</name> + " '" + <name>aToUri</name> + "' is invalid. "
+                                     + "The 'remoteToDir' attribute must "
+                                     + "have syntax like the "
+                                     + "following: user:password@host:/path"
+                                     + " - the :password part is optional"</expr></argument>)</argument_list></call></expr>;</throw>
+    	}</block></then></if>
+    }</block></function> 
+
+    <comment type="javadoc">/**
+     * Changes the file name to the given name while receiving it,
+     * only useful if receiving a single file.
+     * @param aToUri a string representing the target of the copy.
+     * @since Ant 1.6.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLocalTofile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aToUri</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setToUri</name><argument_list>(<argument><expr><name>aToUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>isToRemote</name></name> = false</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Changes the file name to the given name while sending it,
+     * only useful if sending a single file.
+     * @param aToUri a string representing the target of the copy.
+     * @since Ant 1.6.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRemoteTofile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aToUri</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>validateRemoteUri</name><argument_list>(<argument><expr>"remoteToFile"</expr></argument>, <argument><expr><name>aToUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setToUri</name><argument_list>(<argument><expr><name>aToUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>isToRemote</name></name> = true</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Setting this to true to use sftp protocol.
+     *
+     * @param yesOrNo if true sftp protocol will be used.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSftp</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>yesOrNo</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>isSftp</name> = <name>yesOrNo</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a FileSet transfer to remote host.  NOTE: Either
+     * addFileSet() or setFile() are required.  But, not both.
+     *
+     * @param set FileSet to send to remote host.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileset</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>set</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>fileSets</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>fileSets</name> = new <call><name>LinkedList</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>fileSets</name>.<name>add</name></name><argument_list>(<argument><expr><name>set</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Initialize this task.
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>init</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>super</name>.<name>init</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>toUri</name></name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>fromUri</name></name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>fileSets</name></name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Execute this task.
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>toUri</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>exactlyOne</name><argument_list>(<argument><expr><name>TO_ATTRS</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>fromUri</name> == <name>null</name> &amp;&amp; <name>fileSets</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>exactlyOne</name><argument_list>(<argument><expr><name>FROM_ATTRS</name></expr></argument>, <argument><expr>"one or more nested filesets"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <try>try <block>{
+            <if>if <condition>(<expr><name>isFromRemote</name> &amp;&amp; !<name>isToRemote</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>download</name><argument_list>(<argument><expr><name>fromUri</name></expr></argument>, <argument><expr><name>toUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr>!<name>isFromRemote</name> &amp;&amp; <name>isToRemote</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>fileSets</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>upload</name><argument_list>(<argument><expr><name>fileSets</name></expr></argument>, <argument><expr><name>toUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>upload</name><argument_list>(<argument><expr><name>fromUri</name></expr></argument>, <argument><expr><name>toUri</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then> <else>else <if>if <condition>(<expr><name>isFromRemote</name> &amp;&amp; <name>isToRemote</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                    <argument><expr>"Copying from a remote server to a remote server is not supported."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"'todir' and 'file' attributes "
+                    + "must have syntax like the following: "
+                    + "user:password@host:/path"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></else></if></else></if></else></if>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <if>if <condition>(<expr><call><name>getFailonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <if>if<condition>(<expr><name>e</name> <name>instanceof</name> <name>BuildException</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>BuildException</name></type> <name>be</name> =<init> <expr>(<name>BuildException</name>) <name>e</name></expr></init></decl>;</decl_stmt>
+                    <if>if<condition>(<expr><call><name><name>be</name>.<name>getLocation</name></name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>be</name>.<name>setLocation</name></name><argument_list>(<argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <throw>throw <expr><name>be</name></expr>;</throw>
+                }</block></then> <else>else <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></else></if>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Caught exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></catch></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>download</name><parameter_list>(<param><decl><type><name>String</name></type> <name>fromSshUri</name></decl></param>, <param><decl><type><name>String</name></type> <name>toPath</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>JSchException</name></expr></argument>, <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>file</name> =<init> <expr><call><name>parseUri</name><argument_list>(<argument><expr><name>fromSshUri</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>Session</name></type> <name>session</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>session</name> = <call><name>openSession</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>ScpFromMessage</name></type> <name>message</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<name>isSftp</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>message</name> =
+                    new <call><name>ScpFromMessage</name><argument_list>(<argument><expr><call><name>getVerbose</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>session</name></expr></argument>, <argument><expr><name>file</name></expr></argument>,
+                                       <argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><name>toPath</name></expr></argument>)</argument_list></call></expr></argument>,
+                                       <argument><expr><call><name><name>fromSshUri</name>.<name>endsWith</name></name><argument_list>(<argument><expr>"*"</expr></argument>)</argument_list></call></expr></argument>,
+                                       <argument><expr><name>preserveLastModified</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>message</name> =
+                    new <call><name>ScpFromMessageBySftp</name><argument_list>(<argument><expr><call><name>getVerbose</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>session</name></expr></argument>, <argument><expr><name>file</name></expr></argument>,
+                                             <argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><name>toPath</name></expr></argument>)</argument_list></call></expr></argument>,
+                                             <argument><expr><call><name><name>fromSshUri</name>.<name>endsWith</name></name><argument_list>(<argument><expr>"*"</expr></argument>)</argument_list></call></expr></argument>,
+                                             <argument><expr><name>preserveLastModified</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Receiving file: " + <name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>message</name>.<name>setLogListener</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>message</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>session</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>session</name>.<name>disconnect</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>upload</name><parameter_list>(<param><decl><type><name>List</name></type> <name>fileSet</name></decl></param>, <param><decl><type><name>String</name></type> <name>toSshUri</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>JSchException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>file</name> =<init> <expr><call><name>parseUri</name><argument_list>(<argument><expr><name>toSshUri</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>Session</name></type> <name>session</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>List</name></type> <name>list</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>(<argument><expr><call><name><name>fileSet</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name><name>fileSet</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>FileSet</name></type> <name>set</name> =<init> <expr>(<name>FileSet</name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Directory</name></type> <name>d</name> =<init> <expr><call><name>createDirectory</name><argument_list>(<argument><expr><name>set</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>d</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>list</name>.<name>add</name></name><argument_list>(<argument><expr><name>d</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+            <if>if <condition>(<expr>!<call><name><name>list</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>session</name> = <call><name>openSession</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>ScpToMessage</name></type> <name>message</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr>!<name>isSftp</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>message</name> = new <call><name>ScpToMessage</name><argument_list>(<argument><expr><call><name>getVerbose</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>session</name></expr></argument>,
+                                               <argument><expr><name>list</name></expr></argument>, <argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>message</name> = new <call><name>ScpToMessageBySftp</name><argument_list>(<argument><expr><call><name>getVerbose</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>session</name></expr></argument>,
+                                                     <argument><expr><name>list</name></expr></argument>, <argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <expr_stmt><expr><call><name><name>message</name>.<name>setLogListener</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>message</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>session</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>session</name>.<name>disconnect</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>upload</name><parameter_list>(<param><decl><type><name>String</name></type> <name>fromPath</name></decl></param>, <param><decl><type><name>String</name></type> <name>toSshUri</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>JSchException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>file</name> =<init> <expr><call><name>parseUri</name><argument_list>(<argument><expr><name>toSshUri</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>Session</name></type> <name>session</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>session</name> = <call><name>openSession</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>ScpToMessage</name></type> <name>message</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<name>isSftp</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>message</name> =
+                    new <call><name>ScpToMessage</name><argument_list>(<argument><expr><call><name>getVerbose</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>session</name></expr></argument>,
+                                     <argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><name>fromPath</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>message</name> =
+                    new <call><name>ScpToMessageBySftp</name><argument_list>(<argument><expr><call><name>getVerbose</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>session</name></expr></argument>,
+                                           <argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><name>fromPath</name></expr></argument>)</argument_list></call></expr></argument>,
+                                           <argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <expr_stmt><expr><call><name><name>message</name>.<name>setLogListener</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>message</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>session</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>session</name>.<name>disconnect</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>parseUri</name><parameter_list>(<param><decl><type><name>String</name></type> <name>uri</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>int</name></type> <name>indexOfAt</name> =<init> <expr><call><name><name>uri</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'@'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>indexOfColon</name> =<init> <expr><call><name><name>uri</name>.<name>indexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>indexOfColon</name> &gt; -1 &amp;&amp; <name>indexOfColon</name> &lt; <name>indexOfAt</name></expr>)</condition><then> <block>{
+            <comment type="line">// user:password@host:/path notation</comment>
+            <comment type="line">// everything upto the last @ before the last : is considered</comment>
+            <comment type="line">// password. (so if the path contains an @ and a : it will not work)</comment>
+            <decl_stmt><decl><type><name>int</name></type> <name>indexOfCurrentAt</name> =<init> <expr><name>indexOfAt</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>indexOfLastColon</name> =<init> <expr><call><name><name>uri</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><name>indexOfCurrentAt</name> &gt; -1 &amp;&amp; <name>indexOfCurrentAt</name> &lt; <name>indexOfLastColon</name></expr>)</condition>
+            <block>{
+                <expr_stmt><expr><name>indexOfAt</name> = <name>indexOfCurrentAt</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>indexOfCurrentAt</name> = <call><name><name>uri</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'@'</expr></argument>, <argument><expr><name>indexOfCurrentAt</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><call><name>setUsername</name><argument_list>(<argument><expr><call><name><name>uri</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>indexOfColon</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setPassword</name><argument_list>(<argument><expr><call><name><name>uri</name>.<name>substring</name></name><argument_list>(<argument><expr><name>indexOfColon</name> + 1</expr></argument>, <argument><expr><name>indexOfAt</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><name>indexOfAt</name> &gt; -1</expr>)</condition><then> <block>{
+            <comment type="line">// no password, will require keyfile</comment>
+            <expr_stmt><expr><call><name>setUsername</name><argument_list>(<argument><expr><call><name><name>uri</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>indexOfAt</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"no username was given.  Can't authenticate."</expr></argument>)</argument_list></call></expr>;</throw> 
+        }</block></else></if></else></if>
+
+        <if>if <condition>(<expr><call><name>getUserInfo</name><argument_list>()</argument_list></call>.<call><name>getPassword</name><argument_list>()</argument_list></call> == <name>null</name>
+            &amp;&amp; <call><name>getUserInfo</name><argument_list>()</argument_list></call>.<call><name>getKeyfile</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"neither password nor keyfile for user "
+                                     + <call><name>getUserInfo</name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call> + " has been "
+                                     + "given.  Can't authenticate."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>indexOfPath</name> =<init> <expr><call><name><name>uri</name>.<name>indexOf</name></name><argument_list>(<argument><expr>':'</expr></argument>, <argument><expr><name>indexOfAt</name> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>indexOfPath</name> == -1</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"no remote path in " + <name>uri</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>setHost</name><argument_list>(<argument><expr><call><name><name>uri</name>.<name>substring</name></name><argument_list>(<argument><expr><name>indexOfAt</name> + 1</expr></argument>, <argument><expr><name>indexOfPath</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>remotePath</name> =<init> <expr><call><name><name>uri</name>.<name>substring</name></name><argument_list>(<argument><expr><name>indexOfPath</name> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>remotePath</name>.<name>equals</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>remotePath</name> = "."</expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>remotePath</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>isRemoteUri</name><parameter_list>(<param><decl><type><name>String</name></type> <name>uri</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>boolean</name></type> <name>isRemote</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>indexOfAt</name> =<init> <expr><call><name><name>uri</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'@'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>indexOfAt</name> &lt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>isRemote</name> = false</expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>isRemote</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>Directory</name></type> <name>createDirectory</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>set</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>scanner</name> =<init> <expr><call><name><name>set</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Directory</name></type> <name>root</name> =<init> <expr>new <call><name>Directory</name><argument_list>(<argument><expr><call><name><name>scanner</name>.<name>getBasedir</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>scanner</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name><name>files</name>.<name>length</name></name> != 0</expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>files</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>path</name> =<init> <expr><call><name><name>Directory</name>.<name>getPath</name></name><argument_list>(<argument><expr><name><name>files</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Directory</name></type> <name>current</name> =<init> <expr><name>root</name></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>currentParent</name> =<init> <expr><call><name><name>scanner</name>.<name>getBasedir</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>path</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>file</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>currentParent</name></expr></argument>, <argument><expr><name><name>path</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><call><name><name>file</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>current</name>.<name>addDirectory</name></name><argument_list>(<argument><expr>new <call><name>Directory</name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>current</name> = <call><name><name>current</name>.<name>getChild</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>currentParent</name> = <call><name><name>current</name>.<name>getDirectory</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <if>if <condition>(<expr><call><name><name>file</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>current</name>.<name>addFile</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if></else></if>
+                }</block></for>
+            }</block></for>
+        }</block></then> <else>else <block>{
+            <comment type="line">// skip</comment>
+            <expr_stmt><expr><name>root</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></else></if>
+        <return>return <expr><name>root</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setFromUri</name><parameter_list>(<param><decl><type><name>String</name></type> <name>fromUri</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>fromUri</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>exactlyOne</name><argument_list>(<argument><expr><name>FROM_ATTRS</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>fromUri</name></name> = <name>fromUri</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setToUri</name><parameter_list>(<param><decl><type><name>String</name></type> <name>toUri</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>toUri</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>exactlyOne</name><argument_list>(<argument><expr><name>TO_ATTRS</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>toUri</name></name> = <name>toUri</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>BuildException</name></type> <name>exactlyOne</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>attrs</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>exactlyOne</name><argument_list>(<argument><expr><name>attrs</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>BuildException</name></type> <name>exactlyOne</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>attrs</name></decl></param>, <param><decl><type><name>String</name></type> <name>alt</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr>"Exactly one of "</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(
+                <argument><expr>'['</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name><name>attrs</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>1</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>attrs</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>'|'</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name><name>attrs</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>']'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>alt</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>" or "</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>alt</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>" is required."</expr></argument>)</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

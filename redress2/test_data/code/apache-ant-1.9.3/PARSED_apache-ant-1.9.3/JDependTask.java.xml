@@ -1,0 +1,685 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\jdepend\JDependTask.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>jdepend</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Constructor</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Method</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Execute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>ExecuteWatchdog</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>LogStreamHandler</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Commandline</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>CommandlineJava</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>EnumeratedAttribute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>PatternSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Reference</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>LoaderUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Runs JDepend tests.
+ *
+ * &lt;p&gt;JDepend is a tool to generate design quality metrics for each Java package.
+ * It has been initially created by Mike Clark. JDepend can be found at &lt;a
+ * href="http://www.clarkware.com/software/JDepend.html"&gt;http://www.clarkware.com/software/JDepend.html&lt;/a&gt;.
+ *
+ * The current implementation spawn a new Java VM.
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>JDependTask</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+    <comment type="line">//private CommandlineJava commandline = new CommandlineJava();</comment>
+
+    <comment type="line">// required attributes</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>sourcesPath</name></decl>;</decl_stmt> <comment type="line">// Deprecated!</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>classesPath</name></decl>;</decl_stmt> <comment type="line">// Use this going forward</comment>
+
+    <comment type="line">// optional attributes</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>outputFile</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>dir</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>compileClasspath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>haltonerror</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>fork</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Long</name></type> <name>timeout</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>jvm</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>format</name> =<init> <expr>"text"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>PatternSet</name></type> <name>defaultPatterns</name> =<init> <expr>new <call><name>PatternSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>Constructor</name></type> <name>packageFilterC</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>Method</name></type> <name>setFilter</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>includeRuntime</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>runtimeClasses</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    static <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Class</name></type> <name>packageFilter</name> =<init>
+                <expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr>"jdepend.framework.PackageFilter"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>packageFilterC</name> =
+                <call><name><name>packageFilter</name>.<name>getConstructor</name></name><argument_list>(<argument><expr>new <name><name>Class</name><index>[]</index></name> <block>{<expr><name><name>java</name>.<name>util</name>.<name>Collection</name>.<name><name/></name></name>class</expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>setFilter</name> =
+                <name><name>jdepend</name>.<name>textui</name>.<name>JDepend</name>.<name><name/></name></name>class.<call><name>getDeclaredMethod</name><argument_list>(<argument><expr>"setFilter"</expr></argument>,
+                                                               <argument><expr>new <name><name>Class</name><index>[]</index></name> <block>{<expr><name>packageFilter</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>Throwable</name></type> <name>t</name></decl></param>) <block>{
+            <if>if <condition>(<expr><name>setFilter</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>packageFilterC</name> = <name>null</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></catch></try>
+    }</block>
+
+    <comment type="javadoc">/**
+     * If true,
+     *  include jdepend.jar in the forked VM.
+     *
+     * @param b include ant run time yes or no
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIncluderuntime</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>includeRuntime</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the timeout value (in milliseconds).
+     *
+     * &lt;p&gt;If the operation is running for more than this value, the jdepend
+     * will be canceled. (works only when in 'fork' mode).&lt;/p&gt;
+     * @param value the maximum time (in milliseconds) allowed before
+     * declaring the test as 'timed-out'
+     * @see #setFork(boolean)
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTimeout</name><parameter_list>(<param><decl><type><name>Long</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>timeout</name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the timeout value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Long</name></type> <name>getTimeout</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>timeout</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The output file name.
+     *
+     * @param outputFile the output file name
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutputFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>outputFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>outputFile</name></name> = <name>outputFile</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the output file name
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getOutputFile</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>outputFile</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether or not to halt on failure. Default: false.
+     * @param haltonerror the value to set
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setHaltonerror</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>haltonerror</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>haltonerror</name></name> = <name>haltonerror</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the value of the haltonerror attribute
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getHaltonerror</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>haltonerror</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, forks into a new JVM. Default: false.
+     *
+     * @param   value   &lt;tt&gt;true&lt;/tt&gt; if a JVM should be forked,
+     *                  otherwise &lt;tt&gt;false&lt;tt&gt;
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFork</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>fork</name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the value of the fork attribute
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getFork</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>fork</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The command used to invoke a forked Java Virtual Machine.
+     *
+     * Default is &lt;tt&gt;java&lt;/tt&gt;. Ignored if no JVM is forked.
+     * @param   value   the new VM to use instead of &lt;tt&gt;java&lt;/tt&gt;
+     * @see #setFork(boolean)
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setJvm</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>jvm</name> = <name>value</name></expr>;</expr_stmt>
+
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a path to source code to analyze.
+     * @return a source path
+     * @deprecated since 1.6.x.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createSourcespath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>sourcesPath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>sourcesPath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>sourcesPath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the sourcepath.
+     * @return the sources path
+     * @deprecated since 1.6.x.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getSourcespath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>sourcesPath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a path to class code to analyze.
+     * @return a classes path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClassespath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>classesPath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>classesPath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>classesPath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the classespath.
+     * @return the classes path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getClassespath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>classesPath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The directory to invoke the VM in. Ignored if no JVM is forked.
+     * @param   dir     the directory to invoke the JVM from.
+     * @see #setFork(boolean)
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>dir</name></name> = <name>dir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the dir attribute
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getDir</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>dir</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath to be used for this compilation.
+     * @param classpath a class path to be used
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compileClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compileClasspath</name> = <name>classpath</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>compileClasspath</name>.<name>append</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the classpath to be used for this compilation.
+     * @return the class path used for compilation
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getClasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>compileClasspath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a path to the classpath.
+     * @return a classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>compileClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>compileClasspath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>compileClasspath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a new JVM argument. Ignored if no JVM is forked.
+     * @param commandline the commandline to create the argument on
+     * @return  create a new JVM argument so that any argument can
+     *          be passed to the JVM.
+     * @see #setFork(boolean)
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Commandline</name>.<name>Argument</name></name></type> <name>createJvmarg</name><parameter_list>(<param><decl><type><name>CommandlineJava</name></type> <name>commandline</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>commandline</name>.<name>createVmArgument</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a reference to a classpath defined elsewhere.
+     * @param r a classpath reference
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createClasspath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add a name entry on the exclude list
+     * @return a pattern for the excludes
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>PatternSet</name>.<name>NameEntry</name></name></type> <name>createExclude</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>defaultPatterns</name>.<name>createExclude</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return the excludes patterns
+     */</comment>
+    <function><type><specifier>public</specifier> <name>PatternSet</name></type> <name>getExcludes</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>defaultPatterns</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The format to write the output in, "xml" or "text".
+     *
+     * @param ea xml or text
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFormat</name><parameter_list>(<param><decl><type><name>FormatAttribute</name></type> <name>ea</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>format</name> = <call><name><name>ea</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A class for the enumerated attribute format,
+     * values are xml and text.
+     * @see EnumeratedAttribute
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>FormatAttribute</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name> <index>[]</index></type> <name>formats</name> =<init> <expr>new <name><name>String</name><index>[]</index></name><block>{<expr>"xml"</expr>, <expr>"text"</expr>}</block></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * @return the enumerated values
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>formats</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * No problems with this test.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>SUCCESS</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * An error occurred.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>ERRORS</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Search for the given resource and add the directory or archive
+     * that contains it to the classpath.
+     *
+     * &lt;p&gt;Doesn't work for archives in JDK 1.1 as the URL returned by
+     * getResource doesn't contain the name of the archive.&lt;/p&gt;
+     *
+     * @param resource resource that one wants to lookup
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>addClasspathEntry</name><parameter_list>(<param><decl><type><name>String</name></type> <name>resource</name></decl></param>)</parameter_list> <block>{
+        <comment type="block">/*
+         * pre Ant 1.6 this method used to call getClass().getResource
+         * while Ant 1.6 will call ClassLoader.getResource().
+         *
+         * The difference is that Class.getResource expects a leading
+         * slash for "absolute" resources and will strip it before
+         * delegating to ClassLoader.getResource - so we now have to
+         * emulate Class's behavior.
+         */</comment>
+        <if>if <condition>(<expr><call><name><name>resource</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"/"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>resource</name> = <call><name><name>resource</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>resource</name> = "org/apache/tools/ant/taskdefs/optional/jdepend/"
+                + <name>resource</name></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr><call><name><name>LoaderUtils</name>.<name>getResourceSource</name></name><argument_list>(<argument><expr><call><name>getClass</name><argument_list>()</argument_list></call>.<call><name>getClassLoader</name><argument_list>()</argument_list></call></expr></argument>,
+                                               <argument><expr><name>resource</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>f</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found " + <call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>runtimeClasses</name>.<name>createPath</name></name><argument_list>()</argument_list></call>.<call><name>setLocation</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Couldn\'t find " + <name>resource</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * execute the task
+     *
+     * @exception BuildException if an error occurs
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <decl_stmt><decl><type><name>CommandlineJava</name></type> <name>commandline</name> =<init> <expr>new <call><name>CommandlineJava</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr>"text".<call><name>equals</name><argument_list>(<argument><expr><name>format</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>commandline</name>.<name>setClassname</name></name><argument_list>(<argument><expr>"jdepend.textui.JDepend"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else
+            <if>if <condition>(<expr>"xml".<call><name>equals</name><argument_list>(<argument><expr><name>format</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>commandline</name>.<name>setClassname</name></name><argument_list>(<argument><expr>"jdepend.xmlui.JDepend"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if>
+
+        <if>if <condition>(<expr><name>jvm</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>commandline</name>.<name>setVm</name></name><argument_list>(<argument><expr><name>jvm</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>getSourcespath</name><argument_list>()</argument_list></call> == <name>null</name> &amp;&amp; <call><name>getClassespath</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Missing classespath required argument"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name>getClassespath</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init>
+                <expr>"sourcespath is deprecated in JDepend &gt;= 2.5 "
+                + "- please convert to classespath"</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if></else></if>
+
+        <comment type="line">// execute the test and get the return code</comment>
+        <decl_stmt><decl><type><name>int</name></type> <name>exitValue</name> =<init> <expr><name><name>JDependTask</name>.<name>ERRORS</name></name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>wasKilled</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<call><name>getFork</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>exitValue</name> = <call><name>executeInVM</name><argument_list>(<argument><expr><name>commandline</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><name>ExecuteWatchdog</name></type> <name>watchdog</name> =<init> <expr><call><name>createWatchdog</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>exitValue</name> = <call><name>executeAsForked</name><argument_list>(<argument><expr><name>commandline</name></expr></argument>, <argument><expr><name>watchdog</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// null watchdog means no timeout, you'd better not check with null</comment>
+            <if>if <condition>(<expr><name>watchdog</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>wasKilled</name> = <call><name><name>watchdog</name>.<name>killedProcess</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></else></if>
+
+        <comment type="line">// if there is an error/failure and that it should halt, stop</comment>
+        <comment type="line">// everything otherwise just log a statement</comment>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>errorOccurred</name> =<init> <expr><name>exitValue</name> == <name><name>JDependTask</name>.<name>ERRORS</name></name> || <name>wasKilled</name></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>errorOccurred</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>errorMessage</name> =<init> <expr>"JDepend FAILED"
+                + (<name>wasKilled</name> ? " - Timed out" : "")</expr></init></decl>;</decl_stmt>
+
+            <if>if  <condition>(<expr><call><name>getHaltonerror</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>errorMessage</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>errorMessage</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="line">// this comment extract from JUnit Task may also apply here</comment>
+    <comment type="line">// "in VM is not very nice since it could probably hang the</comment>
+    <comment type="line">// whole build. IMHO this method should be avoided and it would be best</comment>
+    <comment type="line">// to remove it in future versions. TBD. (SBa)"</comment>
+
+    <comment type="javadoc">/**
+     * Execute inside VM.
+     *
+     * @param commandline the command line
+     * @return the return value of the mvm
+     * @exception BuildException if an error occurs
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>executeInVM</name><parameter_list>(<param><decl><type><name>CommandlineJava</name></type> <name>commandline</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name><name>jdepend</name>.<name>textui</name>.<name>JDepend</name></name></type> <name>jdepend</name></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr>"xml".<call><name>equals</name><argument_list>(<argument><expr><name>format</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>jdepend</name> = new <call><name><name>jdepend</name>.<name>xmlui</name>.<name>JDepend</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>jdepend</name> = new <call><name><name>jdepend</name>.<name>textui</name>.<name>JDepend</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <decl_stmt><decl><type><name>FileWriter</name></type> <name>fw</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>PrintWriter</name></type> <name>pw</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name>getOutputFile</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>fw</name> = new <call><name>FileWriter</name><argument_list>(<argument><expr><call><name>getOutputFile</name><argument_list>()</argument_list></call>.<call><name>getPath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"JDepend Failed when creating the output file: "
+                    + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+            <expr_stmt><expr><name>pw</name> = new <call><name>PrintWriter</name><argument_list>(<argument><expr><name>fw</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>jdepend</name>.<name>setWriter</name></name><argument_list>(<argument><expr><name>pw</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Output to be stored in " + <call><name>getOutputFile</name><argument_list>()</argument_list></call>.<call><name>getPath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+
+        <try>try <block>{
+            <if>if <condition>(<expr><call><name>getClassespath</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                <comment type="line">// This is the new, better way - use classespath instead</comment>
+                <comment type="line">// of sourcespath.  The code is currently the same - you</comment>
+                <comment type="line">// need class files in a directory to use this or jar files.</comment>
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>cP</name> =<init> <expr><call><name>getClassespath</name><argument_list>()</argument_list></call>.<call><name>list</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>cP</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>cP</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <comment type="line">// not necessary as JDepend would fail, but why loose</comment>
+                    <comment type="line">// some time?</comment>
+                    <if>if <condition>(<expr>!<call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"\""
+                            + <call><name><name>f</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                            + "\" does not represent a valid"
+                            + " file or directory. JDepend would fail."</expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then></if>
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name><name>jdepend</name>.<name>addDirectory</name></name><argument_list>(<argument><expr><call><name><name>f</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init>
+                            <expr>"JDepend Failed when adding a class directory: "
+                            + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch></try>
+                }</block></for>
+
+            }</block></then> <else>else <if>if <condition>(<expr><call><name>getSourcespath</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+
+                <comment type="line">// This is the old way and is deprecated - classespath is</comment>
+                <comment type="line">// the right way to do this and is above</comment>
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>sP</name> =<init> <expr><call><name>getSourcespath</name><argument_list>()</argument_list></call>.<call><name>list</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>sP</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>sP</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <comment type="line">// not necessary as JDepend would fail, but why loose</comment>
+                    <comment type="line">// some time?</comment>
+                    <if>if <condition>(<expr>!<call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call> || !<call><name><name>f</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"\""
+                            + <call><name><name>f</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                            + "\" does not represent a valid"
+                            + " directory. JDepend would fail."</expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then></if>
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name><name>jdepend</name>.<name>addDirectory</name></name><argument_list>(<argument><expr><call><name><name>f</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init>
+                            <expr>"JDepend Failed when adding a source directory: "
+                            + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></catch></try>
+                }</block></for>
+            }</block></then></if></else></if>
+
+            <comment type="line">// This bit turns &lt;exclude&gt; child tags into patters to ignore</comment>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>patterns</name> =<init> <expr><call><name><name>defaultPatterns</name>.<name>getExcludePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>patterns</name> != <name>null</name> &amp;&amp; <name><name>patterns</name>.<name>length</name></name> &gt; 0</expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>setFilter</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>Vector</name></type> <name>v</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>patterns</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                        <expr_stmt><expr><call><name><name>v</name>.<name>addElement</name></name><argument_list>(<argument><expr><name><name>patterns</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></for>
+                    <try>try <block>{
+                        <decl_stmt><decl><type><name>Object</name></type> <name>o</name> =<init> <expr><call><name><name>packageFilterC</name>.<name>newInstance</name></name><argument_list>(<argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>v</name></expr>}</block></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>setFilter</name>.<name>invoke</name></name><argument_list>(<argument><expr><name>jdepend</name></expr></argument>, <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{<expr><name>o</name></expr>}</block></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>Throwable</name></type> <name>e</name></decl></param>) <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"excludes will be ignored as JDepend doesn't like me: "
+                            + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></catch></try>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Sorry, your version of JDepend doesn't support excludes"</expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then></if>
+
+            <expr_stmt><expr><call><name><name>jdepend</name>.<name>analyze</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>pw</name>.<name>checkError</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"Encountered an error writing JDepend"
+                                      + " output"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ex</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>pw</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>fw</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+        <return>return <expr><name>SUCCESS</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Execute the task by forking a new JVM. The command will block until
+     * it finishes. To know if the process was destroyed or not, use the
+     * &lt;tt&gt;killedProcess()&lt;/tt&gt; method of the watchdog class.
+     * @param commandline the commandline for forked jvm
+     * @param  watchdog   the watchdog in charge of cancelling the test if it
+     * exceeds a certain amount of time. Can be &lt;tt&gt;null&lt;/tt&gt;.
+     * @return the result of running the jdepend
+     * @throws BuildException in case of error
+     */</comment>
+    <comment type="line">// JL: comment extracted from JUnitTask (and slightly modified)</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>executeAsForked</name><parameter_list>(<param><decl><type><name>CommandlineJava</name></type> <name>commandline</name></decl></param>,
+                               <param><decl><type><name>ExecuteWatchdog</name></type> <name>watchdog</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name>runtimeClasses</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>addClasspathEntry</name><argument_list>(<argument><expr>"/jdepend/textui/JDepend.class"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// if not set, auto-create the ClassPath from the project</comment>
+        <expr_stmt><expr><call><name>createClasspath</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// not sure whether this test is needed but cost nothing to put.</comment>
+        <comment type="line">// hope it will be reviewed by anybody competent</comment>
+        <if>if <condition>(<expr><call><name>getClasspath</name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>createJvmarg</name><argument_list>(<argument><expr><name>commandline</name></expr></argument>)</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-classpath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>createJvmarg</name><argument_list>(<argument><expr><name>commandline</name></expr></argument>)</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name>getClasspath</name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>includeRuntime</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Map</name></type><comment type="block">/*&lt;String, String&gt;*/</comment> <name>env</name> =<init> <expr><call><name><name>Execute</name>.<name>getEnvironmentVariables</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>cp</name> =<init> <expr>(<name>String</name>) <call><name><name>env</name>.<name>get</name></name><argument_list>(<argument><expr>"CLASSPATH"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>cp</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>commandline</name>.<name>createClasspath</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>createPath</name><argument_list>()</argument_list></call>
+                    .<call><name>append</name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>cp</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Implicitly adding " + <name>runtimeClasses</name> + " to CLASSPATH"</expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>commandline</name>.<name>createClasspath</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>createPath</name><argument_list>()</argument_list></call>
+                .<call><name>append</name><argument_list>(<argument><expr><name>runtimeClasses</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name>getOutputFile</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// having a space between the file and its path causes commandline</comment>
+            <comment type="line">// to add quotes around the argument thus making JDepend not taking</comment>
+            <comment type="line">// it into account. Thus we split it in two</comment>
+            <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-file"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name><name>outputFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// we have to find a cleaner way to put this output</comment>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name>getSourcespath</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// This is deprecated - use classespath in the future</comment>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>sP</name> =<init> <expr><call><name>getSourcespath</name><argument_list>()</argument_list></call>.<call><name>list</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>sP</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>sP</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// not necessary as JDepend would fail, but why loose</comment>
+                <comment type="line">// some time?</comment>
+                <if>if <condition>(<expr>!<call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call> || !<call><name><name>f</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"\"" + <call><name><name>f</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                                             + "\" does not represent a valid"
+                                             + " directory. JDepend would"
+                                             + " fail."</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name><name>f</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name>getClassespath</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// This is the new way - use classespath - code is the</comment>
+            <comment type="line">// same for now</comment>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>cP</name> =<init> <expr><call><name>getClassespath</name><argument_list>()</argument_list></call>.<call><name>list</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>cP</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>cP</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <comment type="line">// not necessary as JDepend would fail, but why loose</comment>
+                <comment type="line">// some time?</comment>
+                <if>if <condition>(<expr>!<call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"\"" + <call><name><name>f</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                                             + "\" does not represent a valid"
+                                             + " file or directory. JDepend would"
+                                             + " fail."</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name><name>f</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>Execute</name></type> <name>execute</name> =<init> <expr>new <call><name>Execute</name><argument_list>(<argument><expr>new <call><name>LogStreamHandler</name><argument_list>(<argument><expr><name>this</name></expr></argument>,
+            <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>watchdog</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>execute</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><call><name><name>commandline</name>.<name>getCommandline</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name>getDir</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>execute</name>.<name>setWorkingDirectory</name></name><argument_list>(<argument><expr><call><name>getDir</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>execute</name>.<name>setAntRun</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name>getOutputFile</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Output to be stored in " + <call><name>getOutputFile</name><argument_list>()</argument_list></call>.<call><name>getPath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>commandline</name>.<name>describeCommand</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <try>try <block>{
+            <return>return <expr><call><name><name>execute</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Process fork failed."</expr></argument>, <argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return &lt;tt&gt;null&lt;/tt&gt; if there is a timeout value, otherwise the
+     * watchdog instance.
+     * @throws BuildException in case of error
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>ExecuteWatchdog</name></type> <name>createWatchdog</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name>getTimeout</name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr>new <call><name>ExecuteWatchdog</name><argument_list>(<argument><expr><call><name>getTimeout</name><argument_list>()</argument_list></call>.<call><name>longValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

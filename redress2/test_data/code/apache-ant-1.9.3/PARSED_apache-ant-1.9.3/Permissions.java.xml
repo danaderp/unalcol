@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\types\Permissions.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Constructor</name></name>;</import>
+<import>import <name><name>java</name>.<name>security</name>.<name>UnresolvedPermission</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashSet</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Set</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>StringTokenizer</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>ExitException</name></name>;</import>
+
+<comment type="javadoc">/**
+ * This class implements a security manager meant for usage by tasks that run inside the
+ * Ant VM. An examples are the Java Task and JUnitTask.
+ *
+ * The basic functionality is that nothing (except for a base set of permissions) is allowed, unless
+ * the permission is granted either explicitly or implicitly.
+ * If a permission is granted this can be overruled by explicitly revoking the permission.
+ *
+ * It is not permissible to add permissions (either granted or revoked) while the Security Manager
+ * is active (after calling setSecurityManager() but before calling restoreSecurityManager()).
+ *
+ * @since Ant 1.6
+ */</comment>
+<class><specifier>public</specifier> class <name>Permissions</name> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>List</name><argument_list>&lt;<argument><name>Permission</name></argument>&gt;</argument_list></name></type> <name>grantedPermissions</name> =<init> <expr>new <call><name><name>LinkedList</name><argument_list>&lt;<argument><name>Permission</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>List</name><argument_list>&lt;<argument><name>Permission</name></argument>&gt;</argument_list></name></type> <name>revokedPermissions</name> =<init> <expr>new <call><name><name>LinkedList</name><argument_list>&lt;<argument><name>Permission</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>java</name>.<name>security</name>.<name>Permissions</name></name></type> <name>granted</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>SecurityManager</name></type> <name>origSm</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>active</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>delegateToOldSM</name></decl>;</decl_stmt>
+
+    <comment type="line">// Mandatory constructor for permission object.</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name><index>[]</index></type> <name>PARAMS</name> =<init> <expr><block>{<expr><name><name>String</name>.<name><name/></name></name>class</expr>, <expr><name><name>String</name>.<name><name/></name></name>class</expr>}</block></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Create a set of Permissions.  Equivalent to calling
+     * &lt;code&gt;new Permissions(false)&lt;/code&gt;.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Permissions</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Create a set of permissions.
+     * @param delegateToOldSM  if &lt;code&gt;true&lt;/code&gt; the old security manager
+     * will be used if the permission has not been explicitly granted or revoked
+     * in this instance.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Permissions</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>delegateToOldSM</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>delegateToOldSM</name></name> = <name>delegateToOldSM</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Adds a permission to be granted.
+     * @param perm The Permissions.Permission to be granted.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredGrant</name><parameter_list>(<param><decl><type><name><name>Permissions</name>.<name>Permission</name></name></type> <name>perm</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>grantedPermissions</name>.<name>add</name></name><argument_list>(<argument><expr><name>perm</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a permission to be revoked.
+     * @param perm The Permissions.Permission to be revoked
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredRevoke</name><parameter_list>(<param><decl><type><name><name>Permissions</name>.<name>Permission</name></name></type> <name>perm</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>revokedPermissions</name>.<name>add</name></name><argument_list>(<argument><expr><name>perm</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * To be used by tasks wishing to use this security model before executing the part to be
+     * subject to these Permissions. Note that setting the SecurityManager too early may
+     * prevent your part from starting, as for instance changing classloaders may be prohibited.
+     * The classloader for the new situation is supposed to be present.
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setSecurityManager</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name>origSm</name> = <call><name><name>System</name>.<name>getSecurityManager</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>init</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>setSecurityManager</name></name><argument_list>(<argument><expr>new <call><name>MySM</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>active</name> = true</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Initializes the list of granted permissions, checks the list of revoked permissions.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>init</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name>granted</name> = new <call><name><name>java</name>.<name>security</name>.<name>Permissions</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name><name>Permissions</name>.<name>Permission</name></name></type> <name>p</name> :<range> <expr><name>revokedPermissions</name></expr></range></decl></init>) <block>{
+            <if>if <condition>(<expr><call><name><name>p</name>.<name>getClassName</name></name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Revoked permission " + <name>p</name> + " does not contain a class."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></for>
+        <for>for (<init><decl><type><name><name>Permissions</name>.<name>Permission</name></name></type> <name>p</name> :<range> <expr><name>grantedPermissions</name></expr></range></decl></init>) <block>{
+            <if>if <condition>(<expr><call><name><name>p</name>.<name>getClassName</name></name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Granted permission " + <name>p</name>
+                        + " does not contain a class."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <decl_stmt><decl><type><name><name>java</name>.<name>security</name>.<name>Permission</name></name></type> <name>perm</name> =<init> <expr><call><name>createPermission</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr><name>perm</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></for>
+        <comment type="line">// Add base set of permissions</comment>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>net</name>.<name>SocketPermission</name></name><argument_list>(<argument><expr>"localhost:1024-"</expr></argument>, <argument><expr>"listen"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.version"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.vendor"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.vendor.url"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.class.version"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"os.name"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"os.version"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"os.arch"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"file.encoding"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"file.separator"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"path.separator"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"line.separator"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.specification.version"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.specification.vendor"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.specification.name"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.vm.specification.version"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.vm.specification.vendor"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.vm.specification.name"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.vm.version"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.vm.vendor"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>granted</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name><name>java</name>.<name>util</name>.<name>PropertyPermission</name></name><argument_list>(<argument><expr>"java.vm.name"</expr></argument>, <argument><expr>"read"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name><name>java</name>.<name>security</name>.<name>Permission</name></name></type> <name>createPermission</name><parameter_list>(
+            <param><decl><type><name><name>Permissions</name>.<name>Permission</name></name></type> <name>permission</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <comment type="line">// First add explicitly already resolved permissions will not be</comment>
+            <comment type="line">// resolved when added as unresolved permission.</comment>
+            <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>java</name>.<name>security</name>.<name>Permission</name></extends></argument>&gt;</argument_list></name></type> <name>clazz</name> =<init> <expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(
+                    <argument><expr><call><name><name>permission</name>.<name>getClassName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>asSubclass</name><argument_list>(<argument><expr><name><name>java</name>.<name>security</name>.<name>Permission</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>permission</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>actions</name> =<init> <expr><call><name><name>permission</name>.<name>getActions</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name><name>Constructor</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>java</name>.<name>security</name>.<name>Permission</name></extends></argument>&gt;</argument_list></name></type> <name>ctr</name> =<init> <expr><call><name><name>clazz</name>.<name>getConstructor</name></name><argument_list>(<argument><expr><name>PARAMS</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr><call><name><name>ctr</name>.<name>newInstance</name></name><argument_list>(<argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{ <expr><name>name</name></expr>, <expr><name>actions</name></expr> }</block></expr></argument>)</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// Let the UnresolvedPermission handle it.</comment>
+            <return>return <expr>new <call><name>UnresolvedPermission</name><argument_list>(<argument><expr><call><name><name>permission</name>.<name>getClassName</name></name><argument_list>()</argument_list></call></expr></argument>,
+                    <argument><expr><call><name><name>permission</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>permission</name>.<name>getActions</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * To be used by tasks that just finished executing the parts subject to these permissions.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>restoreSecurityManager</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>active</name> = false</expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>setSecurityManager</name></name><argument_list>(<argument><expr><name>origSm</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This inner class implements the actual SecurityManager that can be used by tasks
+     * supporting Permissions.
+     */</comment>
+    <class><specifier>private</specifier> class <name>MySM</name> <super><extends>extends <name>SecurityManager</name></extends></super> <block>{
+
+        <comment type="javadoc">/**
+         * Exit is treated in a special way in order to be able to return the exit code
+         * towards tasks.
+         * An ExitException is thrown instead of a simple SecurityException to indicate the exit
+         * code.
+         * Overridden from java.lang.SecurityManager
+         * @param status The exit status requested.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>checkExit</name><parameter_list>(<param><decl><type><name>int</name></type> <name>status</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name><name>java</name>.<name>security</name>.<name>Permission</name></name></type> <name>perm</name> =<init> <expr>new <call><name><name>java</name>.<name>lang</name>.<name>RuntimePermission</name></name><argument_list>(<argument><expr>"exitVM"</expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><call><name>checkPermission</name><argument_list>(<argument><expr><name>perm</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>SecurityException</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>ExitException</name><argument_list>(<argument><expr><call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>status</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * The central point in checking permissions.
+         * Overridden from java.lang.SecurityManager
+         *
+         * @param perm The permission requested.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>checkPermission</name><parameter_list>(<param><decl><type><name><name>java</name>.<name>security</name>.<name>Permission</name></name></type> <name>perm</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>active</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>delegateToOldSM</name> &amp;&amp; !<call><name><name>perm</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>"exitVM"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>boolean</name></type> <name>permOK</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><call><name><name>granted</name>.<name>implies</name></name><argument_list>(<argument><expr><name>perm</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>permOK</name> = true</expr>;</expr_stmt>
+                    }</block></then></if>
+                    <expr_stmt><expr><call><name>checkRevoked</name><argument_list>(<argument><expr><name>perm</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <comment type="block">/*
+                     if the permission was not explicitly granted or revoked
+                     the original security manager will do its work
+                    */</comment>
+                    <if>if <condition>(<expr>!<name>permOK</name> &amp;&amp; <name>origSm</name> != <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>origSm</name>.<name>checkPermission</name></name><argument_list>(<argument><expr><name>perm</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then>  <else>else <block>{
+                    <if>if <condition>(<expr>!<call><name><name>granted</name>.<name>implies</name></name><argument_list>(<argument><expr><name>perm</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <throw>throw <expr>new <call><name>SecurityException</name><argument_list>(<argument><expr>"Permission " + <name>perm</name> + " was not granted."</expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then></if>
+                    <expr_stmt><expr><call><name>checkRevoked</name><argument_list>(<argument><expr><name>perm</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * throws an exception if this permission is revoked
+         * @param perm the permission being checked
+         */</comment>
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>checkRevoked</name><parameter_list>(<param><decl><type><name><name>java</name>.<name>security</name>.<name>Permission</name></name></type> <name>perm</name></decl></param>)</parameter_list> <block>{
+            <for>for (<init><decl><type><name><name>Permissions</name>.<name>Permission</name></name></type> <name>revoked</name> :<range> <expr><name>revokedPermissions</name></expr></range></decl></init>) <block>{
+                <if>if <condition>(<expr><call><name><name>revoked</name>.<name>matches</name></name><argument_list>(<argument><expr><name>perm</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>SecurityException</name><argument_list>(<argument><expr>"Permission " + <name>perm</name> + " was revoked."</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+            }</block></for>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/** Represents a permission. */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>Permission</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>className</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>name</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>actionString</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name><name>Set</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>actions</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Set the class, mandatory.
+         * @param aClass The class name of the permission.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aClass</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>className</name> = <call><name><name>aClass</name>.<name>trim</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the class of the permission.
+         * @return The class name of the permission.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getClassName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>className</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the name of the permission.
+         * @param aName The name of the permission.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>aName</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>name</name> = <call><name><name>aName</name>.<name>trim</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the name of the permission.
+         * @return The name of the permission.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>name</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the actions.
+         * @param actions The actions of the permission.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setActions</name><parameter_list>(<param><decl><type><name>String</name></type> <name>actions</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>actionString</name> = <name>actions</name></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>actions</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name><name>this</name>.<name>actions</name></name> = <call><name>parseActions</name><argument_list>(<argument><expr><name>actions</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the actions.
+         * @return The actions of the permission.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getActions</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>actionString</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Learn whether the permission matches in case of a revoked permission.
+         * @param perm The permission to check against.
+         */</comment>
+        <function><type><name>boolean</name></type> <name>matches</name><parameter_list>(<param><decl><type><name><name>java</name>.<name>security</name>.<name>Permission</name></name></type> <name>perm</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr>!<call><name><name>className</name>.<name>equals</name></name><argument_list>(<argument><expr><call><name><name>perm</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>name</name> != <name>null</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name><name>name</name>.<name>endsWith</name></name><argument_list>(<argument><expr>"*"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr>!<call><name><name>perm</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>startsWith</name><argument_list>(<argument><expr><call><name><name>name</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>name</name>.<name>length</name></name><argument_list>()</argument_list></call> - 1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <return>return <expr>false</expr>;</return>
+                    }</block></then></if>
+                }</block></then> <else>else <block>{
+                    <if>if <condition>(<expr>!<call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr><call><name><name>perm</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <return>return <expr>false</expr>;</return>
+                    }</block></then></if>
+                }</block></else></if>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>actions</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name><name>Set</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>as</name> =<init> <expr><call><name>parseActions</name><argument_list>(<argument><expr><call><name><name>perm</name>.<name>getActions</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>size</name> =<init> <expr><call><name><name>as</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>as</name>.<name>removeAll</name></name><argument_list>(<argument><expr><name>actions</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><call><name><name>as</name>.<name>size</name></name><argument_list>()</argument_list></call> == <name>size</name></expr>)</condition><then> <block>{
+                    <comment type="line">// None of the actions revoked, so all allowed.</comment>
+                    <return>return <expr>false</expr>;</return>
+                }</block></then></if>
+            }</block></then></if>
+            <return>return <expr>true</expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Parses the actions into a set of separate strings.
+         * @param actions The actions to be parsed.
+         */</comment>
+        <function><type><specifier>private</specifier> <name><name>Set</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>parseActions</name><parameter_list>(<param><decl><type><name>String</name></type> <name>actions</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name><name>Set</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>result</name> =<init> <expr>new <call><name><name>HashSet</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>StringTokenizer</name></type> <name>tk</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><name>actions</name></expr></argument>, <argument><expr>","</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>tk</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>item</name> =<init> <expr><call><name><name>tk</name>.<name>nextToken</name></name><argument_list>()</argument_list></call>.<call><name>trim</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr>!<call><name><name>item</name>.<name>equals</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>result</name>.<name>add</name></name><argument_list>(<argument><expr><name>item</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></while>
+            <return>return <expr><name>result</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get a string description of the permissions.
+         * @return string description of the permissions.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>("Permission: " + <name>className</name> + " (\"" + <name>name</name> + "\", \"" + <name>actions</name> + "\")")</expr>;</return>
+        }</block></function>
+    }</block></class>
+}</block></class>
+</unit>

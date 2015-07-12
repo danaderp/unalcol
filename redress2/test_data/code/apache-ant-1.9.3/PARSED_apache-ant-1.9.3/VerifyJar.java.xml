@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\VerifyJar.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>filters</name>.<name>ChainableReader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>RedirectorElement</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FilterChain</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileProvider</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Reader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+
+<comment type="javadoc">/**
+ * JAR verification task.
+ * For every JAR passed in, we fork jarsigner to verify
+ * that it is correctly signed. This is more rigorous than just checking for
+ * the existence of a signature; the entire certification chain is tested
+ * @since Ant 1.7
+ */</comment>
+
+<class><specifier>public</specifier> class <name>VerifyJar</name> <super><extends>extends <name>AbstractJarSignerTask</name></extends></super> <block>{
+    <comment type="javadoc">/**
+     * no file message {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_FILE</name> =<init> <expr>"Not found :"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The string we look for in the text to indicate direct verification
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>VERIFIED_TEXT</name> =<init> <expr>"jar verified."</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * certification flag
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>certificates</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>BufferingOutputFilter</name></type> <name>outputCache</name> =<init> <expr>new <call><name>BufferingOutputFilter</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Error output if there is a failure to verify the jar. */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_VERIFY</name> =<init> <expr>"Failed to verify "</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Ask for certificate information to be printed
+     * @param certificates if true print certificates.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCertificates</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>certificates</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>certificates</name></name> = <name>certificates</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * verify our jar files
+     * @throws BuildException on error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="line">//validation logic</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>hasJar</name> =<init> <expr><name>jar</name> != <name>null</name></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr>!<name>hasJar</name> &amp;&amp; !<call><name>hasResources</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_SOURCE</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>beginExecution</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//patch the redirector to save output to a file</comment>
+        <decl_stmt><decl><type><name>RedirectorElement</name></type> <name>redirector</name> =<init> <expr><call><name>getRedirector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>redirector</name>.<name>setAlwaysLog</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>FilterChain</name></type> <name>outputFilterChain</name> =<init> <expr><call><name><name>redirector</name>.<name>createOutputFilterChain</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>outputFilterChain</name>.<name>add</name></name><argument_list>(<argument><expr><name>outputCache</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Path</name></type> <name>sources</name> =<init> <expr><call><name>createUnifiedSourcePath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>Resource</name></type> <name>r</name> :<range> <expr><name>sources</name></expr></range></decl></init>) <block>{
+                <decl_stmt><decl><type><name>FileProvider</name></type> <name>fr</name> =<init> <expr><call><name><name>r</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>verifyOneJar</name><argument_list>(<argument><expr><call><name><name>fr</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name>endExecution</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * verify a JAR.
+     * @param jar the jar to verify.
+     * @throws BuildException if the file could not be verified
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>verifyOneJar</name><parameter_list>(<param><decl><type><name>File</name></type> <name>jar</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<call><name><name>jar</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_FILE</name> + <name>jar</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>ExecTask</name></type> <name>cmd</name> =<init> <expr><call><name>createJarSigner</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name>setCommonOptions</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>bindToKeystore</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//verify special operations</comment>
+        <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>"-verify"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>certificates</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>"-certs"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">//JAR  is required</comment>
+        <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><call><name><name>jar</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Verifying JAR: " + <call><name><name>jar</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>outputCache</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>BuildException</name></type> <name>ex</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>cmd</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><name>ex</name> = <name>e</name></expr>;</expr_stmt>
+        }</block></catch></try>
+        <decl_stmt><decl><type><name>String</name></type> <name>results</name> =<init> <expr><call><name><name>outputCache</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">//deal with jdk1.4.2 bug:</comment>
+        <if>if <condition>(<expr><name>ex</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>results</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"zip file closed"</expr></argument>)</argument_list></call> &gt;= 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"You are running " + <name>JARSIGNER_COMMAND</name> + " against a JVM with"
+                    + " a known bug that manifests as an IllegalStateException."</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <throw>throw <expr><name>ex</name></expr>;</throw>
+            }</block></else></if>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>results</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>VERIFIED_TEXT</name></expr></argument>)</argument_list></call> &lt; 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_VERIFY</name> + <name>jar</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * we are not thread safe here. Do not use on multiple threads at the same time.
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>BufferingOutputFilter</name> <super><implements>implements <name>ChainableReader</name></implements></super> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>BufferingOutputFilterReader</name></type> <name>buffer</name></decl>;</decl_stmt>
+
+        <function><type><specifier>public</specifier> <name>Reader</name></type> <name>chain</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>rdr</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>buffer</name> = new <call><name>BufferingOutputFilterReader</name><argument_list>(<argument><expr><name>rdr</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>buffer</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>buffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>clear</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>buffer</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>buffer</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * catch the output of the buffer
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>BufferingOutputFilterReader</name> <super><extends>extends <name>Reader</name></extends></super> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Reader</name></type> <name>next</name></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>StringBuffer</name></type> <name>buffer</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>BufferingOutputFilterReader</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>next</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>next</name></name> = <name>next</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>(<param><decl><type><name><name>char</name><index>[]</index></name></type> <name>cbuf</name></decl></param>, <param><decl><type><name>int</name></type> <name>off</name></decl></param>, <param><decl><type><name>int</name></type> <name>len</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <comment type="line">//hand down</comment>
+            <decl_stmt><decl><type><name>int</name></type> <name>result</name> =<init> <expr><call><name><name>next</name>.<name>read</name></name><argument_list>(<argument><expr><name>cbuf</name></expr></argument>, <argument><expr><name>off</name></expr></argument>, <argument><expr><name>len</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <comment type="line">//cache</comment>
+            <expr_stmt><expr><call><name><name>buffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>cbuf</name></expr></argument>, <argument><expr><name>off</name></expr></argument>, <argument><expr><name>len</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//return</comment>
+            <return>return <expr><name>result</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>close</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name><name>next</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>buffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>clear</name><parameter_list>()</parameter_list> <block>{
+            <expr_stmt><expr><name>buffer</name> = new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+}</block></class>
+</unit>

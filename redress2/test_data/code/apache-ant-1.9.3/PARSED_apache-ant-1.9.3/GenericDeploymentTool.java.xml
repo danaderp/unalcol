@@ -1,0 +1,955 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ejb\GenericDeploymentTool.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ejb</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashSet</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Set</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>JarOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>Manifest</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>zip</name>.<name>ZipEntry</name></name>;</import>
+
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>SAXParser</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Location</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>depend</name>.<name>DependencyAnalyzer</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>InputSource</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>SAXException</name></name>;</import>
+
+
+<comment type="javadoc">/**
+ * A deployment tool which creates generic EJB jars. Generic jars contains
+ * only those classes and META-INF entries specified in the EJB 1.1 standard
+ *
+ * This class is also used as a framework for the creation of vendor specific
+ * deployment tools. A number of template methods are provided through which the
+ * vendor specific tool can hook into the EJB creation process.
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>GenericDeploymentTool</name> <super><implements>implements <name>EJBDeploymentTool</name></implements></super> <block>{
+    <comment type="javadoc">/** The default buffer byte size to use for IO */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>DEFAULT_BUFFER_SIZE</name> =<init> <expr>1024</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** The level to use for compression */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>JAR_COMPRESS_LEVEL</name>  =<init> <expr>9</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The standard META-INF directory in jar files */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>META_DIR</name>  =<init> <expr>"META-INF/"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The standard MANIFEST file */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>MANIFEST</name>  =<init> <expr><name>META_DIR</name> + "MANIFEST.MF"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Name for EJB Deployment descriptor within EJB jars */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EJB_DD</name>    =<init> <expr>"ejb-jar.xml"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** A dependency analyzer name to find ancestor classes */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ANALYZER_SUPER</name> =<init> <expr>"super"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** A dependency analyzer name to find all related classes */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ANALYZER_FULL</name> =<init> <expr>"full"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** A dependency analyzer name for no analyzer */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ANALYZER_NONE</name> =<init> <expr>"none"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The default analyzer */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_ANALYZER</name> =<init> <expr><name>ANALYZER_SUPER</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The analyzer class for the super analyzer */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ANALYZER_CLASS_SUPER</name>
+        =<init> <expr>"org.apache.tools.ant.util.depend.bcel.AncestorAnalyzer"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** The analyzer class for the super analyzer */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ANALYZER_CLASS_FULL</name>
+        =<init> <expr>"org.apache.tools.ant.util.depend.bcel.FullAnalyzer"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The configuration from the containing task. This config combined
+     * with the settings of the individual attributes here constitues the
+     * complete config for this deployment tool.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>EjbJar</name>.<name>Config</name></name></type> <name>config</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Stores a handle to the directory to put the Jar files in */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>destDir</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The classpath to use with this deployment tool. This is appended to
+        any paths from the ejbjar task itself.*/</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>classpath</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Instance variable that stores the suffix for the generated jarfile. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>genericJarSuffix</name> =<init> <expr>"-generic.jar"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The task to which this tool belongs. This is used to access services
+     * provided by the ant core, such as logging.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Task</name></type> <name>task</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The classloader generated from the given classpath to load
+     * the super classes and super interfaces.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ClassLoader</name></type> <name>classpathLoader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+     <comment type="javadoc">/**
+     * Set of files have been loaded into the EJB jar
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Set</name></type> <name>addedfiles</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Handler used to parse the EJB XML descriptor
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>DescriptorHandler</name></type> <name>handler</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Dependency analyzer used to collect class dependencies
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>DependencyAnalyzer</name></type> <name>dependencyAnalyzer</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** No arg constructor */</comment>
+    <constructor><specifier>public</specifier> <name>GenericDeploymentTool</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+
+    <comment type="javadoc">/**
+     * Set the destination directory; required.
+     * @param inDir the destination directory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestdir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>inDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destDir</name></name> = <name>inDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the destination directory.
+     *
+     * @return the destination directory into which EJB jars are to be written
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>File</name></type> <name>getDestDir</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>destDir</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the task which owns this tool
+     *
+     * @param task the Task to which this deployment tool is associated.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTask</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>task</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>task</name></name> = <name>task</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the task for this tool.
+     *
+     * @return the Task instance this tool is associated with.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Task</name></type> <name>getTask</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>task</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the basename terminator.
+     *
+     * @return an ejbjar task configuration
+     */</comment>
+    <function><type><specifier>protected</specifier> <name><name>EjbJar</name>.<name>Config</name></name></type> <name>getConfig</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>config</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicate if this build is using the base jar name.
+     *
+     * @return true if the name of the generated jar is coming from the
+     *              basejarname attribute
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>usingBaseJarName</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>config</name>.<name>baseJarName</name></name> != <name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the suffix for the generated jar file.
+     * @param inString the string to use as the suffix.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setGenericJarSuffix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>genericJarSuffix</name></name> = <name>inString</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add the classpath for the user classes
+     *
+     * @return a Path instance to be configured by Ant.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>classpath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>classpath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name><name>task</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>classpath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath to be used for this compilation.
+     *
+     * @param classpath the classpath to be used for this build.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>classpath</name></name> = <name>classpath</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the classpath by combining the one from the surrounding task, if any
+     * and the one from this tool.
+     *
+     * @return the combined classpath
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Path</name></type> <name>getCombinedClasspath</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Path</name></type> <name>combinedPath</name> =<init> <expr><name>classpath</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name><name>config</name>.<name>classpath</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>combinedPath</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>combinedPath</name> = <name><name>config</name>.<name>classpath</name></name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>combinedPath</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>config</name>.<name>classpath</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+
+        <return>return <expr><name>combinedPath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Log a message to the Ant output.
+     *
+     * @param message the message to be logged.
+     * @param level the severity of this message.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>log</name><parameter_list>(<param><decl><type><name>String</name></type> <name>message</name></decl></param>, <param><decl><type><name>int</name></type> <name>level</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>log</name><argument_list>(<argument><expr><name>message</name></expr></argument>, <argument><expr><name>level</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the build file location associated with this element's task.
+     *
+     * @return the task's location instance.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Location</name></type> <name>getLocation</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getLocation</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>createAnalyzer</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>analyzer</name> =<init> <expr><name><name>config</name>.<name>analyzer</name></name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>analyzer</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>analyzer</name> = <name>DEFAULT_ANALYZER</name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name><name>analyzer</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ANALYZER_NONE</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>analyzerClassName</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>analyzer</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ANALYZER_SUPER</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>analyzerClassName</name> = <name>ANALYZER_CLASS_SUPER</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>analyzer</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ANALYZER_FULL</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>analyzerClassName</name> = <name>ANALYZER_CLASS_FULL</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>analyzerClassName</name> = <name>analyzer</name></expr>;</expr_stmt>
+        }</block></else></if></else></if>
+
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Class</name></type> <name>analyzerClass</name> =<init> <expr><call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>analyzerClassName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>dependencyAnalyzer</name>
+                = (<name>DependencyAnalyzer</name>) <call><name><name>analyzerClass</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>dependencyAnalyzer</name>.<name>addClassPath</name></name><argument_list>(<argument><expr>new <call><name>Path</name><argument_list>(<argument><expr><call><name><name>task</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>,
+                <argument><expr><call><name><name>config</name>.<name>srcDir</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>dependencyAnalyzer</name>.<name>addClassPath</name></name><argument_list>(<argument><expr><name><name>config</name>.<name>classpath</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>NoClassDefFoundError</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><name>dependencyAnalyzer</name> = <name>null</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>task</name>.<name>log</name></name><argument_list>(<argument><expr>"Unable to load dependency analyzer: " + <name>analyzerClassName</name>
+                + " - dependent class not found: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><name>dependencyAnalyzer</name> = <name>null</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>task</name>.<name>log</name></name><argument_list>(<argument><expr>"Unable to load dependency analyzer: " + <name>analyzerClassName</name>
+                     + " - exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Configure this tool for use in the ejbjar task.
+     *
+     * @param config the configuration from the surrounding ejbjar task.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>configure</name><parameter_list>(<param><decl><type><name><name>EjbJar</name>.<name>Config</name></name></type> <name>config</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>config</name></name> = <name>config</name></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>createAnalyzer</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>classpathLoader</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Utility method that encapsulates the logic of adding a file entry to
+     * a .jar file.  Used by execute() to add entries to the jar file as it is
+     * constructed.
+     * @param jStream A JarOutputStream into which to write the
+     *        jar entry.
+     * @param inputFile A File from which to read the
+     *        contents the file being added.
+     * @param logicalFilename A String representing the name, including
+     *        all relevant path information, that should be stored for the entry
+     *        being added.
+     * @throws BuildException if there is a problem.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addFileToJar</name><parameter_list>(<param><decl><type><name>JarOutputStream</name></type> <name>jStream</name></decl></param>,
+                                <param><decl><type><name>File</name></type> <name>inputFile</name></decl></param>,
+                                <param><decl><type><name>String</name></type> <name>logicalFilename</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>FileInputStream</name></type> <name>iStream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <if>if <condition>(<expr>!<call><name><name>addedfiles</name>.<name>contains</name></name><argument_list>(<argument><expr><name>logicalFilename</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>iStream</name> = new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>inputFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <comment type="line">// Create the zip entry and add it to the jar file</comment>
+                <decl_stmt><decl><type><name>ZipEntry</name></type> <name>zipEntry</name> =<init> <expr>new <call><name>ZipEntry</name><argument_list>(<argument><expr><call><name><name>logicalFilename</name>.<name>replace</name></name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>jStream</name>.<name>putNextEntry</name></name><argument_list>(<argument><expr><name>zipEntry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// Create the file input stream, and buffer everything over</comment>
+                <comment type="line">// to the jar output stream</comment>
+                <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>byteBuffer</name> =<init> <expr>new <name><name>byte</name><index>[<expr>2 * <name>DEFAULT_BUFFER_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>count</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+                <do>do <block>{
+                    <expr_stmt><expr><call><name><name>jStream</name>.<name>write</name></name><argument_list>(<argument><expr><name>byteBuffer</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>count</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>count</name> = <call><name><name>iStream</name>.<name>read</name></name><argument_list>(<argument><expr><name>byteBuffer</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>byteBuffer</name>.<name>length</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> while <condition>(<expr><name>count</name> != -1</expr>)</condition>;</do>
+
+                <comment type="line">//add it to list of files in jar</comment>
+                <expr_stmt><expr><call><name><name>addedfiles</name>.<name>add</name></name><argument_list>(<argument><expr><name>logicalFilename</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+           }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"WARNING: IOException while adding entry "
+                + <name>logicalFilename</name> + " to jarfile from "
+                + <call><name><name>inputFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call> + " "  + <call><name><name>ioe</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call>
+                + "-" + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <finally>finally <block>{
+            <comment type="line">// Close up the file input stream for the class file</comment>
+            <if>if <condition>(<expr><name>iStream</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>iStream</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>closeException</name></decl></param>) <block>{
+                    <comment type="line">// ignore</comment>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get a descriptionHandler.
+     * @param srcDir the source directory.
+     * @return a handler.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>DescriptorHandler</name></type> <name>getDescriptorHandler</name><parameter_list>(<param><decl><type><name>File</name></type> <name>srcDir</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>DescriptorHandler</name></type> <name>h</name> =<init> <expr>new <call><name>DescriptorHandler</name><argument_list>(<argument><expr><call><name>getTask</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>srcDir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name>registerKnownDTDs</name><argument_list>(<argument><expr><name>h</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// register any DTDs supplied by the user</comment>
+        <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<call><name><name>dtdLocations</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name><name>EjbJar</name>.<name>DTDLocation</name></name></type> <name>dtdLocation</name> =<init> <expr>(<name><name>EjbJar</name>.<name>DTDLocation</name></name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>h</name>.<name>registerDTD</name></name><argument_list>(<argument><expr><call><name><name>dtdLocation</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>dtdLocation</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>h</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Register the locations of all known DTDs.
+     *
+     * vendor-specific subclasses should override this method to define
+     * the vendor-specific locations of the EJB DTDs
+     * @param handler no used in this class.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>registerKnownDTDs</name><parameter_list>(<param><decl><type><name>DescriptorHandler</name></type> <name>handler</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// none to register for generic</comment>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>processDescriptor</name><parameter_list>(<param><decl><type><name>String</name></type> <name>descriptorFileName</name></decl></param>, <param><decl><type><name>SAXParser</name></type> <name>saxParser</name></decl></param>)</parameter_list> <block>{
+
+        <expr_stmt><expr><call><name>checkConfiguration</name><argument_list>(<argument><expr><name>descriptorFileName</name></expr></argument>, <argument><expr><name>saxParser</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <try>try <block>{
+            <expr_stmt><expr><name>handler</name> = <call><name>getDescriptorHandler</name><argument_list>(<argument><expr><name><name>config</name>.<name>srcDir</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// Retrive the files to be added to JAR from EJB descriptor</comment>
+            <decl_stmt><decl><type><name>Hashtable</name></type> <name>ejbFiles</name> =<init> <expr><call><name>parseEjbFiles</name><argument_list>(<argument><expr><name>descriptorFileName</name></expr></argument>, <argument><expr><name>saxParser</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// Add any support classes specified in the build file</comment>
+            <expr_stmt><expr><call><name>addSupportClasses</name><argument_list>(<argument><expr><name>ejbFiles</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// Determine the JAR filename (without filename extension)</comment>
+            <decl_stmt><decl><type><name>String</name></type> <name>baseName</name> =<init> <expr><call><name>getJarBaseName</name><argument_list>(<argument><expr><name>descriptorFileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>String</name></type> <name>ddPrefix</name> =<init> <expr><call><name>getVendorDDPrefix</name><argument_list>(<argument><expr><name>baseName</name></expr></argument>, <argument><expr><name>descriptorFileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>File</name></type> <name>manifestFile</name> =<init> <expr><call><name>getManifestFile</name><argument_list>(<argument><expr><name>ddPrefix</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>manifestFile</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>MANIFEST</name></expr></argument>, <argument><expr><name>manifestFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+
+
+            <comment type="line">// First the regular deployment descriptor</comment>
+            <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>META_DIR</name> + <name>EJB_DD</name></expr></argument>,
+                         <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>config</name>.<name>descriptorDir</name></name></expr></argument>, <argument><expr><name>descriptorFileName</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// now the vendor specific files, if any</comment>
+            <expr_stmt><expr><call><name>addVendorFiles</name><argument_list>(<argument><expr><name>ejbFiles</name></expr></argument>, <argument><expr><name>ddPrefix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// add any dependent files</comment>
+            <expr_stmt><expr><call><name>checkAndAddDependants</name><argument_list>(<argument><expr><name>ejbFiles</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// Lastly create File object for the Jar files. If we are using</comment>
+            <comment type="line">// a flat destination dir, then we need to redefine baseName!</comment>
+            <if>if <condition>(<expr><name><name>config</name>.<name>flatDestDir</name></name> &amp;&amp; <call><name><name>baseName</name>.<name>length</name></name><argument_list>()</argument_list></call> != 0</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>startName</name> =<init> <expr><call><name><name>baseName</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>startName</name> == -1</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>startName</name> = 0</expr>;</expr_stmt>
+                }</block></then></if>
+
+                <decl_stmt><decl><type><name>int</name></type> <name>endName</name>   =<init> <expr><call><name><name>baseName</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>baseName</name> = <call><name><name>baseName</name>.<name>substring</name></name><argument_list>(<argument><expr><name>startName</name></expr></argument>, <argument><expr><name>endName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>File</name></type> <name>jarFile</name> =<init> <expr><call><name>getVendorOutputJarFile</name><argument_list>(<argument><expr><name>baseName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+
+            <comment type="line">// Check to see if we need a build and start doing the work!</comment>
+            <if>if <condition>(<expr><call><name>needToRebuild</name><argument_list>(<argument><expr><name>ejbFiles</name></expr></argument>, <argument><expr><name>jarFile</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">// Log that we are going to build...</comment>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"building "
+                              + <call><name><name>jarFile</name>.<name>getName</name></name><argument_list>()</argument_list></call>
+                              + " with "
+                              + <call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><call><name><name>ejbFiles</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+                              + " files"</expr></argument>,
+                              <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// Use helper method to write the jarfile</comment>
+                <decl_stmt><decl><type><name>String</name></type> <name>publicId</name> =<init> <expr><call><name>getPublicId</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>writeJar</name><argument_list>(<argument><expr><name>baseName</name></expr></argument>, <argument><expr><name>jarFile</name></expr></argument>, <argument><expr><name>ejbFiles</name></expr></argument>, <argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            }</block></then> <else>else <block>{
+                <comment type="line">// Log that the file is up to date...</comment>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>jarFile</name>.<name>toString</name></name><argument_list>()</argument_list></call> + " is up to date."</expr></argument>,
+                              <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+        }</block> <catch>catch (<param><decl><type><name>SAXException</name></type> <name>se</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"SAXException while parsing '"
+                + <name>descriptorFileName</name>
+                + "'. This probably indicates badly-formed XML."
+                + "  Details: "
+                + <call><name><name>se</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>se</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"IOException while parsing'"
+                + <name>descriptorFileName</name>
+                + "'.  This probably indicates that the descriptor"
+                + " doesn't exist. Details: "
+                + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>ioe</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This method is called as the first step in the processDescriptor method
+     * to allow vendor-specific subclasses to validate the task configuration
+     * prior to processing the descriptor.  If the configuration is invalid,
+     * a BuildException should be thrown.
+     *
+     * @param descriptorFileName String representing the file name of an EJB
+     *                           descriptor to be processed
+     * @param saxParser          SAXParser which may be used to parse the XML
+     *                           descriptor
+     * @throws BuildException if there is a problem.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>checkConfiguration</name><parameter_list>(<param><decl><type><name>String</name></type> <name>descriptorFileName</name></decl></param>,
+                                    <param><decl><type><name>SAXParser</name></type> <name>saxParser</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <comment type="block">/*
+         * For the GenericDeploymentTool, do nothing.  Vendor specific
+         * subclasses should throw a BuildException if the configuration is
+         * invalid for their server.
+         */</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This method returns a list of EJB files found when the specified EJB
+     * descriptor is parsed and processed.
+     *
+     * @param descriptorFileName String representing the file name of an EJB
+     *                           descriptor to be processed
+     * @param saxParser          SAXParser which may be used to parse the XML
+     *                           descriptor
+     * @return                   Hashtable of EJB class (and other) files to be
+     *                           added to the completed JAR file
+     * @throws SAXException      Any SAX exception, possibly wrapping another
+     *                           exception
+     * @throws IOException       An IOException from the parser, possibly from a
+     *                           the byte stream or character stream
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Hashtable</name></type> <name>parseEjbFiles</name><parameter_list>(<param><decl><type><name>String</name></type> <name>descriptorFileName</name></decl></param>, <param><decl><type><name>SAXParser</name></type> <name>saxParser</name></decl></param>)</parameter_list>
+                            <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>FileInputStream</name></type> <name>descriptorStream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Hashtable</name></type> <name>ejbFiles</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <try>try <block>{
+
+            <comment type="block">/* Parse the ejb deployment descriptor.  While it may not
+             * look like much, we use a SAXParser and an inner class to
+             * get hold of all the classfile names for the descriptor.
+             */</comment>
+            <expr_stmt><expr><name>descriptorStream</name>
+                = new <call><name>FileInputStream</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>config</name>.<name>descriptorDir</name></name></expr></argument>, <argument><expr><name>descriptorFileName</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>saxParser</name>.<name>parse</name></name><argument_list>(<argument><expr>new <call><name>InputSource</name><argument_list>(<argument><expr><name>descriptorStream</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>handler</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><name>ejbFiles</name> = <call><name><name>handler</name>.<name>getFiles</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>descriptorStream</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>descriptorStream</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>closeException</name></decl></param>) <block>{
+                    <comment type="line">// ignore</comment>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></finally></try>
+
+        <return>return <expr><name>ejbFiles</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds any classes the user specifies using &lt;i&gt;support&lt;/i&gt; nested elements
+     * to the &lt;code&gt;ejbFiles&lt;/code&gt; Hashtable.
+     *
+     * @param ejbFiles Hashtable of EJB classes (and other) files that will be
+     *                 added to the completed JAR file
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addSupportClasses</name><parameter_list>(<param><decl><type><name>Hashtable</name></type> <name>ejbFiles</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// add in support classes if any</comment>
+        <decl_stmt><decl><type><name>Project</name></type> <name>project</name> =<init> <expr><call><name><name>task</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name><name>config</name>.<name>supportFileSets</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>FileSet</name></type> <name>supportFileSet</name> =<init> <expr>(<name>FileSet</name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>supportBaseDir</name> =<init> <expr><call><name><name>supportFileSet</name>.<name>getDir</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>supportScanner</name> =<init> <expr><call><name><name>supportFileSet</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>supportScanner</name>.<name>scan</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>supportFiles</name> =<init> <expr><call><name><name>supportScanner</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>supportFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>j</name></expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name><name>supportFiles</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>, <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>supportBaseDir</name></expr></argument>, <argument><expr><name><name>supportFiles</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></for>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Using the EJB descriptor file name passed from the &lt;code&gt;ejbjar&lt;/code&gt;
+     * task, this method returns the "basename" which will be used to name the
+     * completed JAR file.
+     *
+     * @param descriptorFileName String representing the file name of an EJB
+     *                           descriptor to be processed
+     * @return                   The "basename" which will be used to name the
+     *                           completed JAR file
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getJarBaseName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>descriptorFileName</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>String</name></type> <name>baseName</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// Work out what the base name is</comment>
+        <if>if <condition>(<expr><call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>EjbJar</name>.<name>NamingScheme</name>.<name>BASEJARNAME</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>canonicalDescriptor</name> =<init> <expr><call><name><name>descriptorFileName</name>.<name>replace</name></name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>canonicalDescriptor</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>'/'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>index</name> != -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>baseName</name> = <call><name><name>descriptorFileName</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>index</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><name>baseName</name> += <name><name>config</name>.<name>baseJarName</name></name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>EjbJar</name>.<name>NamingScheme</name>.<name>DESCRIPTOR</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>lastSeparatorIndex</name> =<init> <expr><call><name><name>descriptorFileName</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>endBaseName</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>lastSeparatorIndex</name> != -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>endBaseName</name> = <call><name><name>descriptorFileName</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name><name>config</name>.<name>baseNameTerminator</name></name></expr></argument>,
+                                                            <argument><expr><name>lastSeparatorIndex</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>endBaseName</name> = <call><name><name>descriptorFileName</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name><name>config</name>.<name>baseNameTerminator</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <if>if <condition>(<expr><name>endBaseName</name> != -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>baseName</name> = <call><name><name>descriptorFileName</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>endBaseName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Unable to determine jar name "
+                    + "from descriptor \"" + <name>descriptorFileName</name> + "\""</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></else></if>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>EjbJar</name>.<name>NamingScheme</name>.<name>DIRECTORY</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>descriptorFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>config</name>.<name>descriptorDir</name></name></expr></argument>, <argument><expr><name>descriptorFileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>path</name> =<init> <expr><call><name><name>descriptorFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>lastSeparatorIndex</name>
+                =<init> <expr><call><name><name>path</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>lastSeparatorIndex</name> == -1</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Unable to determine directory name holding descriptor"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>dirName</name> =<init> <expr><call><name><name>path</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>lastSeparatorIndex</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>dirSeparatorIndex</name> =<init> <expr><call><name><name>dirName</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>dirSeparatorIndex</name> != -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>dirName</name> = <call><name><name>dirName</name>.<name>substring</name></name><argument_list>(<argument><expr><name>dirSeparatorIndex</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <expr_stmt><expr><name>baseName</name> = <name>dirName</name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>EjbJar</name>.<name>NamingScheme</name>.<name>EJB_NAME</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>baseName</name> = <call><name><name>handler</name>.<name>getEjbName</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if></else></if></else></if></else></if>
+        <return>return <expr><name>baseName</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the prefix for vendor deployment descriptors.
+     *
+     * This will contain the path and the start of the descriptor name,
+     * depending on the naming scheme
+     * @param baseName the base name to use.
+     * @param descriptorFileName the file name to use.
+     * @return the prefix.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getVendorDDPrefix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>baseName</name></decl></param>, <param><decl><type><name>String</name></type> <name>descriptorFileName</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>ddPrefix</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>EjbJar</name>.<name>NamingScheme</name>.<name>DESCRIPTOR</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>ddPrefix</name> = <name>baseName</name> + <name><name>config</name>.<name>baseNameTerminator</name></name></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>EjbJar</name>.<name>NamingScheme</name>.<name>BASEJARNAME</name></name></expr></argument>)</argument_list></call>
+            || <call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>EjbJar</name>.<name>NamingScheme</name>.<name>EJB_NAME</name></name></expr></argument>)</argument_list></call>
+            || <call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>EjbJar</name>.<name>NamingScheme</name>.<name>DIRECTORY</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>canonicalDescriptor</name> =<init> <expr><call><name><name>descriptorFileName</name>.<name>replace</name></name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>canonicalDescriptor</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>'/'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>index</name> == -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>ddPrefix</name> = ""</expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>ddPrefix</name> = <call><name><name>descriptorFileName</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>index</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if></else></if>
+        <return>return <expr><name>ddPrefix</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add any vendor specific files which should be included in the
+     * EJB Jar.
+     * @param ejbFiles a hashtable entryname -&gt; file.
+     * @param ddPrefix a prefix to use.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addVendorFiles</name><parameter_list>(<param><decl><type><name>Hashtable</name></type> <name>ejbFiles</name></decl></param>, <param><decl><type><name>String</name></type> <name>ddPrefix</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// nothing to add for generic tool.</comment>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Get the vendor specific name of the Jar that will be output. The modification date
+     * of this jar will be checked against the dependent bean classes.
+     * @param baseName the basename to use.
+     */</comment>
+    <function><type><name>File</name></type> <name>getVendorOutputJarFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>baseName</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><name>destDir</name></expr></argument>, <argument><expr><name>baseName</name> + <name>genericJarSuffix</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This method checks the timestamp on each file listed in the &lt;code&gt;
+     * ejbFiles&lt;/code&gt; and compares them to the timestamp on the &lt;code&gt;jarFile
+     * &lt;/code&gt;.  If the &lt;code&gt;jarFile&lt;/code&gt;'s timestamp is more recent than
+     * each EJB file, &lt;code&gt;true&lt;/code&gt; is returned.  Otherwise, &lt;code&gt;false
+     * &lt;/code&gt; is returned.
+     * TODO: find a way to check the manifest-file, that is found by naming convention
+     *
+     * @param ejbFiles Hashtable of EJB classes (and other) files that will be
+     *                 added to the completed JAR file
+     * @param jarFile  JAR file which will contain all of the EJB classes (and
+     *                 other) files
+     * @return         boolean indicating whether or not the &lt;code&gt;jarFile&lt;/code&gt;
+     *                 is up to date
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>needToRebuild</name><parameter_list>(<param><decl><type><name>Hashtable</name></type> <name>ejbFiles</name></decl></param>, <param><decl><type><name>File</name></type> <name>jarFile</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>jarFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>long</name></type> <name>lastBuild</name> =<init> <expr><call><name><name>jarFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>Iterator</name></type> <name>fileIter</name> =<init> <expr><call><name><name>ejbFiles</name>.<name>values</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// Loop through the files seeing if any has been touched</comment>
+            <comment type="line">// more recently than the destination jar.</comment>
+            <while>while <condition>(<expr><call><name><name>fileIter</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>currentFile</name> =<init> <expr>(<name>File</name>) <call><name><name>fileIter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>lastBuild</name> &lt; <call><name><name>currentFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Build needed because " + <call><name><name>currentFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call> + " is out of date"</expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <return>return <expr>true</expr>;</return>
+                }</block></then></if>
+            }</block></while>
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the Public ID of the DTD specified in the EJB descriptor.  Not
+     * every vendor-specific &lt;code&gt;DeploymentTool&lt;/code&gt; will need to reference
+     * this value or may want to determine this value in a vendor-specific way.
+     *
+     * @return Public ID of the DTD specified in the EJB descriptor.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getPublicId</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name><name>handler</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the manifest file to use for building the generic jar.
+     *
+     * If the file does not exist the global manifest from the config is used
+     * otherwise the default Ant manifest will be used.
+     *
+     * @param prefix the prefix where to llook for the manifest file based on
+     *        the naming convention.
+     *
+     * @return the manifest file or null if the manifest file does not exist
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>File</name></type> <name>getManifestFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>prefix</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>manifestFile</name>
+            =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<name>descriptorDir</name></expr></argument>, <argument><expr><name>prefix</name> + "manifest.mf"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>manifestFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>manifestFile</name></expr>;</return>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name><name>config</name>.<name>manifest</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name><name>config</name>.<name>manifest</name></name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Method used to encapsulate the writing of the JAR file. Iterates over the
+     * filenames/java.io.Files in the Hashtable stored on the instance variable
+     * ejbFiles.
+     * @param baseName the base name to use.
+     * @param jarfile  the jar file to write to.
+     * @param files    the files to write to the jar.
+     * @param publicId the id to use.
+     * @throws BuildException if there is a problem.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>writeJar</name><parameter_list>(<param><decl><type><name>String</name></type> <name>baseName</name></decl></param>, <param><decl><type><name>File</name></type> <name>jarfile</name></decl></param>, <param><decl><type><name>Hashtable</name></type> <name>files</name></decl></param>,
+                            <param><decl><type><name>String</name></type> <name>publicId</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <decl_stmt><decl><type><name>JarOutputStream</name></type> <name>jarStream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <comment type="line">// clean the addedfiles set</comment>
+            <if>if <condition>(<expr><name>addedfiles</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>addedfiles</name> = new <call><name>HashSet</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>addedfiles</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <comment type="block">/* If the jarfile already exists then whack it and recreate it.
+             * Should probably think of a more elegant way to handle this
+             * so that in case of errors we don't leave people worse off
+             * than when we started =)
+             */</comment>
+            <if>if <condition>(<expr><call><name><name>jarfile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>jarfile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>jarfile</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call>.<call><name>mkdirs</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>jarfile</name>.<name>createNewFile</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>InputStream</name></type> <name>in</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Manifest</name></type> <name>manifest</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>manifestFile</name> =<init> <expr>(<name>File</name>) <call><name><name>files</name>.<name>get</name></name><argument_list>(<argument><expr><name>MANIFEST</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>manifestFile</name> != <name>null</name> &amp;&amp; <call><name><name>manifestFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>in</name> = new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>manifestFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>defaultManifest</name> =<init> <expr>"/org/apache/tools/ant/defaultManifest.mf"</expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><name>in</name> = <call><name><name>this</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getResourceAsStream</name><argument_list>(<argument><expr><name>defaultManifest</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <if>if <condition>(<expr><name>in</name> == <name>null</name></expr>)</condition><then> <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Could not find "
+                            + "default manifest: " + <name>defaultManifest</name></expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then></if>
+                }</block></else></if>
+
+                <expr_stmt><expr><name>manifest</name> = new <call><name>Manifest</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name> <argument_list>(<argument><expr>"Unable to read manifest"</expr></argument>, <argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch> <finally>finally <block>{
+                <if>if <condition>(<expr><name>in</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>in</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></finally></try>
+
+            <comment type="line">// Create the streams necessary to write the jarfile</comment>
+
+            <expr_stmt><expr><name>jarStream</name> = new <call><name>JarOutputStream</name><argument_list>(<argument><expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>jarfile</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>manifest</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>jarStream</name>.<name>setMethod</name></name><argument_list>(<argument><expr><name><name>JarOutputStream</name>.<name>DEFLATED</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// Loop through all the class files found and add them to the jar</comment>
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>entryIterator</name> =<init> <expr><call><name><name>files</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>entryIterator</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>entryName</name> =<init> <expr>(<name>String</name>) <call><name><name>entryIterator</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>entryName</name>.<name>equals</name></name><argument_list>(<argument><expr><name>MANIFEST</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <continue>continue;</continue>
+                }</block></then></if>
+
+                <decl_stmt><decl><type><name>File</name></type> <name>entryFile</name> =<init> <expr>(<name>File</name>) <call><name><name>files</name>.<name>get</name></name><argument_list>(<argument><expr><name>entryName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"adding file '" + <name>entryName</name> + "'"</expr></argument>,
+                              <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name>addFileToJar</name><argument_list>(<argument><expr><name>jarStream</name></expr></argument>, <argument><expr><name>entryFile</name></expr></argument>, <argument><expr><name>entryName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// See if there are any inner classes for this class and add them in if there are</comment>
+                <decl_stmt><decl><type><name>InnerClassFilenameFilter</name></type> <name>flt</name> =<init> <expr>new <call><name>InnerClassFilenameFilter</name><argument_list>(<argument><expr><call><name><name>entryFile</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>entryDir</name> =<init> <expr><call><name><name>entryFile</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>innerfiles</name> =<init> <expr><call><name><name>entryDir</name>.<name>list</name></name><argument_list>(<argument><expr><name>flt</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>innerfiles</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init>, <name>n</name> =<init> <expr><name><name>innerfiles</name>.<name>length</name></name></expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>n</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+
+                        <comment type="line">//get and clean up innerclass name</comment>
+                        <decl_stmt><decl><type><name>int</name></type> <name>entryIndex</name> =<init> <expr><call><name><name>entryName</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr><call><name><name>entryFile</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call> - 1</expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr><name>entryIndex</name> &lt; 0</expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>entryName</name> = <name><name>innerfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr>;</expr_stmt>
+                        }</block></then> <else>else <block>{
+                            <expr_stmt><expr><name>entryName</name> = <call><name><name>entryName</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>entryIndex</name></expr></argument>)</argument_list></call>
+                                + <name><name>File</name>.<name>separatorChar</name></name> + <name><name>innerfiles</name><index>[<expr><name>i</name></expr>]</index></name></expr>;</expr_stmt>
+                        }</block></else></if>
+                        <comment type="line">// link the file</comment>
+                        <expr_stmt><expr><name>entryFile</name> = new <call><name>File</name><argument_list>(<argument><expr><name><name>config</name>.<name>srcDir</name></name></expr></argument>, <argument><expr><name>entryName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"adding innerclass file '" + <name>entryName</name> + "'"</expr></argument>,
+                                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                        <expr_stmt><expr><call><name>addFileToJar</name><argument_list>(<argument><expr><name>jarStream</name></expr></argument>, <argument><expr><name>entryFile</name></expr></argument>, <argument><expr><name>entryName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                    }</block></for>
+                }</block></then></if>
+            }</block></for>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"IOException while processing ejb-jar file '"
+                + <call><name><name>jarfile</name>.<name>toString</name></name><argument_list>()</argument_list></call>
+                + "'. Details: "
+                + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>ioe</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <if>if <condition>(<expr><name>jarStream</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>jarStream</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>closeException</name></decl></param>) <block>{
+                    <comment type="line">// ignore</comment>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function> <comment type="line">// end of writeJar</comment>
+
+
+    <comment type="javadoc">/**
+     * Add all available classes, that depend on Remote, Home, Bean, PK
+     * @param checkEntries files, that are extracted from the deployment descriptor
+     * @throws BuildException if there is a problem.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>checkAndAddDependants</name><parameter_list>(<param><decl><type><name>Hashtable</name></type> <name>checkEntries</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <if>if <condition>(<expr><name>dependencyAnalyzer</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name><name>dependencyAnalyzer</name>.<name>reset</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name><name>checkEntries</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>entryName</name> =<init> <expr>(<name>String</name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>entryName</name>.<name>endsWith</name></name><argument_list>(<argument><expr>".class"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>className</name> =<init> <expr><call><name><name>entryName</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>,
+                    <argument><expr><call><name><name>entryName</name>.<name>length</name></name><argument_list>()</argument_list></call> - ".class".<call><name>length</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>className</name> = <call><name><name>className</name>.<name>replace</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>className</name> = <call><name><name>className</name>.<name>replace</name></name><argument_list>(<argument><expr>'/'</expr></argument>, <argument><expr>'.'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name><name>dependencyAnalyzer</name>.<name>addRootClass</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></while>
+
+        <decl_stmt><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>dependencyAnalyzer</name>.<name>getClassDependencies</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>classname</name> =<init> <expr>(<name>String</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>location</name>
+                =<init> <expr><call><name><name>classname</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call> + ".class"</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>classFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>config</name>.<name>srcDir</name></name></expr></argument>, <argument><expr><name>location</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>classFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>checkEntries</name>.<name>put</name></name><argument_list>(<argument><expr><name>location</name></expr></argument>, <argument><expr><name>classFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"dependent class: " + <name>classname</name> + " - " + <name>classFile</name></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></while>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Returns a Classloader object which parses the passed in generic EjbJar classpath.
+     * The loader is used to dynamically load classes from javax.ejb.* and the classes
+     * being added to the jar.
+     * @return a classloader.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>ClassLoader</name></type> <name>getClassLoaderForBuild</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>classpathLoader</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>classpathLoader</name></expr>;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>Path</name></type> <name>combinedClasspath</name> =<init> <expr><call><name>getCombinedClasspath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// only generate a new ClassLoader if we have a classpath</comment>
+        <if>if <condition>(<expr><name>combinedClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>classpathLoader</name> = <call><name>getClass</name><argument_list>()</argument_list></call>.<call><name>getClassLoader</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <comment type="line">// Memory leak in line below</comment>
+            <expr_stmt><expr><name>classpathLoader</name>
+                = <call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name>combinedClasspath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <return>return <expr><name>classpathLoader</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Called to validate that the tool parameters have been configured.
+     *
+     * @throws BuildException If the Deployment Tool's configuration isn't
+     *                        valid
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>validateConfigured</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr>(<name>destDir</name> == <name>null</name>) || (!<call><name><name>destDir</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call>)</expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"A valid destination directory must be specified "
+                            + "using the \"destdir\" attribute."</expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+}</block></class>
+</unit>

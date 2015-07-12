@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\MakeUrl.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>LinkedList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ListIterator</name></name>;</import>
+
+<comment type="javadoc">/**
+ * This task takes file and turns them into a URL, which it then assigns
+ * to a property. Use when for setting up RMI codebases.
+ * &lt;p/&gt;
+ * nested filesets are supported; if present, these are turned into the
+ * url with the given separator between them (default = " ").
+ *
+ * @ant.task category="core" name="makeurl"
+ */</comment>
+
+<class><specifier>public</specifier> class <name>MakeUrl</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+
+    <comment type="javadoc">/**
+     * name of the property to set
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>property</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * name of a file to turn into a URL
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>file</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * separator char
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>separator</name> =<init> <expr>" "</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * filesets of nested files to add to this url
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>List</name><argument_list>&lt;<argument><name>FileSet</name></argument>&gt;</argument_list></name></type> <name>filesets</name> =<init> <expr>new <call><name><name>LinkedList</name><argument_list>&lt;<argument><name>FileSet</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * paths to add
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>List</name><argument_list>&lt;<argument><name>Path</name></argument>&gt;</argument_list></name></type> <name>paths</name> =<init> <expr>new <call><name><name>LinkedList</name><argument_list>&lt;<argument><name>Path</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * validation flag
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>validate</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// error message strings</comment>
+    <comment type="javadoc">/** Missing file */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_MISSING_FILE</name> =<init> <expr>"A source file is missing: "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** No property defined */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_PROPERTY</name> =<init> <expr>"No property defined"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** No files defined */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_FILES</name> =<init> <expr>"No files defined"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * set the name of a property to fill with the URL
+     *
+     * @param property the name of the property.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>property</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>property</name></name> = <name>property</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * the name of a file to be converted into a URL
+     *
+     * @param file the file to be converted.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>file</name></name> = <name>file</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * a fileset of jar files to include in the URL, each
+     * separated by the separator
+     *
+     * @param fileset the fileset to be added.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileSet</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>fileset</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filesets</name>.<name>add</name></name><argument_list>(<argument><expr><name>fileset</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * set the separator for the multi-url option.
+     *
+     * @param separator the separator to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSeparator</name><parameter_list>(<param><decl><type><name>String</name></type> <name>separator</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>separator</name></name> = <name>separator</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * set this flag to trigger validation that every named file exists.
+     * Optional: default=true
+     *
+     * @param validate a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setValidate</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>validate</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>validate</name></name> = <name>validate</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add a path to the URL. All elements in the path
+     * will be converted to individual URL entries
+     *
+     * @param path a path value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addPath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>path</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>paths</name>.<name>add</name></name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * convert the filesets to urls.
+     *
+     * @return null for no files
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>filesetsToURL</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>filesets</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>""</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>int</name></type> <name>count</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuilder</name></type> <name>urls</name> =<init> <expr>new <call><name>StringBuilder</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>ListIterator</name><argument_list>&lt;<argument><name>FileSet</name></argument>&gt;</argument_list></name></type> <name>list</name> =<init> <expr><call><name><name>filesets</name>.<name>listIterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>list</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>FileSet</name></type> <name>set</name> =<init> <expr>(<name>FileSet</name>) <call><name><name>list</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>scanner</name> =<init> <expr><call><name><name>set</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>scanner</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>files</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name><name>scanner</name>.<name>getBasedir</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>validateFile</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>asUrl</name> =<init> <expr><call><name>toURL</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>urls</name>.<name>append</name></name><argument_list>(<argument><expr><name>asUrl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>asUrl</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>urls</name>.<name>append</name></name><argument_list>(<argument><expr><name>separator</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>count</name>++</expr>;</expr_stmt>
+            }</block></for>
+        }</block></while>
+        <comment type="line">//at this point there is one trailing space to remove, if the list is not empty.</comment>
+        <return>return <expr><call><name>stripTrailingSeparator</name><argument_list>(<argument><expr><name>urls</name></expr></argument>, <argument><expr><name>count</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * convert the string buffer to a string, potentially stripping
+     * out any trailing separator
+     *
+     * @param urls  URL buffer
+     * @param count number of URL entries
+     * @return trimmed string, or empty string
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>stripTrailingSeparator</name><parameter_list>(<param><decl><type><name>StringBuilder</name></type> <name>urls</name></decl></param>,
+                                          <param><decl><type><name>int</name></type> <name>count</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>count</name> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>urls</name>.<name>delete</name></name><argument_list>(<argument><expr><call><name><name>urls</name>.<name>length</name></name><argument_list>()</argument_list></call> - <call><name><name>separator</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>urls</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>new <call><name>String</name><argument_list>(<argument><expr><name>urls</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then> <else>else <block>{
+            <return>return <expr>""</expr>;</return>
+        }</block></else></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * convert all paths to URLs
+     *
+     * @return the paths as a separated list of URLs
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>pathsToURL</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>paths</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>""</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>int</name></type> <name>count</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuilder</name></type> <name>urls</name> =<init> <expr>new <call><name>StringBuilder</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>ListIterator</name><argument_list>&lt;<argument><name>Path</name></argument>&gt;</argument_list></name></type> <name>list</name> =<init> <expr><call><name><name>paths</name>.<name>listIterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>list</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>Path</name></type> <name>path</name> =<init> <expr>(<name>Path</name>) <call><name><name>list</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>elements</name> =<init> <expr><call><name><name>path</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>elements</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>elements</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>validateFile</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>asUrl</name> =<init> <expr><call><name>toURL</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>urls</name>.<name>append</name></name><argument_list>(<argument><expr><name>asUrl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>asUrl</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>urls</name>.<name>append</name></name><argument_list>(<argument><expr><name>separator</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>count</name>++</expr>;</expr_stmt>
+            }</block></for>
+        }</block></while>
+        <comment type="line">//at this point there is one trailing space to remove, if the list is not empty.</comment>
+        <return>return <expr><call><name>stripTrailingSeparator</name><argument_list>(<argument><expr><name>urls</name></expr></argument>, <argument><expr><name>count</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * verify that the file exists, if {@link #validate} is set
+     *
+     * @param fileToCheck file that may need to exist
+     * @throws BuildException with text beginning {@link #ERROR_MISSING_FILE}
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>validateFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>fileToCheck</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>validate</name> &amp;&amp; !<call><name><name>fileToCheck</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_MISSING_FILE</name> + <call><name><name>fileToCheck</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create the url
+     *
+     * @throws org.apache.tools.ant.BuildException
+     *          if something goes wrong with the build
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>validate</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">//now exit here if the property is already set</comment>
+        <if>if <condition>(<expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr><name>property</name></expr></argument>)</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>url</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>filesetURL</name> =<init> <expr><call><name>filesetsToURL</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>file</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>validateFile</name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>url</name> = <call><name>toURL</name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//and add any files if also defined</comment>
+            <if>if <condition>(<expr><call><name><name>filesetURL</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>url</name> = <name>url</name> + <name>separator</name> + <name>filesetURL</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>url</name> = <name>filesetURL</name></expr>;</expr_stmt>
+        }</block></else></if>
+        <comment type="line">//add path URLs</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>pathURL</name> =<init> <expr><call><name>pathsToURL</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>pathURL</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>url</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>url</name> = <name>url</name> + <name>separator</name> + <name>pathURL</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>url</name> = <name>pathURL</name></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Setting " + <name>property</name> + " to URL " + <name>url</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>setNewProperty</name><argument_list>(<argument><expr><name>property</name></expr></argument>, <argument><expr><name>url</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * check for errors
+     * @throws BuildException if we are not configured right
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>validate</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">//validation</comment>
+        <if>if <condition>(<expr><name>property</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_PROPERTY</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>file</name> == <name>null</name> &amp;&amp; <call><name><name>filesets</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call> &amp;&amp; <call><name><name>paths</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_FILES</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * convert a file to a URL;
+     *
+     * @param fileToConvert
+     * @return the file converted to a URL
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>toURL</name><parameter_list>(<param><decl><type><name>File</name></type> <name>fileToConvert</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>url</name></decl>;</decl_stmt>
+        <comment type="line">//create the URL</comment>
+        <comment type="line">//ant equivalent of  fileToConvert.toURI().toURL().toExternalForm();</comment>
+        <expr_stmt><expr><name>url</name> = <call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call>.<call><name>toURI</name><argument_list>(<argument><expr><call><name><name>fileToConvert</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <return>return <expr><name>url</name></expr>;</return>
+    }</block></function>
+
+}</block></class>
+</unit>

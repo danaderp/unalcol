@@ -1,0 +1,548 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ReplaceRegExp.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStreamReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStreamWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Reader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Writer</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>RegularExpression</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>ResourceCollection</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Substitution</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileProvider</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>Union</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>regexp</name>.<name>Regexp</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>regexp</name>.<name>RegexpUtil</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Performs regular expression string replacements in a text
+ * file.  The input file(s) must be able to be properly processed by
+ * a Reader instance.  That is, they must be text only, no binary.
+ *
+ * The syntax of the regular expression depends on the implementation that
+ * you choose to use. The system property &lt;code&gt;ant.regexp.regexpimpl&lt;/code&gt;
+ * will be the classname of the implementation that will be used (the default
+ * is &lt;code&gt;org.apache.tools.ant.util.regexp.JakartaOroRegexp&lt;/code&gt; and
+ * requires the Jakarta Oro Package).
+ *
+ * &lt;pre&gt;
+ * Available implementations:
+ *
+ *   org.apache.tools.ant.util.regexp.Jdk14RegexpRegexp (default)
+ *        Uses Java's built-in regular expression package
+ *
+ *   org.apache.tools.ant.util.regexp.JakartaOroRegexp
+ *        Requires  the jakarta-oro package
+ *
+ *   org.apache.tools.ant.util.regexp.JakartaRegexpRegexp
+ *        Requires the jakarta-regexp package
+ *
+ * Usage:
+ *
+ *   Call Syntax:
+ *
+ *     &amp;lt;replaceregexp file="file"
+ *                    match="pattern"
+ *                    replace="pattern"
+ *                    flags="options"?
+ *                    byline="true|false"? &amp;gt;
+ *       regexp?
+ *       substitution?
+ *       fileset*
+ *     &amp;lt;/replaceregexp&amp;gt;
+ *
+ *    NOTE: You must have either the file attribute specified, or at least one fileset subelement
+ *    to operation on.  You may not have the file attribute specified if you nest fileset elements
+ *    inside this task.  Also, you cannot specify both match and a regular expression subelement at
+ *    the same time, nor can you specify the replace attribute and the substitution subelement at
+ *    the same time.
+ *
+ *   Attributes:
+ *
+ *     file    --&amp;gt; A single file to operation on (mutually exclusive
+ *                    with the fileset subelements)
+ *     match   --&amp;gt; The Regular expression to match
+ *     replace --&amp;gt; The Expression replacement string
+ *     flags   --&amp;gt; The options to give to the replacement
+ *                 g = Substitute all occurrences. default is to replace only the first one
+ *                 i = Case insensitive match
+ *
+ *     byline  --&amp;gt; Should this file be processed a single line at a time (default is false)
+ *                 "true" indicates to perform replacement on a line by line basis
+ *                 "false" indicates to perform replacement on the whole file at once.
+ *
+ *  Example:
+ *
+ *     The following call could be used to replace an old property name in a ".properties"
+ *     file with a new name.  In the replace attribute, you can refer to any part of the
+ *     match expression in parenthesis using backslash followed by a number like '\1'.
+ *
+ *     &amp;lt;replaceregexp file="test.properties"
+ *                    match="MyProperty=(.*)"
+ *                    replace="NewProperty=\1"
+ *                    byline="true" /&amp;gt;
+ *
+ * &lt;/pre&gt;
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>ReplaceRegExp</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>file</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>flags</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>byline</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Union</name></type> <name>resources</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>RegularExpression</name></type> <name>regex</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Substitution</name></type> <name>subs</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>preserveLastModified</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Encoding to assume for the files
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>encoding</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Default Constructor  */</comment>
+    <constructor><specifier>public</specifier> <name>ReplaceRegExp</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>file</name></name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>flags</name></name> = ""</expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>byline</name></name> = false</expr>;</expr_stmt>
+
+        <expr_stmt><expr><name><name>this</name>.<name>regex</name></name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>subs</name></name> = <name>null</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+
+    <comment type="javadoc">/**
+     * file for which the regular expression should be replaced;
+     * required unless a nested fileset is supplied.
+     * @param file The file for which the reg exp should be replaced.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>file</name></name> = <name>file</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * the regular expression pattern to match in the file(s);
+     * required if no nested &amp;lt;regexp&amp;gt; is used
+     * @param match the match attribute.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMatch</name><parameter_list>(<param><decl><type><name>String</name></type> <name>match</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>regex</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one regular expression is allowed"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>regex</name> = new <call><name>RegularExpression</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>regex</name>.<name>setPattern</name></name><argument_list>(<argument><expr><name>match</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * The substitution pattern to place in the file(s) in place
+     * of the regular expression.
+     * Required if no nested &amp;lt;substitution&amp;gt; is used
+     * @param replace the replace attribute
+     */</comment>
+
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setReplace</name><parameter_list>(<param><decl><type><name>String</name></type> <name>replace</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>subs</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one substitution expression is "
+                                     + "allowed"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>subs</name> = new <call><name>Substitution</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>subs</name>.<name>setExpression</name></name><argument_list>(<argument><expr><name>replace</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The flags to use when matching the regular expression.  For more
+     * information, consult the Perl5 syntax.
+     * &lt;ul&gt;
+     *  &lt;li&gt;g : Global replacement.  Replace all occurrences found
+     *  &lt;li&gt;i : Case Insensitive.  Do not consider case in the match
+     *  &lt;li&gt;m : Multiline.  Treat the string as multiple lines of input,
+     *         using "^" and "$" as the start or end of any line, respectively,
+     *         rather than start or end of string.
+     *  &lt;li&gt; s : Singleline.  Treat the string as a single line of input, using
+     *        "." to match any character, including a newline, which normally,
+     *        it would not match.
+     *&lt;/ul&gt;
+     * @param flags the flags attribute
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFlags</name><parameter_list>(<param><decl><type><name>String</name></type> <name>flags</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>flags</name></name> = <name>flags</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Process the file(s) one line at a time, executing the replacement
+     * on one line at a time.  This is useful if you
+     * want to only replace the first occurrence of a regular expression on
+     * each line, which is not easy to do when processing the file as a whole.
+     * Defaults to &lt;i&gt;false&lt;/i&gt;.&lt;/td&gt;
+     * @param byline the byline attribute as a string
+     * @deprecated since 1.6.x.
+     *             Use setByLine(boolean).
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setByLine</name><parameter_list>(<param><decl><type><name>String</name></type> <name>byline</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Boolean</name></type> <name>res</name> =<init> <expr><call><name><name>Boolean</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>byline</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>res</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>res</name> = <name><name>Boolean</name>.<name>FALSE</name></name></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>byline</name></name> = <call><name><name>res</name>.<name>booleanValue</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Process the file(s) one line at a time, executing the replacement
+     * on one line at a time.  This is useful if you
+     * want to only replace the first occurrence of a regular expression on
+     * each line, which is not easy to do when processing the file as a whole.
+     * Defaults to &lt;i&gt;false&lt;/i&gt;.&lt;/td&gt;
+     * @param byline the byline attribute
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setByLine</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>byline</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>byline</name></name> = <name>byline</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Specifies the encoding Ant expects the files to be in -
+     * defaults to the platforms default encoding.
+     * @param encoding the encoding attribute
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEncoding</name><parameter_list>(<param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>encoding</name></name> = <name>encoding</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * list files to apply the replacement to
+     * @param set the fileset element
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileset</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>set</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>addConfigured</name><argument_list>(<argument><expr><name>set</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Support arbitrary file system based resource collections.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfigured</name><parameter_list>(<param><decl><type><name>ResourceCollection</name></type> <name>rc</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<call><name><name>rc</name>.<name>isFilesystemOnly</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"only filesystem resources are supported"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>resources</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>resources</name> = new <call><name>Union</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>resources</name>.<name>add</name></name><argument_list>(<argument><expr><name>rc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A regular expression.
+     * You can use this element to refer to a previously
+     * defined regular expression datatype instance
+     * @return the regular expression object to be configured as an element
+     */</comment>
+    <function><type><specifier>public</specifier> <name>RegularExpression</name></type> <name>createRegexp</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>regex</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one regular expression is allowed."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>regex</name> = new <call><name>RegularExpression</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>regex</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * A substitution pattern.  You can use this element to refer to a previously
+     * defined substitution pattern datatype instance.
+     * @return the substitution pattern object to be configured as an element
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Substitution</name></type> <name>createSubstitution</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>subs</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one substitution expression is "
+                                     + "allowed"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>subs</name> = new <call><name>Substitution</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>subs</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether the file timestamp shall be preserved even if the file
+     * is modified.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPreserveLastModified</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>preserveLastModified</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Invoke a regular expression (r) on a string (input) using
+     * substitutions (s) for a matching regex.
+     *
+     * @param r a regular expression
+     * @param s a Substitution
+     * @param input the string to do the replacement on
+     * @param options The options for the regular expression
+     * @return the replacement result
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>doReplace</name><parameter_list>(<param><decl><type><name>RegularExpression</name></type> <name>r</name></decl></param>,
+                               <param><decl><type><name>Substitution</name></type> <name>s</name></decl></param>,
+                               <param><decl><type><name>String</name></type> <name>input</name></decl></param>,
+                               <param><decl><type><name>int</name></type> <name>options</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>res</name> =<init> <expr><name>input</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Regexp</name></type> <name>regexp</name> =<init> <expr><call><name><name>r</name>.<name>getRegexp</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name><name>regexp</name>.<name>matches</name></name><argument_list>(<argument><expr><name>input</name></expr></argument>, <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found match; substituting"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>res</name> = <call><name><name>regexp</name>.<name>substitute</name></name><argument_list>(<argument><expr><name>input</name></expr></argument>, <argument><expr><call><name><name>s</name>.<name>getExpression</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>,
+                                    <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <return>return <expr><name>res</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     *  Perform the replacement on a file
+     *
+     * @param f the file to perform the replacement on
+     * @param options the regular expressions options
+     * @exception IOException if an error occurs
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>doReplace</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>, <param><decl><type><name>int</name></type> <name>options</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>temp</name> =<init> <expr><call><name><name>FILE_UTILS</name>.<name>createTempFile</name></name><argument_list>(<argument><expr>"replace"</expr></argument>, <argument><expr>".txt"</expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr>true</expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>boolean</name></type> <name>changes</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>InputStream</name></type> <name>is</name> =<init> <expr>new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <decl_stmt><decl><type><name>Reader</name></type> <name>r</name> =<init> <expr><name>encoding</name> != <name>null</name> ? new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>is</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call> : new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>OutputStream</name></type> <name>os</name> =<init> <expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>temp</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <try>try <block>{
+                    <decl_stmt><decl><type><name>Writer</name></type> <name>w</name> =<init> <expr><name>encoding</name> != <name>null</name> ? new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr><name>os</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call> : new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr><name>os</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <decl_stmt><decl><type><name>BufferedReader</name></type> <name>br</name> =<init> <expr>new <call><name>BufferedReader</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>BufferedWriter</name></type> <name>bw</name> =<init> <expr>new <call><name>BufferedWriter</name><argument_list>(<argument><expr><name>w</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Replacing pattern '" + <call><name><name>regex</name>.<name>getPattern</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+                + "' with '" + <call><name><name>subs</name>.<name>getExpression</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>
+                + "' in '" + <call><name><name>f</name>.<name>getPath</name></name><argument_list>()</argument_list></call> + "'" + (<name>byline</name> ? " by line" : "")
+                + (<call><name><name>flags</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0 ? " with flags: '" + <name>flags</name> + "'" : "")
+                + "."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>byline</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>StringBuffer</name></type> <name>linebuf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>res</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>c</name></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>boolean</name></type> <name>hasCR</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+                <do>do <block>{
+                    <expr_stmt><expr><name>c</name> = <call><name><name>br</name>.<name>read</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                    <if>if <condition>(<expr><name>c</name> == '\r'</expr>)</condition><then> <block>{
+                        <if>if <condition>(<expr><name>hasCR</name></expr>)</condition><then> <block>{
+                            <comment type="line">// second CR -&gt; EOL + possibly empty line</comment>
+                            <expr_stmt><expr><name>line</name> = <call><name><name>linebuf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><name>res</name>  = <call><name>doReplace</name><argument_list>(<argument><expr><name>regex</name></expr></argument>, <argument><expr><name>subs</name></expr></argument>, <argument><expr><name>line</name></expr></argument>, <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                            <if>if <condition>(<expr>!<call><name><name>res</name>.<name>equals</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><name>changes</name> = true</expr>;</expr_stmt>
+                            }</block></then></if>
+
+                            <expr_stmt><expr><call><name><name>bw</name>.<name>write</name></name><argument_list>(<argument><expr><name>res</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><call><name><name>bw</name>.<name>write</name></name><argument_list>(<argument><expr>'\r'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                            <expr_stmt><expr><name>linebuf</name> = new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            <comment type="line">// hasCR is still true (for the second one)</comment>
+                        }</block></then> <else>else <block>{
+                            <comment type="line">// first CR in this line</comment>
+                            <expr_stmt><expr><name>hasCR</name> = true</expr>;</expr_stmt>
+                        }</block></else></if>
+                    }</block></then> <else>else <if>if <condition>(<expr><name>c</name> == '\n'</expr>)</condition><then> <block>{
+                        <comment type="line">// LF -&gt; EOL</comment>
+                        <expr_stmt><expr><name>line</name> = <call><name><name>linebuf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>res</name>  = <call><name>doReplace</name><argument_list>(<argument><expr><name>regex</name></expr></argument>, <argument><expr><name>subs</name></expr></argument>, <argument><expr><name>line</name></expr></argument>, <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                        <if>if <condition>(<expr>!<call><name><name>res</name>.<name>equals</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>changes</name> = true</expr>;</expr_stmt>
+                        }</block></then></if>
+
+                        <expr_stmt><expr><call><name><name>bw</name>.<name>write</name></name><argument_list>(<argument><expr><name>res</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <if>if <condition>(<expr><name>hasCR</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name><name>bw</name>.<name>write</name></name><argument_list>(<argument><expr>'\r'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><name>hasCR</name> = false</expr>;</expr_stmt>
+                        }</block></then></if>
+                        <expr_stmt><expr><call><name><name>bw</name>.<name>write</name></name><argument_list>(<argument><expr>'\n'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                        <expr_stmt><expr><name>linebuf</name> = new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{ <comment type="line">// any other char</comment>
+                        <if>if <condition>(<expr>(<name>hasCR</name>) || (<name>c</name> &lt; 0)</expr>)</condition><then> <block>{
+                            <comment type="line">// Mac-style linebreak or EOF (or both)</comment>
+                            <expr_stmt><expr><name>line</name> = <call><name><name>linebuf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><name>res</name>  = <call><name>doReplace</name><argument_list>(<argument><expr><name>regex</name></expr></argument>, <argument><expr><name>subs</name></expr></argument>, <argument><expr><name>line</name></expr></argument>, <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                            <if>if <condition>(<expr>!<call><name><name>res</name>.<name>equals</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><name>changes</name> = true</expr>;</expr_stmt>
+                            }</block></then></if>
+
+                            <expr_stmt><expr><call><name><name>bw</name>.<name>write</name></name><argument_list>(<argument><expr><name>res</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <if>if <condition>(<expr><name>hasCR</name></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><call><name><name>bw</name>.<name>write</name></name><argument_list>(<argument><expr>'\r'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                <expr_stmt><expr><name>hasCR</name> = false</expr>;</expr_stmt>
+                            }</block></then></if>
+
+                            <expr_stmt><expr><name>linebuf</name> = new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+
+                        <if>if <condition>(<expr><name>c</name> &gt;= 0</expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name><name>linebuf</name>.<name>append</name></name><argument_list>(<argument><expr>(<name>char</name>) <name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block></else></if></else></if>
+                }</block> while <condition>(<expr><name>c</name> &gt;= 0</expr>)</condition>;</do>
+
+            }</block></then> <else>else <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>buf</name> =<init> <expr><call><name><name>FileUtils</name>.<name>safeReadFully</name></name><argument_list>(<argument><expr><name>br</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <decl_stmt><decl><type><name>String</name></type> <name>res</name> =<init> <expr><call><name>doReplace</name><argument_list>(<argument><expr><name>regex</name></expr></argument>, <argument><expr><name>subs</name></expr></argument>, <argument><expr><name>buf</name></expr></argument>, <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr>!<call><name><name>res</name>.<name>equals</name></name><argument_list>(<argument><expr><name>buf</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>changes</name> = true</expr>;</expr_stmt>
+                }</block></then></if>
+
+                <expr_stmt><expr><call><name><name>bw</name>.<name>write</name></name><argument_list>(<argument><expr><name>res</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <expr_stmt><expr><call><name><name>bw</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                }</block> <finally>finally <block>{
+                    <expr_stmt><expr><call><name><name>os</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></finally></try>
+            }</block> <finally>finally <block>{
+                <expr_stmt><expr><call><name><name>is</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></finally></try>
+            <if>if <condition>(<expr><name>changes</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"File has changed; saving the updated file"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <try>try <block>{
+                    <decl_stmt><decl><type><name>long</name></type> <name>origLastModified</name> =<init> <expr><call><name><name>f</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>FILE_UTILS</name>.<name>rename</name></name><argument_list>(<argument><expr><name>temp</name></expr></argument>, <argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <if>if <condition>(<expr><name>preserveLastModified</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>FILE_UTILS</name>.<name>setFileLastModified</name></name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr><name>origLastModified</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <expr_stmt><expr><name>temp</name> = <name>null</name></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Couldn't rename temporary file "
+                                             + <name>temp</name></expr></argument>, <argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"No change made"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block> <finally>finally <block>{
+            <if>if <condition>(<expr><name>temp</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>temp</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Execute the task
+     *
+     * @throws BuildException is there is a problem in the task execution.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>regex</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"No expression to match."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>subs</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Nothing to replace expression with."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>file</name> != <name>null</name> &amp;&amp; <name>resources</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"You cannot supply the 'file' attribute "
+                                     + "and resource collections at the same "
+                                     + "time."</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>options</name> =<init> <expr><call><name><name>RegexpUtil</name>.<name>asOptions</name></name><argument_list>(<argument><expr><name>flags</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>file</name> != <name>null</name> &amp;&amp; <call><name><name>file</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name>doReplace</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"An error occurred processing file: '"
+                    + <call><name><name>file</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call> + "': " + <call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></then> <else>else <if>if <condition>(<expr><name>file</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"The following file is missing: '"
+                + <call><name><name>file</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call> + "'"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if></else></if>
+
+        <if>if <condition>(<expr><name>resources</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>Resource</name></type> <name>r</name> :<range> <expr><name>resources</name></expr></range></decl></init>) <block>{
+                <decl_stmt><decl><type><name>FileProvider</name></type> <name>fp</name> =<init>
+                    <expr><call><name><name>r</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr><call><name><name>fp</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name>doReplace</name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"An error occurred processing file: '"
+                            + <call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call> + "': " + <call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>,
+                            <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></catch></try>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"The following file is missing: '"
+                        + <call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call> + "'"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></for>
+        }</block></then></if>
+    }</block></function>
+
+}</block></class>
+
+
+</unit>

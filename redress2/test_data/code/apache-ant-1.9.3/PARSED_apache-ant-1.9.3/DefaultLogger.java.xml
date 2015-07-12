@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\DefaultLogger.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>StringReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Date</name></name>;</import>
+<import>import <name><name>java</name>.<name>text</name>.<name>DateFormat</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>DateUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Writes build events to a PrintStream. Currently, it
+ * only writes which targets are being executed, and
+ * any messages that get logged.
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>DefaultLogger</name> <super><implements>implements <name>BuildLogger</name></implements></super> <block>{
+    <comment type="javadoc">/**
+     * Size of left-hand column for right-justified task name.
+     * @see #messageLogged(BuildEvent)
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>LEFT_COLUMN_SIZE</name> =<init> <expr>12</expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+    <comment type="javadoc">/** PrintStream to write non-error messages to */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>PrintStream</name></type> <name>out</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** PrintStream to write error messages to */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>PrintStream</name></type> <name>err</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Lowest level of message to write out */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>int</name></type> <name>msgOutputLevel</name> =<init> <expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Time of the start of the build */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>startTime</name> =<init> <expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// CheckStyle:ConstantNameCheck OFF - bc</comment>
+    <comment type="javadoc">/** Line separator */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>lSep</name> =<init> <expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></init></decl>;</decl_stmt>
+    <comment type="line">// CheckStyle:ConstantNameCheck ON</comment>
+
+    <comment type="javadoc">/** Whether or not to use emacs-style output */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>emacsMode</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+
+
+    <comment type="javadoc">/**
+     * Sole constructor.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>DefaultLogger</name><parameter_list>()</parameter_list> <block>{
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Sets the highest level of message this logger should respond to.
+     *
+     * Only messages with a message level lower than or equal to the
+     * given level should be written to the log.
+     * &lt;p&gt;
+     * Constants for the message levels are in the
+     * {@link Project Project} class. The order of the levels, from least
+     * to most verbose, is &lt;code&gt;MSG_ERR&lt;/code&gt;, &lt;code&gt;MSG_WARN&lt;/code&gt;,
+     * &lt;code&gt;MSG_INFO&lt;/code&gt;, &lt;code&gt;MSG_VERBOSE&lt;/code&gt;,
+     * &lt;code&gt;MSG_DEBUG&lt;/code&gt;.
+     * &lt;p&gt;
+     * The default message level for DefaultLogger is Project.MSG_ERR.
+     *
+     * @param level the logging level for the logger.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setMessageOutputLevel</name><parameter_list>(<param><decl><type><name>int</name></type> <name>level</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>msgOutputLevel</name></name> = <name>level</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the output stream to which this logger is to send its output.
+     *
+     * @param output The output stream for the logger.
+     *               Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOutputPrintStream</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>output</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>out</name></name> = new <call><name>PrintStream</name><argument_list>(<argument><expr><name>output</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the output stream to which this logger is to send error messages.
+     *
+     * @param err The error stream for the logger.
+     *            Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setErrorPrintStream</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>err</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>err</name></name> = new <call><name>PrintStream</name><argument_list>(<argument><expr><name>err</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets this logger to produce emacs (and other editor) friendly output.
+     *
+     * @param emacsMode &lt;code&gt;true&lt;/code&gt; if output is to be unadorned so that
+     *                  emacs and other editors can parse files names, etc.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEmacsMode</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>emacsMode</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>emacsMode</name></name> = <name>emacsMode</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Responds to a build being started by just remembering the current time.
+     *
+     * @param event Ignored.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>startTime</name> = <call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>static</specifier> <name>void</name></type> <name>throwableMessage</name><parameter_list>(<param><decl><type><name>StringBuffer</name></type> <name>m</name></decl></param>, <param><decl><type><name>Throwable</name></type> <name>error</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>verbose</name></decl></param>)</parameter_list> <block>{
+        <while>while <condition>(<expr><name>error</name> <name>instanceof</name> <name>BuildException</name></expr>)</condition> <block>{ <comment type="line">// #43398</comment>
+            <decl_stmt><decl><type><name>Throwable</name></type> <name>cause</name> =<init> <expr><call><name><name>error</name>.<name>getCause</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>cause</name> == <name>null</name></expr>)</condition><then> <block>{
+                <break>break;</break>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>String</name></type> <name>msg1</name> =<init> <expr><call><name><name>error</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>msg2</name> =<init> <expr><call><name><name>cause</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>msg1</name>.<name>endsWith</name></name><argument_list>(<argument><expr><name>msg2</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>m</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>msg1</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>msg1</name>.<name>length</name></name><argument_list>()</argument_list></call> - <call><name><name>msg2</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>error</name> = <name>cause</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <break>break;</break>
+            }</block></else></if>
+        }</block></while>
+        <if>if <condition>(<expr><name>verbose</name> || !(<name>error</name> <name>instanceof</name> <name>BuildException</name>)</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>m</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>StringUtils</name>.<name>getStackTrace</name></name><argument_list>(<argument><expr><name>error</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>m</name>.<name>append</name></name><argument_list>(<argument><expr><name>error</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>lSep</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Prints whether the build succeeded or failed,
+     * any errors the occurred during the build, and
+     * how long the build took.
+     *
+     * @param event An event with any relevant extra information.
+     *              Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Throwable</name></type> <name>error</name> =<init> <expr><call><name><name>event</name>.<name>getException</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>message</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>error</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><call><name>getBuildSuccessfulMessage</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><call><name>getBuildFailedMessage</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>throwableMessage</name><argument_list>(<argument><expr><name>message</name></expr></argument>, <argument><expr><name>error</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name> &lt;= <name>msgOutputLevel</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr>"Total time: "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><call><name>formatTime</name><argument_list>(<argument><expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call> - <name>startTime</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr><call><name><name>message</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>error</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>printMessage</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>printMessage</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>err</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This is an override point: the message that indicates whether a build failed.
+     * Subclasses can change/enhance the message.
+     * @return The classic "BUILD FAILED"
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getBuildFailedMessage</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>"BUILD FAILED"</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This is an override point: the message that indicates that a build succeeded.
+     * Subclasses can change/enhance the message.
+     * @return The classic "BUILD SUCCESSFUL"
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getBuildSuccessfulMessage</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>"BUILD SUCCESSFUL"</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Logs a message to say that the target has started if this
+     * logger allows information-level messages.
+     *
+     * @param event An event with any relevant extra information.
+     *              Must not be &lt;code&gt;null&lt;/code&gt;.
+      */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>Project</name>.<name>MSG_INFO</name></name> &lt;= <name>msgOutputLevel</name>
+            &amp;&amp; !<call><name><name>event</name>.<name>getTarget</name></name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name>
+                + <call><name><name>event</name>.<name>getTarget</name></name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call> + ":"</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>printMessage</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>out</name></expr></argument>, <argument><expr><call><name><name>event</name>.<name>getPriority</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * No-op implementation.
+     *
+     * @param event Ignored.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * No-op implementation.
+     *
+     * @param event Ignored.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * No-op implementation.
+     *
+     * @param event Ignored.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Logs a message, if the priority is suitable.
+     * In non-emacs mode, task level messages are prefixed by the
+     * task name which is right-justified.
+     *
+     * @param event A BuildEvent containing message information.
+     *              Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>messageLogged</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>priority</name> =<init> <expr><call><name><name>event</name>.<name>getPriority</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// Filter out messages based on priority</comment>
+        <if>if <condition>(<expr><name>priority</name> &lt;= <name>msgOutputLevel</name></expr>)</condition><then> <block>{
+
+            <decl_stmt><decl><type><name>StringBuffer</name></type> <name>message</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>event</name>.<name>getTask</name></name><argument_list>()</argument_list></call> != <name>null</name> &amp;&amp; !<name>emacsMode</name></expr>)</condition><then> <block>{
+                <comment type="line">// Print out the name of the task if we're in one</comment>
+                <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>event</name>.<name>getTask</name></name><argument_list>()</argument_list></call>.<call><name>getTaskName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>label</name> =<init> <expr>"[" + <name>name</name> + "] "</expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>size</name> =<init> <expr><name>LEFT_COLUMN_SIZE</name> - <call><name><name>label</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>StringBuffer</name></type> <name>tmp</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <expr_stmt><expr><call><name><name>tmp</name>.<name>append</name></name><argument_list>(<argument><expr>" "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+                <expr_stmt><expr><call><name><name>tmp</name>.<name>append</name></name><argument_list>(<argument><expr><name>label</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>label</name> = <call><name><name>tmp</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                <decl_stmt><decl><type><name>BufferedReader</name></type> <name>r</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                <try>try <block>{
+                    <expr_stmt><expr><name>r</name> = new <call><name>BufferedReader</name><argument_list>(
+                            <argument><expr>new <call><name>StringReader</name><argument_list>(<argument><expr><call><name><name>event</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><call><name><name>r</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>boolean</name></type> <name>first</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+                    <do>do <block>{
+                        <if>if <condition>(<expr><name>first</name></expr>)</condition><then> <block>{
+                            <if>if <condition>(<expr><name>line</name> == <name>null</name></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><name>label</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                <break>break;</break>
+                            }</block></then></if>
+                        }</block></then> <else>else <block>{
+                            <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></else></if>
+                        <expr_stmt><expr><name>first</name> = false</expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><name>label</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>line</name> = <call><name><name>r</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block> while <condition>(<expr><name>line</name> != <name>null</name></expr>)</condition>;</do>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                    <comment type="line">// shouldn't be possible</comment>
+                    <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><name>label</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><call><name><name>event</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></catch> <finally>finally <block>{
+                    <if>if <condition>(<expr><name>r</name> != <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></finally></try>
+
+            }</block></then> <else>else <block>{
+                <comment type="line">//emacs mode or there is no task</comment>
+                <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>event</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <decl_stmt><decl><type><name>Throwable</name></type> <name>ex</name> =<init> <expr><call><name><name>event</name>.<name>getException</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name><name>Project</name>.<name>MSG_DEBUG</name></name> &lt;= <name>msgOutputLevel</name> &amp;&amp; <name>ex</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>message</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>StringUtils</name>.<name>getStackTrace</name></name><argument_list>(<argument><expr><name>ex</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr><call><name><name>message</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>priority</name> != <name><name>Project</name>.<name>MSG_ERR</name></name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>printMessage</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>out</name></expr></argument>, <argument><expr><name>priority</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>printMessage</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>err</name></expr></argument>, <argument><expr><name>priority</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method to format a specified length of time.
+     *
+     * @param millis Length of time to format, in milliseconds.
+     *
+     * @return the time as a formatted string.
+     *
+     * @see DateUtils#formatElapsedTime(long)
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>static</specifier> <name>String</name></type> <name>formatTime</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>long</name></type> <name>millis</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>DateUtils</name>.<name>formatElapsedTime</name></name><argument_list>(<argument><expr><name>millis</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Prints a message to a PrintStream.
+     *
+     * @param message  The message to print.
+     *                 Should not be &lt;code&gt;null&lt;/code&gt;.
+     * @param stream   A PrintStream to print the message to.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param priority The priority of the message.
+     *                 (Ignored in this implementation.)
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>printMessage</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>message</name></decl></param>,
+                                <param><decl><type><specifier>final</specifier> <name>PrintStream</name></type> <name>stream</name></decl></param>,
+                                <param><decl><type><specifier>final</specifier> <name>int</name></type> <name>priority</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>stream</name>.<name>println</name></name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation which allows subclasses to receive the
+     * same output that is generated here.
+     *
+     * @param message Message being logged. Should not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>log</name><parameter_list>(<param><decl><type><name>String</name></type> <name>message</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the current time.
+     * @return the current time as a formatted string.
+     * @since Ant1.7.1
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getTimestamp</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Date</name></type> <name>date</name> =<init> <expr>new <call><name>Date</name><argument_list>(<argument><expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>DateFormat</name></type> <name>formatter</name> =<init> <expr><call><name><name>DateFormat</name>.<name>getDateTimeInstance</name></name><argument_list>(<argument><expr><name><name>DateFormat</name>.<name>SHORT</name></name></expr></argument>, <argument><expr><name><name>DateFormat</name>.<name>SHORT</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>finishTime</name> =<init> <expr><call><name><name>formatter</name>.<name>format</name></name><argument_list>(<argument><expr><name>date</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>finishTime</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the project name or null
+     * @param event the event
+     * @return the project that raised this event
+     * @since Ant1.7.1
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>extractProjectName</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Project</name></type> <name>project</name> =<init> <expr><call><name><name>event</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr>(<name>project</name> != <name>null</name>) ? <call><name><name>project</name>.<name>getName</name></name><argument_list>()</argument_list></call> : <name>null</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

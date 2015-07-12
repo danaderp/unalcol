@@ -1,0 +1,956 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Replace.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStreamReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStreamWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Reader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Writer</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Properties</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>ResourceCollection</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileProvider</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>Union</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Replaces all occurrences of one or more string tokens with given
+ * values in the indicated files. Each value can be either a string
+ * or the value of a property available in a designated property file.
+ * If you want to replace a text that crosses line boundaries, you
+ * must use a nested &lt;code&gt;&amp;lt;replacetoken&amp;gt;&lt;/code&gt; element.
+ *
+ * @since Ant 1.1
+ *
+ * @ant.task category="filesystem"
+ */</comment>
+<class><specifier>public</specifier> class <name>Replace</name> <super><extends>extends <name>MatchingTask</name></extends></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>sourceFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>NestedString</name></type> <name>token</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>NestedString</name></type> <name>value</name> =<init> <expr>new <call><name>NestedString</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Resource</name></type> <name>propertyResource</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Resource</name></type> <name>replaceFilterResource</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Properties</name></type> <name>properties</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ArrayList</name></type> <name>replacefilters</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>dir</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>fileCount</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>replaceCount</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>summary</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The encoding used to read and write files - if null, uses default */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>encoding</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Union</name></type> <name>resources</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>preserveLastModified</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>failOnNoReplacements</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * An inline string to use as the replacement text.
+     */</comment>
+    <class><specifier>public</specifier> class <name>NestedString</name> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>expandProperties</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>StringBuffer</name></type> <name>buf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Whether properties should be expanded in nested test.
+         *
+         * &lt;p&gt;If you use this class via its Java interface the text
+         * you add via {@link #addText addText} has most likely been
+         * expanded already so you do &lt;b&gt;not&lt;/b&gt; want to set this to
+         * true.&lt;/p&gt;
+         *
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setExpandProperties</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>expandProperties</name> = <name>b</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * The text of the element.
+         *
+         * @param val the string to add
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>addText</name><parameter_list>(<param><decl><type><name>String</name></type> <name>val</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><name>val</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @return the text
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getText</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>s</name> =<init> <expr><call><name><name>buf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr><name>expandProperties</name> ? <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>replaceProperties</name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call> : <name>s</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * A filter to apply.
+     */</comment>
+    <class><specifier>public</specifier> class <name>Replacefilter</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>NestedString</name></type> <name>token</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>NestedString</name></type> <name>value</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>replaceValue</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>property</name></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>StringBuffer</name></type> <name>inputBuffer</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>StringBuffer</name></type> <name>outputBuffer</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Validate the filter's configuration.
+         * @throws BuildException if any part is invalid.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>validate</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+            <comment type="line">//Validate mandatory attributes</comment>
+            <if>if <condition>(<expr><name>token</name> == <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>message</name> =<init> <expr>"token is a mandatory for replacefilter."</expr></init></decl>;</decl_stmt>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <if>if <condition>(<expr>"".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>token</name>.<name>getText</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>message</name> =<init> <expr>"The token must not be an empty "
+                    + "string."</expr></init></decl>;</decl_stmt>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <comment type="line">//value and property are mutually exclusive attributes</comment>
+            <if>if <condition>(<expr>(<name>value</name> != <name>null</name>) &amp;&amp; (<name>property</name> != <name>null</name>)</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>message</name> =<init> <expr>"Either value or property "
+                    + "can be specified, but a replacefilter "
+                    + "element cannot have both."</expr></init></decl>;</decl_stmt>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <if>if <condition>(<expr>(<name>property</name> != <name>null</name>)</expr>)</condition><then> <block>{
+                <comment type="line">//the property attribute must have access to a property file</comment>
+                <if>if <condition>(<expr><name>propertyResource</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>message</name> =<init> <expr>"The replacefilter's property attribute "
+                        + "can only be used with the replacetask's "
+                        + "propertyFile/Resource attribute."</expr></init></decl>;</decl_stmt>
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+
+                <comment type="line">//Make sure property exists in property file</comment>
+                <if>if <condition>(<expr><name>properties</name> == <name>null</name>
+                    || <call><name><name>properties</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>property</name></expr></argument>)</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>message</name> =<init> <expr>"property \"" + <name>property</name>
+                        + "\" was not found in " + <call><name><name>propertyResource</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+            }</block></then></if>
+
+            <expr_stmt><expr><name>replaceValue</name> = <call><name>getReplaceValue</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the replacement value for this filter token.
+         * @return the replacement value
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getReplaceValue</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>property</name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><call><name><name>properties</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>property</name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></then> <else>else <if>if <condition>(<expr><name>value</name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><call><name><name>value</name>.<name>getText</name></name><argument_list>()</argument_list></call></expr>;</return>
+            }</block></then> <else>else <if>if <condition>(<expr><name><name>Replace</name>.<name>this</name>.<name>value</name></name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><call><name><name>Replace</name>.<name>this</name>.<name>value</name>.<name>getText</name></name><argument_list>()</argument_list></call></expr>;</return>
+            }</block></then> <else>else <block>{
+                <comment type="line">//Default is empty string</comment>
+                <return>return <expr>""</expr>;</return>
+            }</block></else></if></else></if></else></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the token to replace.
+         * @param t &lt;code&gt;String&lt;/code&gt; token.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setToken</name><parameter_list>(<param><decl><type><name>String</name></type> <name>t</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>createReplaceToken</name><argument_list>()</argument_list></call>.<call><name>addText</name><argument_list>(<argument><expr><name>t</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the string to search for.
+         * @return current &lt;code&gt;String&lt;/code&gt; token.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getToken</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>token</name>.<name>getText</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * The replacement string; required if &lt;code&gt;property&lt;code&gt;
+         * is not set.
+         * @param value &lt;code&gt;String&lt;/code&gt; value to replace.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setValue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>createReplaceValue</name><argument_list>()</argument_list></call>.<call><name>addText</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get replacement &lt;code&gt;String&lt;/code&gt;.
+         * @return replacement or null.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getValue</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>value</name>.<name>getText</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Set the name of the property whose value is to serve as
+         * the replacement value; required if &lt;code&gt;value&lt;/code&gt; is not set.
+         * @param property property name.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>property</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>property</name></name> = <name>property</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Get the name of the property whose value is to serve as
+         * the replacement value.
+         * @return property or null.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getProperty</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>property</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Create a token to filter as the text of a nested element.
+         * @return nested token &lt;code&gt;NestedString&lt;/code&gt; to configure.
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>NestedString</name></type> <name>createReplaceToken</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>token</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>token</name> = new <call><name>NestedString</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return <expr><name>token</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Create a string to replace the token as the text of a nested element.
+         * @return replacement value &lt;code&gt;NestedString&lt;/code&gt; to configure.
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>NestedString</name></type> <name>createReplaceValue</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>value</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>value</name> = new <call><name>NestedString</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return <expr><name>value</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Retrieves the output buffer of this filter. The filter guarantees
+         * that data is only appended to the end of this StringBuffer.
+         * @return The StringBuffer containing the output of this filter.
+         */</comment>
+        <function><type><name>StringBuffer</name></type> <name>getOutputBuffer</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>outputBuffer</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Sets the input buffer for this filter.
+         * The filter expects from the component providing the input that data
+         * is only added by that component to the end of this StringBuffer.
+         * This StringBuffer will be modified by this filter, and expects that
+         * another component will only apped to this StringBuffer.
+         * @param input The input for this filter.
+         */</comment>
+        <function><type><name>void</name></type> <name>setInputBuffer</name><parameter_list>(<param><decl><type><name>StringBuffer</name></type> <name>input</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>inputBuffer</name> = <name>input</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Processes the buffer as far as possible. Takes into account that
+         * appended data may make it possible to replace the end of the already
+         * received data, when the token is split over the "old" and the "new"
+         * part.
+         * @return true if some data has been made available in the
+         *         output buffer.
+         */</comment>
+        <function><type><name>boolean</name></type> <name>process</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>t</name> =<init> <expr><call><name>getToken</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>inputBuffer</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; <call><name><name>t</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>pos</name> =<init> <expr><call><name>replace</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>pos</name> = <call><name><name>Math</name>.<name>max</name></name><argument_list>(<argument><expr>(<call><name><name>inputBuffer</name>.<name>length</name></name><argument_list>()</argument_list></call> - <call><name><name>t</name>.<name>length</name></name><argument_list>()</argument_list></call>)</expr></argument>, <argument><expr><name>pos</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>outputBuffer</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>inputBuffer</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>pos</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>inputBuffer</name>.<name>delete</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>pos</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+            <return>return <expr>false</expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Processes the buffer to the end. Does not take into account that
+         * appended data may make it possible to replace the end of the already
+         * received data.
+         */</comment>
+        <function><type><name>void</name></type> <name>flush</name><parameter_list>()</parameter_list> <block>{
+            <expr_stmt><expr><call><name>replace</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>outputBuffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>inputBuffer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>inputBuffer</name>.<name>delete</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>inputBuffer</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Performs the replace operation.
+         * @return The position of the last character that was inserted as
+         *         replacement.
+         */</comment>
+        <function><type><specifier>private</specifier> <name>int</name></type> <name>replace</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>t</name> =<init> <expr><call><name>getToken</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>found</name> =<init> <expr><call><name><name>inputBuffer</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>t</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>pos</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>tokenLength</name> =<init> <expr><call><name><name>t</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>replaceValueLength</name> =<init> <expr><call><name><name>replaceValue</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><name>found</name> &gt;= 0</expr>)</condition> <block>{
+                <expr_stmt><expr><call><name><name>inputBuffer</name>.<name>replace</name></name><argument_list>(<argument><expr><name>found</name></expr></argument>, <argument><expr><name>found</name> + <name>tokenLength</name></expr></argument>, <argument><expr><name>replaceValue</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>pos</name> = <name>found</name> + <name>replaceValueLength</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>found</name> = <call><name><name>inputBuffer</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>t</name></expr></argument>, <argument><expr><name>pos</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr>++<name>replaceCount</name></expr>;</expr_stmt>
+            }</block></while>
+            <return>return <expr><name>pos</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Class reading a file in small chunks, and presenting these chunks in
+     * a StringBuffer. Compatible with the Replacefilter.
+     * @since 1.7
+     */</comment>
+    <class><specifier>private</specifier> class <name>FileInput</name> <comment type="block">/* JDK 5: implements Closeable */</comment> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>StringBuffer</name></type> <name>outputBuffer</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>InputStream</name></type> <name>is</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Reader</name></type> <name>reader</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>char</name><index>[]</index></type> <name>buffer</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUFF_SIZE</name> =<init> <expr>4096</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Constructs the input component. Opens the file for reading.
+         * @param source The file to read from.
+         * @throws IOException When the file cannot be read from.
+         */</comment>
+        <constructor><name>FileInput</name><parameter_list>(<param><decl><type><name>File</name></type> <name>source</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><name>outputBuffer</name> = new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>buffer</name> = new <name><name>char</name><index>[<expr><name>BUFF_SIZE</name></expr>]</index></name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>is</name> = new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>source</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>reader</name> = new <call><name>BufferedReader</name><argument_list>(<argument><expr><name>encoding</name> != <name>null</name> ? new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>is</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call> : new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <finally>finally <block>{
+                <if>if <condition>(<expr><name>reader</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>is</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></finally></try>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Retrieves the output buffer of this filter. The component guarantees
+         * that data is only appended to the end of this StringBuffer.
+         * @return The StringBuffer containing the output of this filter.
+         */</comment>
+        <function><type><name>StringBuffer</name></type> <name>getOutputBuffer</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>outputBuffer</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Reads some data from the file.
+         * @return true when the end of the file has not been reached.
+         * @throws IOException When the file cannot be read from.
+         */</comment>
+        <function><type><name>boolean</name></type> <name>readChunk</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>bufferLength</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>bufferLength</name> = <call><name><name>reader</name>.<name>read</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>bufferLength</name> &lt; 0</expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>outputBuffer</name>.<name>append</name></name><argument_list>(<argument><expr>new <call><name>String</name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>bufferLength</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>true</expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Closes the file.
+         * @throws IOException When the file cannot be closed.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>close</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name><name>is</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Component writing a file in chunks, taking the chunks from the
+     * Replacefilter.
+     * @since 1.7
+     */</comment>
+    <class><specifier>private</specifier> class <name>FileOutput</name> <comment type="block">/* JDK 5: implements Closeable */</comment> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>StringBuffer</name></type> <name>inputBuffer</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>OutputStream</name></type> <name>os</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Writer</name></type> <name>writer</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Constructs the output component. Opens the file for writing.
+         * @param out The file to read to.
+         * @throws IOException When the file cannot be read from.
+         */</comment>
+        <constructor><name>FileOutput</name><parameter_list>(<param><decl><type><name>File</name></type> <name>out</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><name>os</name> = new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>writer</name> = new <call><name>BufferedWriter</name><argument_list>(<argument><expr><name>encoding</name> != <name>null</name> ? new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr><name>os</name></expr></argument>, <argument><expr><name>encoding</name></expr></argument>)</argument_list></call> : new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr><name>os</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <finally>finally <block>{
+                <if>if <condition>(<expr><name>writer</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>os</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></finally></try>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Sets the input buffer for this component.
+         * The filter expects from the component providing the input that data
+         * is only added by that component to the end of this StringBuffer.
+         * This StringBuffer will be modified by this filter, and expects that
+         * another component will only append to this StringBuffer.
+         * @param input The input for this filter.
+         */</comment>
+        <function><type><name>void</name></type> <name>setInputBuffer</name><parameter_list>(<param><decl><type><name>StringBuffer</name></type> <name>input</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>inputBuffer</name> = <name>input</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Writes the buffer as far as possible.
+         * @return false to be inline with the Replacefilter.
+         * (Yes defining an interface crossed my mind, but would publish the
+         * internal behavior.)
+         * @throws IOException when the output cannot be written.
+         */</comment>
+        <function><type><name>boolean</name></type> <name>process</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name><name>writer</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>inputBuffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>inputBuffer</name>.<name>delete</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>inputBuffer</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>false</expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Processes the buffer to the end.
+         * @throws IOException when the output cannot be flushed.
+         */</comment>
+        <function><type><name>void</name></type> <name>flush</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name>process</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>writer</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Closes the file.
+         * @throws IOException When the file cannot be closed.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>close</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name><name>os</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Do the execution.
+     * @throws BuildException if we cant build
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <decl_stmt><decl><type><name>ArrayList</name></type> <name>savedFilters</name> =<init> <expr>(<name>ArrayList</name>) <call><name><name>replacefilters</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Properties</name></type> <name>savedProperties</name> =<init>
+            <expr><name>properties</name> == <name>null</name> ? <name>null</name> : (<name>Properties</name>) <call><name><name>properties</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>token</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// line separators in values and tokens are "\n"</comment>
+            <comment type="line">// in order to compare with the file contents, replace them</comment>
+            <comment type="line">// as needed</comment>
+            <decl_stmt><decl><type><name>StringBuffer</name></type> <name>val</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>value</name>.<name>getText</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>stringReplace</name><argument_list>(<argument><expr><name>val</name></expr></argument>, <argument><expr>"\r\n"</expr></argument>, <argument><expr>"\n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>stringReplace</name><argument_list>(<argument><expr><name>val</name></expr></argument>, <argument><expr>"\n"</expr></argument>, <argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>StringBuffer</name></type> <name>tok</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>token</name>.<name>getText</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>stringReplace</name><argument_list>(<argument><expr><name>tok</name></expr></argument>, <argument><expr>"\r\n"</expr></argument>, <argument><expr>"\n"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>stringReplace</name><argument_list>(<argument><expr><name>tok</name></expr></argument>, <argument><expr>"\n"</expr></argument>, <argument><expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>Replacefilter</name></type> <name>firstFilter</name> =<init> <expr><call><name>createPrimaryfilter</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>firstFilter</name>.<name>setToken</name></name><argument_list>(<argument><expr><call><name><name>tok</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>firstFilter</name>.<name>setValue</name></name><argument_list>(<argument><expr><call><name><name>val</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <try>try <block>{
+            <if>if <condition>(<expr><name>replaceFilterResource</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>Properties</name></type> <name>props</name> =<init> <expr><call><name>getProperties</name><argument_list>(<argument><expr><name>replaceFilterResource</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Iterator</name></type> <name>e</name> =<init> <expr><call><name><name>props</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <while>while <condition>(<expr><call><name><name>e</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>tok</name> =<init>  <expr><call><name><name>e</name>.<name>next</name></name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>Replacefilter</name></type> <name>replaceFilter</name> =<init> <expr><call><name>createReplacefilter</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>replaceFilter</name>.<name>setToken</name></name><argument_list>(<argument><expr><name>tok</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>replaceFilter</name>.<name>setValue</name></name><argument_list>(<argument><expr><call><name><name>props</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>tok</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></while>
+            }</block></then></if>
+
+            <expr_stmt><expr><call><name>validateAttributes</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>propertyResource</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>properties</name> = <call><name>getProperties</name><argument_list>(<argument><expr><name>propertyResource</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <expr_stmt><expr><call><name>validateReplacefilters</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>fileCount</name> = 0</expr>;</expr_stmt>
+            <expr_stmt><expr><name>replaceCount</name> = 0</expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>sourceFile</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>processFile</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>dir</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name><name>super</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><name>dir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>srcs</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>srcs</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>file</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>dir</name></expr></argument>, <argument><expr><name><name>srcs</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name>processFile</name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>resources</name> != <name>null</name></expr>)</condition><then> <block>{
+                <for>for (<init><decl><type><name>Resource</name></type> <name>r</name> :<range> <expr><name>resources</name></expr></range></decl></init>) <block>{
+                    <decl_stmt><decl><type><name>FileProvider</name></type> <name>fp</name> =<init>
+                    <expr><call><name><name>r</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name>processFile</name><argument_list>(<argument><expr><call><name><name>fp</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>summary</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Replaced " + <name>replaceCount</name> + " occurrences in "
+                    + <name>fileCount</name> + " files."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>failOnNoReplacements</name> &amp;&amp; <name>replaceCount</name> == 0</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"didn't replace anything"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><name>replacefilters</name> = <name>savedFilters</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>properties</name> = <name>savedProperties</name></expr>;</expr_stmt>
+        }</block></finally></try> <comment type="line">// end of finally</comment>
+
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Validate attributes provided for this task in .xml build file.
+     *
+     * @exception BuildException if any supplied attribute is invalid or any
+     * mandatory attribute is missing.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>validateAttributes</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>sourceFile</name> == <name>null</name> &amp;&amp; <name>dir</name> == <name>null</name> &amp;&amp; <name>resources</name> == <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>message</name> =<init> <expr>"Either the file or the dir attribute "
+                + "or nested resources must be specified"</expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>propertyResource</name> != <name>null</name> &amp;&amp; !<call><name><name>propertyResource</name>.<name>isExists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>message</name> =<init> <expr>"Property file " + <call><name><name>propertyResource</name>.<name>getName</name></name><argument_list>()</argument_list></call>
+                + " does not exist."</expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>token</name> == <name>null</name> &amp;&amp; <call><name><name>replacefilters</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>message</name> =<init> <expr>"Either token or a nested replacefilter "
+                + "must be specified"</expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>token</name> != <name>null</name> &amp;&amp; "".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>token</name>.<name>getText</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>message</name> =<init> <expr>"The token attribute must not be an empty string."</expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Validate nested elements.
+     *
+     * @exception BuildException if any supplied attribute is invalid or any
+     * mandatory attribute is missing.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>validateReplacefilters</name><parameter_list>()</parameter_list>
+            <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>replacefilters</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Replacefilter</name></type> <name>element</name> =<init>
+                <expr>(<name>Replacefilter</name>) <call><name><name>replacefilters</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>element</name>.<name>validate</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Load a properties file.
+     * @param propertyFile the file to load the properties from.
+     * @return loaded &lt;code&gt;Properties&lt;/code&gt; object.
+     * @throws BuildException if the file could not be found or read.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Properties</name></type> <name>getProperties</name><parameter_list>(<param><decl><type><name>File</name></type> <name>propertyFile</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <return>return <expr><call><name>getProperties</name><argument_list>(<argument><expr>new <call><name>FileResource</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>propertyFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Load a properties resource.
+     * @param propertyResource the resource to load the properties from.
+     * @return loaded &lt;code&gt;Properties&lt;/code&gt; object.
+     * @throws BuildException if the resource could not be found or read.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Properties</name></type> <name>getProperties</name><parameter_list>(<param><decl><type><name>Resource</name></type> <name>propertyResource</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Properties</name></type> <name>props</name> =<init> <expr>new <call><name>Properties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>InputStream</name></type> <name>in</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>in</name> = <call><name><name>propertyResource</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>props</name>.<name>load</name></name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>message</name> =<init> <expr>"Property resource (" + <call><name><name>propertyResource</name>.<name>getName</name></name><argument_list>()</argument_list></call>
+                + ") cannot be loaded."</expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>message</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+
+        <return>return <expr><name>props</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Perform the replacement on the given file.
+     *
+     * The replacement is performed on a temporary file which then
+     * replaces the original file.
+     *
+     * @param src the source &lt;code&gt;File&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>processFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>src</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr>!<call><name><name>src</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Replace: source file " + <call><name><name>src</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                                     + " doesn't exist"</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>repCountStart</name> =<init> <expr><name>replaceCount</name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>logFilterChain</name><argument_list>(<argument><expr><call><name><name>src</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <try>try <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>temp</name> =<init> <expr><call><name><name>FILE_UTILS</name>.<name>createTempFile</name></name><argument_list>(<argument><expr>"rep"</expr></argument>, <argument><expr>".tmp"</expr></argument>,
+                    <argument><expr><call><name><name>src</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr>false</expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <decl_stmt><decl><type><name>FileInput</name></type> <name>in</name> =<init> <expr>new <call><name>FileInput</name><argument_list>(<argument><expr><name>src</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <try>try <block>{
+                    <decl_stmt><decl><type><name>FileOutput</name></type> <name>out</name> =<init> <expr>new <call><name>FileOutput</name><argument_list>(<argument><expr><name>temp</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name><name>out</name>.<name>setInputBuffer</name></name><argument_list>(<argument><expr><call><name>buildFilterChain</name><argument_list>(<argument><expr><call><name><name>in</name>.<name>getOutputBuffer</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                        <while>while <condition>(<expr><call><name><name>in</name>.<name>readChunk</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                            <if>if <condition>(<expr><call><name>processFilterChain</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><call><name><name>out</name>.<name>process</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                            }</block></then></if>
+                        }</block></while>
+
+                        <expr_stmt><expr><call><name>flushFilterChain</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                        <expr_stmt><expr><call><name><name>out</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block> <finally>finally <block>{
+                        <expr_stmt><expr><call><name><name>out</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></finally></try>
+                }</block> <finally>finally <block>{
+                    <expr_stmt><expr><call><name><name>in</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></finally></try>
+                <decl_stmt><decl><type><name>boolean</name></type> <name>changes</name> =<init> <expr>(<name>replaceCount</name> != <name>repCountStart</name>)</expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>changes</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>fileCount</name>++</expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>long</name></type> <name>origLastModified</name> =<init> <expr><call><name><name>src</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>FILE_UTILS</name>.<name>rename</name></name><argument_list>(<argument><expr><name>temp</name></expr></argument>, <argument><expr><name>src</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <if>if <condition>(<expr><name>preserveLastModified</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>FILE_UTILS</name>.<name>setFileLastModified</name></name><argument_list>(<argument><expr><name>src</name></expr></argument>, <argument><expr><name>origLastModified</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then></if>
+            }</block> <finally>finally <block>{
+                <if>if <condition>(<expr><call><name><name>temp</name>.<name>isFile</name></name><argument_list>()</argument_list></call> &amp;&amp; !<call><name><name>temp</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>temp</name>.<name>deleteOnExit</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></finally></try>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"IOException in " + <name>src</name> + " - "
+                    + <call><name><name>ioe</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call> + ":"
+                    + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>ioe</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Flushes all filters.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>flushFilterChain</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>replacefilters</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Replacefilter</name></type> <name>filter</name> =<init> <expr>(<name>Replacefilter</name>) <call><name><name>replacefilters</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>filter</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Performs the normal processing of the filters.
+     * @return true if the filter chain produced new output.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>processFilterChain</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>replacefilters</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Replacefilter</name></type> <name>filter</name> =<init> <expr>(<name>Replacefilter</name>) <call><name><name>replacefilters</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<call><name><name>filter</name>.<name>process</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates the chain of filters to operate.
+     * @param inputBuffer &lt;code&gt;StringBuffer&lt;/code&gt; containing the input for the
+     *                    first filter.
+     * @return &lt;code&gt;StringBuffer&lt;/code&gt; containing the output of the last filter.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>StringBuffer</name></type> <name>buildFilterChain</name><parameter_list>(<param><decl><type><name>StringBuffer</name></type> <name>inputBuffer</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buf</name> =<init> <expr><name>inputBuffer</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>replacefilters</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Replacefilter</name></type> <name>filter</name> =<init> <expr>(<name>Replacefilter</name>) <call><name><name>replacefilters</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>filter</name>.<name>setInputBuffer</name></name><argument_list>(<argument><expr><name>buf</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>buf</name> = <call><name><name>filter</name>.<name>getOutputBuffer</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>buf</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Logs the chain of filters to operate on the file.
+     * @param filename &lt;code&gt;String&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>logFilterChain</name><parameter_list>(<param><decl><type><name>String</name></type> <name>filename</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>replacefilters</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Replacefilter</name></type> <name>filter</name> =<init> <expr>(<name>Replacefilter</name>) <call><name><name>replacefilters</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Replacing in " + <name>filename</name> + ": " + <call><name><name>filter</name>.<name>getToken</name></name><argument_list>()</argument_list></call>
+                    + " --&gt; " + <call><name><name>filter</name>.<name>getReplaceValue</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+    <comment type="javadoc">/**
+     * Set the source file; required unless &lt;code&gt;dir&lt;/code&gt; is set.
+     * @param file source &lt;code&gt;File&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>sourceFile</name></name> = <name>file</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicates whether a summary of the replace operation should be
+     * produced, detailing how many token occurrences and files were
+     * processed; optional, default=&lt;code&gt;false&lt;/code&gt;.
+     *
+     * @param summary &lt;code&gt;boolean&lt;/code&gt; whether a summary of the
+     *                replace operation should be logged.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSummary</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>summary</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>summary</name></name> = <name>summary</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Sets the name of a property file containing filters; optional.
+     * Each property will be treated as a replacefilter where token is the name
+     * of the property and value is the value of the property.
+     * @param replaceFilterFile &lt;code&gt;File&lt;/code&gt; to load.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setReplaceFilterFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>replaceFilterFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setReplaceFilterResource</name><argument_list>(<argument><expr>new <call><name>FileResource</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>,
+                                                  <argument><expr><name>replaceFilterFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the name of a resource containing filters; optional.
+     * Each property will be treated as a replacefilter where token is the name
+     * of the property and value is the value of the property.
+     * @param replaceFilter &lt;code&gt;Resource&lt;/code&gt; to load.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setReplaceFilterResource</name><parameter_list>(<param><decl><type><name>Resource</name></type> <name>replaceFilter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>replaceFilterResource</name></name> = <name>replaceFilter</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The base directory to use when replacing a token in multiple files;
+     * required if &lt;code&gt;file&lt;/code&gt; is not defined.
+     * @param dir &lt;code&gt;File&lt;/code&gt; representing the base directory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>dir</name></name> = <name>dir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the string token to replace; required unless a nested
+     * &lt;code&gt;replacetoken&lt;/code&gt; element or the
+     * &lt;code&gt;replacefilterresource&lt;/code&gt; attribute is used.
+     * @param token token &lt;code&gt;String&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setToken</name><parameter_list>(<param><decl><type><name>String</name></type> <name>token</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createReplaceToken</name><argument_list>()</argument_list></call>.<call><name>addText</name><argument_list>(<argument><expr><name>token</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the string value to use as token replacement;
+     * optional, default is the empty string "".
+     * @param value replacement value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setValue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createReplaceValue</name><argument_list>()</argument_list></call>.<call><name>addText</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the file encoding to use on the files read and written by the task;
+     * optional, defaults to default JVM encoding.
+     *
+     * @param encoding the encoding to use on the files.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEncoding</name><parameter_list>(<param><decl><type><name>String</name></type> <name>encoding</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>encoding</name></name> = <name>encoding</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a token to filter as the text of a nested element.
+     * @return nested token &lt;code&gt;NestedString&lt;/code&gt; to configure.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>NestedString</name></type> <name>createReplaceToken</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>token</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>token</name> = new <call><name>NestedString</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>token</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a string to replace the token as the text of a nested element.
+     * @return replacement value &lt;code&gt;NestedString&lt;/code&gt; to configure.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>NestedString</name></type> <name>createReplaceValue</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>value</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The name of a property file from which properties specified using nested
+     * &lt;code&gt;&amp;lt;replacefilter&amp;gt;&lt;/code&gt; elements are drawn; required only if
+     * the &lt;i&gt;property&lt;/i&gt; attribute of &lt;code&gt;&amp;lt;replacefilter&amp;gt;&lt;/code&gt; is used.
+     * @param propertyFile &lt;code&gt;File&lt;/code&gt; to load.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPropertyFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>propertyFile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setPropertyResource</name><argument_list>(<argument><expr>new <call><name>FileResource</name><argument_list>(<argument><expr><name>propertyFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A resource from which properties specified using nested
+     * &lt;code&gt;&amp;lt;replacefilter&amp;gt;&lt;/code&gt; elements are drawn; required
+     * only if the &lt;i&gt;property&lt;/i&gt; attribute of
+     * &lt;code&gt;&amp;lt;replacefilter&amp;gt;&lt;/code&gt; is used.
+     * @param propertyResource &lt;code&gt;Resource&lt;/code&gt; to load.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPropertyResource</name><parameter_list>(<param><decl><type><name>Resource</name></type> <name>propertyResource</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>propertyResource</name></name> = <name>propertyResource</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a nested &amp;lt;replacefilter&amp;gt; element.
+     * @return a nested &lt;code&gt;Replacefilter&lt;/code&gt; object to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Replacefilter</name></type> <name>createReplacefilter</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Replacefilter</name></type> <name>filter</name> =<init> <expr>new <call><name>Replacefilter</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>replacefilters</name>.<name>add</name></name><argument_list>(<argument><expr><name>filter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>filter</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Support arbitrary file system based resource collections.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfigured</name><parameter_list>(<param><decl><type><name>ResourceCollection</name></type> <name>rc</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr>!<call><name><name>rc</name>.<name>isFilesystemOnly</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"only filesystem resources are supported"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>resources</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>resources</name> = new <call><name>Union</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>resources</name>.<name>add</name></name><argument_list>(<argument><expr><name>rc</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether the file timestamp shall be preserved even if the file
+     * is modified.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPreserveLastModified</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>preserveLastModified</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether the build should fail if nothing has been replaced.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFailOnNoReplacements</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>failOnNoReplacements</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds the token and value as first &amp;lt;replacefilter&amp;gt; element.
+     * The token and value are always processed first.
+     * @return a nested &lt;code&gt;Replacefilter&lt;/code&gt; object to be configured.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Replacefilter</name></type> <name>createPrimaryfilter</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Replacefilter</name></type> <name>filter</name> =<init> <expr>new <call><name>Replacefilter</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>replacefilters</name>.<name>add</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>filter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>filter</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Replace occurrences of str1 in StringBuffer str with str2.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>stringReplace</name><parameter_list>(<param><decl><type><name>StringBuffer</name></type> <name>str</name></decl></param>, <param><decl><type><name>String</name></type> <name>str1</name></decl></param>, <param><decl><type><name>String</name></type> <name>str2</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>found</name> =<init> <expr><call><name><name>str</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>str1</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>str1Length</name> =<init> <expr><call><name><name>str1</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>str2Length</name> =<init> <expr><call><name><name>str2</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><name>found</name> &gt;= 0</expr>)</condition> <block>{
+            <expr_stmt><expr><call><name><name>str</name>.<name>replace</name></name><argument_list>(<argument><expr><name>found</name></expr></argument>, <argument><expr><name>found</name> + <name>str1Length</name></expr></argument>, <argument><expr><name>str2</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>found</name> = <call><name><name>str</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>str1</name></expr></argument>, <argument><expr><name>found</name> + <name>str2Length</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+    }</block></function>
+
+}</block></class>
+</unit>

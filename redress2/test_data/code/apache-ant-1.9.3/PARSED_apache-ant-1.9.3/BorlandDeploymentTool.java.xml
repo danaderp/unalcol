@@ -1,0 +1,560 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ejb\BorlandDeploymentTool.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ejb</name></name>;</package>
+
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStreamReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>ExecTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Execute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>ExecuteStreamHandler</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Java</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Commandline</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+
+
+<comment type="javadoc">/**
+ * BorlandDeploymentTool is dedicated to the Borland Application Server 4.5 and 4.5.1
+ * This task generates and compiles the stubs and skeletons for all ejb described into the
+ * Deployment Descriptor, builds the jar file including the support files and verify
+ * whether the produced jar is valid or not.
+ * The supported options are:
+ * &lt;ul&gt;
+ * &lt;li&gt;debug  (boolean)    : turn on the debug mode for generation of
+ *                           stubs and skeletons (default:false)&lt;/li&gt;
+ * &lt;li&gt;verify (boolean)    : turn on the verification at the end of the jar
+ *                           production  (default:true) &lt;/li&gt;
+ * &lt;li&gt;verifyargs (String) : add optional argument to verify command
+ *                           (see vbj com.inprise.ejb.util.Verify)&lt;/li&gt;
+ * &lt;li&gt;basdtd (String)     : location of the BAS DTD &lt;/li&gt;
+ * &lt;li&gt;generateclient (boolean) : turn on the client jar file generation &lt;/li&gt;
+ * &lt;li&gt;version (int)       : tell what is the Borland appserver version 4 or 5 &lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ *&lt;PRE&gt;
+ *
+ *      &amp;lt;ejbjar srcdir=&amp;quot;${build.classes}&amp;quot;
+ *               basejarname=&amp;quot;vsmp&amp;quot;
+ *               descriptordir=&amp;quot;${rsc.dir}/hrmanager&amp;quot;&amp;gt;
+ *        &amp;lt;borland destdir=&amp;quot;tstlib&amp;quot;&amp;gt;
+ *          &amp;lt;classpath refid=&amp;quot;classpath&amp;quot; /&amp;gt;
+ *        &amp;lt;/borland&amp;gt;
+ *        &amp;lt;include name=&amp;quot;**\ejb-jar.xml&amp;quot;/&amp;gt;
+ *        &amp;lt;support dir=&amp;quot;${build.classes}&amp;quot;&amp;gt;
+ *          &amp;lt;include name=&amp;quot;demo\smp\*.class&amp;quot;/&amp;gt;
+ *          &amp;lt;include name=&amp;quot;demo\helper\*.class&amp;quot;/&amp;gt;
+ *         &amp;lt;/support&amp;gt;
+ *     &amp;lt;/ejbjar&amp;gt;
+ *&lt;/PRE&gt;
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>BorlandDeploymentTool</name> <super><extends>extends <name>GenericDeploymentTool</name></extends>
+                                   <implements>implements <name>ExecuteStreamHandler</name></implements></super> <block>{
+    <comment type="javadoc">/** Borland 1.1 ejb id */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>PUBLICID_BORLAND_EJB</name>
+    =<init> <expr>"-//Inprise Corporation//DTD Enterprise JavaBeans 1.1//EN"</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_BAS45_EJB11_DTD_LOCATION</name>
+    =<init> <expr>"/com/inprise/j2ee/xml/dtds/ejb-jar.dtd"</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_BAS_DTD_LOCATION</name>
+    =<init> <expr>"/com/inprise/j2ee/xml/dtds/ejb-inprise.dtd"</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>BAS_DD</name> =<init> <expr>"ejb-inprise.xml"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>BES_DD</name> =<init> <expr>"ejb-borland.xml"</expr></init></decl>;</decl_stmt>
+
+
+    <comment type="javadoc">/** Java2iiop executable **/</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>JAVA2IIOP</name> =<init> <expr>"java2iiop"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Verify class */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>VERIFY</name> =<init> <expr>"com.inprise.ejb.util.Verify"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Instance variable that stores the suffix for the borland jarfile. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>jarSuffix</name> =<init> <expr>"-ejb.jar"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Instance variable that stores the location of the borland DTD file. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>borlandDTD</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Instance variable that determines whether the debug mode is on */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>java2iiopdebug</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** store additional param for java2iiop command used to build EJB Stubs */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>java2iioparams</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Instance variable that determines whether the client jar file is generated */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>generateclient</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Borland Enterprise Server = version 5 */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>int</name></type>    <name>BES</name>       =<init> <expr>5</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Borland Application Server or Inprise Application Server  = version 4 */</comment>
+    <decl_stmt><decl><type><specifier>static</specifier> <specifier>final</specifier> <name>int</name></type>    <name>BAS</name>       =<init> <expr>4</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** borland appserver version 4 or 5 */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>version</name> =<init> <expr><name>BAS</name></expr></init></decl>;</decl_stmt>
+
+
+    <comment type="javadoc">/**
+     * Instance variable that determines whether it is necessary to verify the
+     * produced jar
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>verify</name>     =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>  <name>verifyArgs</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Hashtable</name></type> <name>genfiles</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * set the debug mode for java2iiop (default false)
+     * @param debug the setting to use.
+     **/</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDebug</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>debug</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>java2iiopdebug</name></name> = <name>debug</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * set the verify  mode for the produced jar (default true)
+     * @param verify the setting to use.
+     **/</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVerify</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>verify</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>verify</name></name> = <name>verify</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Setter used to store the suffix for the generated borland jar file.
+     * @param inString the string to use as the suffix.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSuffix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>jarSuffix</name></name> = <name>inString</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * sets some additional args to send to verify command
+     * @param args additional command line parameters
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVerifyArgs</name><parameter_list>(<param><decl><type><name>String</name></type> <name>args</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>verifyArgs</name></name> = <name>args</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Setter used to store the location of the borland DTD. This can be a file on the system
+     * or a resource on the classpath.
+     * @param inString the string to use as the DTD location.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBASdtd</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>borlandDTD</name></name> = <name>inString</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * setter used to store whether the task will include the generate client task.
+     * (see : BorlandGenerateClient task)
+     * @param b if true generate the client task.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setGenerateclient</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>generateclient</name></name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * setter used to store the borland appserver version [4 or 5]
+     * @param version app server version 4 or 5
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVersion</name><parameter_list>(<param><decl><type><name>int</name></type> <name>version</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>version</name></name> = <name>version</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If filled, the params are added to the java2iiop command.
+     * (ex: -no_warn_missing_define)
+     * @param params additional params for java2iiop
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setJava2iiopParams</name><parameter_list>(<param><decl><type><name>String</name></type> <name>params</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>java2iioparams</name></name> = <name>params</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Get the borland descriptor handler.
+     * @param srcDir the source directory.
+     * @return the descriptor.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>DescriptorHandler</name></type> <name>getBorlandDescriptorHandler</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>File</name></type> <name>srcDir</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>DescriptorHandler</name></type> <name>handler</name> =<init>
+            <expr>new <class><super><name>DescriptorHandler</name></super><argument_list>(<argument><expr><call><name>getTask</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>srcDir</name></expr></argument>)</argument_list> <block>{
+                    <function><type><specifier>protected</specifier> <name>void</name></type> <name>processElement</name><parameter_list>()</parameter_list> <block>{
+                        <if>if <condition>(<expr><call><name><name>currentElement</name>.<name>equals</name></name><argument_list>(<argument><expr>"type-storage"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <comment type="line">// Get the filename of vendor specific descriptor</comment>
+                            <decl_stmt><decl><type><name>String</name></type> <name>fileNameWithMETA</name> =<init> <expr><name>currentText</name></expr></init></decl>;</decl_stmt>
+                            <comment type="line">//trim the META_INF\ off of the file name</comment>
+                            <decl_stmt><decl><type><name>String</name></type> <name>fileName</name>
+                                =<init> <expr><call><name><name>fileNameWithMETA</name>.<name>substring</name></name><argument_list>(<argument><expr><call><name><name>META_DIR</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                    <argument><expr><call><name><name>fileNameWithMETA</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                            <decl_stmt><decl><type><name>File</name></type> <name>descriptorFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>, <argument><expr><name>fileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                            <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>fileNameWithMETA</name></expr></argument>, <argument><expr><name>descriptorFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block></function>
+                }</block></class></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>handler</name>.<name>registerDTD</name></name><argument_list>(<argument><expr><name>PUBLICID_BORLAND_EJB</name></expr></argument>,
+                            <argument><expr><name>borlandDTD</name> == <name>null</name> ? <name>DEFAULT_BAS_DTD_LOCATION</name> : <name>borlandDTD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<call><name><name>dtdLocations</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name><name>EjbJar</name>.<name>DTDLocation</name></name></type> <name>dtdLocation</name> =<init> <expr>(<name><name>EjbJar</name>.<name>DTDLocation</name></name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>handler</name>.<name>registerDTD</name></name><argument_list>(<argument><expr><call><name><name>dtdLocation</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>dtdLocation</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>handler</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add any vendor specific files which should be included in the
+     * EJB Jar.
+     * @param ejbFiles the map to add the files to.
+     * @param ddPrefix the prefix to use.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addVendorFiles</name><parameter_list>(<param><decl><type><name>Hashtable</name></type> <name>ejbFiles</name></decl></param>, <param><decl><type><name>String</name></type> <name>ddPrefix</name></decl></param>)</parameter_list> <block>{
+
+        <comment type="line">//choose the right vendor DD</comment>
+        <if>if <condition>(<expr>!(<name>version</name> == <name>BES</name> || <name>version</name> == <name>BAS</name>)</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"version " + <name>version</name> + " is not supported"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>dd</name> =<init> <expr>(<name>version</name> == <name>BES</name> ? <name>BES_DD</name> : <name>BAS_DD</name>)</expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"vendor file : " + <name>ddPrefix</name> + <name>dd</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>File</name></type> <name>borlandDD</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<name>descriptorDir</name></expr></argument>, <argument><expr><name>ddPrefix</name> + <name>dd</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>borlandDD</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Borland specific file found " + <name>borlandDD</name></expr></argument>,  <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>META_DIR</name> + <name>dd</name></expr></argument> ,  <argument><expr><name>borlandDD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Unable to locate borland deployment descriptor. "
+                + "It was expected to be in "
+                + <call><name><name>borlandDD</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the vendor specific name of the Jar that will be output. The modification date
+     * of this jar will be checked against the dependent bean classes.
+     */</comment>
+    <function><type><name>File</name></type> <name>getVendorOutputJarFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>baseName</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>getDestDir</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>baseName</name> +  <name>jarSuffix</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Verify the produced jar file by invoking the Borland verify tool
+     * @param sourceJar java.io.File representing the produced jar file
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>verifyBorlandJar</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceJar</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>version</name> == <name>BAS</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>verifyBorlandJarV4</name><argument_list>(<argument><expr><name>sourceJar</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>version</name> == <name>BES</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>verifyBorlandJarV5</name><argument_list>(<argument><expr><name>sourceJar</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"verify jar skipped because the version is invalid ["
+            + <name>version</name> + "]"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Verify the produced jar file by invoking the Borland iastool tool
+     * @param sourceJar java.io.File representing the produced jar file
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>verifyBorlandJarV5</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceJar</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"verify BES " + <name>sourceJar</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>ExecTask</name></type> <name>execTask</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>execTask</name> = new <call><name>ExecTask</name><argument_list>(<argument><expr><call><name>getTask</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>execTask</name>.<name>setDir</name></name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr>"."</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>execTask</name>.<name>setExecutable</name></name><argument_list>(<argument><expr>"iastool"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//classpath</comment>
+            <if>if <condition>(<expr><call><name>getCombinedClasspath</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then>  <block>{
+                <expr_stmt><expr><call><name><name>execTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-VBJclasspath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>execTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name>getCombinedClasspath</name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>java2iiopdebug</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>execTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-debug"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>execTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-verify"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>execTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-src"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// ejb jar file to verify</comment>
+            <expr_stmt><expr><call><name><name>execTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name><name>sourceJar</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Calling iastool"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>execTask</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// Have to catch this because of the semantics of calling main()</comment>
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Exception while calling generateclient Details: "
+                + <call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Verify the produced jar file by invoking the Borland verify tool
+     * @param sourceJar java.io.File representing the produced jar file
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>verifyBorlandJarV4</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceJar</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Java</name></name></type> <name>javaTask</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"verify BAS " + <name>sourceJar</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <try>try  <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>args</name> =<init> <expr><name>verifyArgs</name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>args</name> += " " + <call><name><name>sourceJar</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><name>javaTask</name> = new <call><name>Java</name><argument_list>(<argument><expr><call><name>getTask</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>javaTask</name>.<name>setTaskName</name></name><argument_list>(<argument><expr>"verify"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>javaTask</name>.<name>setClassname</name></name><argument_list>(<argument><expr><name>VERIFY</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name><name>Commandline</name>.<name>Argument</name></name></type> <name>arguments</name> =<init> <expr><call><name><name>javaTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>arguments</name>.<name>setLine</name></name><argument_list>(<argument><expr><name>args</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>Path</name></type> <name>classpath</name> =<init> <expr><call><name>getCombinedClasspath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then>  <block>{
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>setClasspath</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>setFork</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Calling " + <name>VERIFY</name> + " for " + <call><name><name>sourceJar</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>javaTask</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//TO DO : delete the file if it is not a valid file.</comment>
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Exception while calling " + <name>VERIFY</name> + " Details: "
+                + <call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Generate the client jar corresponding to the jar file passed as parameter
+     * the method uses the BorlandGenerateClient task.
+     * @param sourceJar java.io.File representing the produced jar file
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>generateClient</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceJar</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>addTaskDefinition</name><argument_list>(<argument><expr>"internal_bas_generateclient"</expr></argument>,
+            <argument><expr><name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ejb</name>.<name>BorlandGenerateClient</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ejb</name>.<name>BorlandGenerateClient</name></name></type> <name>gentask</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"generate client for " + <name>sourceJar</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Project</name></type> <name>project</name> =<init> <expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getProject</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>gentask</name>
+                = (<name>BorlandGenerateClient</name>) <call><name><name>project</name>.<name>createTask</name></name><argument_list>(<argument><expr>"internal_bas_generateclient"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>gentask</name>.<name>setEjbjar</name></name><argument_list>(<argument><expr><name>sourceJar</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>gentask</name>.<name>setDebug</name></name><argument_list>(<argument><expr><name>java2iiopdebug</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>Path</name></type> <name>classpath</name> =<init> <expr><call><name>getCombinedClasspath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>gentask</name>.<name>setClasspath</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>gentask</name>.<name>setVersion</name></name><argument_list>(<argument><expr><name>version</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>gentask</name>.<name>setTaskName</name></name><argument_list>(<argument><expr>"generate client"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>gentask</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//TO DO : delete the file if it is not a valid file.</comment>
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Exception while calling " + <name>VERIFY</name> + " Details: "
+                + <call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Generate stubs &amp; skeleton for each home found into the DD
+     * Add all the generate class file into the ejb files
+     * @param ithomes : iterator on home class
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>buildBorlandStubs</name><parameter_list>(<param><decl><type><name>Iterator</name></type> <name>ithomes</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Execute</name></type> <name>execTask</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><name>execTask</name> = new <call><name>Execute</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>Project</name></type> <name>project</name> =<init> <expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getProject</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>execTask</name>.<name>setAntRun</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>execTask</name>.<name>setWorkingDirectory</name></name><argument_list>(<argument><expr><call><name><name>project</name>.<name>getBaseDir</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>Commandline</name></type> <name>commandline</name> =<init> <expr>new <call><name>Commandline</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>commandline</name>.<name>setExecutable</name></name><argument_list>(<argument><expr><name>JAVA2IIOP</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">//debug ?</comment>
+        <if>if <condition>(<expr><name>java2iiopdebug</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-VBJdebug"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">//set the classpath</comment>
+        <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-VBJclasspath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setPath</name><argument_list>(<argument><expr><call><name>getCombinedClasspath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">//list file</comment>
+        <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-list_files"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">//no TIE classes</comment>
+        <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-no_tie"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>java2iioparams</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"additional  " + <name>java2iioparams</name> + " to java2iiop "</expr></argument>, <argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setLine</name><argument_list>(<argument><expr><name>java2iioparams</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+
+        <comment type="line">//root dir</comment>
+        <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-root_dir"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<call><name><name>srcDir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">//compiling order</comment>
+        <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-compile"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <comment type="line">//add the home class</comment>
+        <while>while <condition>(<expr><call><name><name>ithomes</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <expr_stmt><expr><call><name><name>commandline</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name><name>ithomes</name>.<name>next</name></name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+
+        <try>try <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Calling java2iiop"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>commandline</name>.<name>describeCommand</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>execTask</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><call><name><name>commandline</name>.<name>getCommandline</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>result</name> =<init> <expr><call><name><name>execTask</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>Execute</name>.<name>isFailure</name></name><argument_list>(<argument><expr><name>result</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed executing java2iiop (ret code is "
+                    + <name>result</name> + ")"</expr></init></decl>;</decl_stmt>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name><name>java</name>.<name>io</name>.<name>IOException</name></name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"java2iiop exception :" + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Method used to encapsulate the writing of the JAR file. Iterates over the
+     * filenames/java.io.Files in the Hashtable stored on the instance variable
+     * ejbFiles.
+     * @param baseName the base name.
+     * @param jarFile  the jar file to write to.
+     * @param files    the files to write to the jar.
+     * @param publicId the id to use.
+     * @throws BuildException if there is an error.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>writeJar</name><parameter_list>(<param><decl><type><name>String</name></type> <name>baseName</name></decl></param>, <param><decl><type><name>File</name></type> <name>jarFile</name></decl></param>, <param><decl><type><name>Hashtable</name></type> <name>files</name></decl></param>, <param><decl><type><name>String</name></type> <name>publicId</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="line">//build the home classes list.</comment>
+        <decl_stmt><decl><type><name>Vector</name></type> <name>homes</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Iterator</name></type> <name>it</name> =<init> <expr><call><name><name>files</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>it</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>clazz</name> =<init> <expr>(<name>String</name>) <call><name><name>it</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>clazz</name>.<name>endsWith</name></name><argument_list>(<argument><expr>"Home.class"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">//remove .class extension</comment>
+                <decl_stmt><decl><type><name>String</name></type> <name>home</name> =<init> <expr><call><name>toClass</name><argument_list>(<argument><expr><name>clazz</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>homes</name>.<name>add</name></name><argument_list>(<argument><expr><name>home</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>" Home " + <name>home</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></while>
+
+        <expr_stmt><expr><call><name>buildBorlandStubs</name><argument_list>(<argument><expr><call><name><name>homes</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//add the gen files to the collection</comment>
+        <expr_stmt><expr><call><name><name>files</name>.<name>putAll</name></name><argument_list>(<argument><expr><name>genfiles</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>super</name>.<name>writeJar</name></name><argument_list>(<argument><expr><name>baseName</name></expr></argument>, <argument><expr><name>jarFile</name></expr></argument>, <argument><expr><name>files</name></expr></argument>, <argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>verify</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>verifyBorlandJar</name><argument_list>(<argument><expr><name>jarFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>generateclient</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>generateClient</name><argument_list>(<argument><expr><name>jarFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>genfiles</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * convert a class file name : A/B/C/toto.class
+     * into    a class name: A.B.C.toto
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>toClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>filename</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">//remove the .class</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>classname</name> =<init> <expr><call><name><name>filename</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>filename</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>".class"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>classname</name> = <call><name><name>classname</name>.<name>replace</name></name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr>'.'</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>classname</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * convert a file name : A/B/C/toto.java
+     * into    a class name: A/B/C/toto.class
+     */</comment>
+    <function><type><specifier>private</specifier>  <name>String</name></type> <name>toClassFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>filename</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">//remove the .class</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>classfile</name> =<init> <expr><call><name><name>filename</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>filename</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>".java"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>classfile</name> = <name>classfile</name> + ".class"</expr>;</expr_stmt>
+        <return>return <expr><name>classfile</name></expr>;</return>
+    }</block></function>
+
+    <comment type="line">// implementation of org.apache.tools.ant.taskdefs.ExecuteStreamHandler interface</comment>
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>start</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws>  <block>{ }</block></function>
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>stop</name><parameter_list>()</parameter_list>  <block>{  }</block></function>
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProcessInputStream</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>param1</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws>   <block>{ }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the output stream of the process.
+     * @param is the input stream.
+     * @throws IOException if there is an error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProcessOutputStream</name><parameter_list>(<param><decl><type><name>InputStream</name></type> <name>is</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>BufferedReader</name></type> <name>reader</name> =<init> <expr>new <call><name>BufferedReader</name><argument_list>(<argument><expr>new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>javafile</name></decl>;</decl_stmt>
+            <while>while <condition>(<expr>(<name>javafile</name> = <call><name><name>reader</name>.<name>readLine</name></name><argument_list>()</argument_list></call>) != <name>null</name></expr>)</condition> <block>{
+                <if>if <condition>(<expr><call><name><name>javafile</name>.<name>endsWith</name></name><argument_list>(<argument><expr>".java"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>classfile</name> =<init> <expr><call><name>toClassFile</name><argument_list>(<argument><expr><name>javafile</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr><call><name><name>classfile</name>.<name>substring</name></name><argument_list>(
+                        <argument><expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<call><name><name>srcDir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> + 1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>genfiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>classfile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></while>
+            <expr_stmt><expr><call><name><name>reader</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Exception while parsing  java2iiop output. Details: " + <call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the error stream of the process.
+     * @param is the input stream.
+     * @throws IOException if there is an error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProcessErrorStream</name><parameter_list>(<param><decl><type><name>InputStream</name></type> <name>is</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>BufferedReader</name></type> <name>reader</name> =<init> <expr>new <call><name>BufferedReader</name><argument_list>(<argument><expr>new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>s</name> =<init> <expr><call><name><name>reader</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>s</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"[java2iiop] " + <name>s</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+}</block></class>
+
+</unit>

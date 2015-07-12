@@ -1,0 +1,676 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\pvcs\Pvcs.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>pvcs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileNotFoundException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>text</name>.<name>MessageFormat</name></name>;</import>
+<import>import <name><name>java</name>.<name>text</name>.<name>ParseException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Random</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Execute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>ExecuteStreamHandler</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>LogOutputStream</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>LogStreamHandler</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>PumpStreamHandler</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Commandline</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ *
+ * Extracts the latest edition of the source code from a PVCS repository.
+ * PVCS is a version control system
+ * developed by &lt;a href="http://www.merant.com/products/pvcs"&gt;Merant&lt;/a&gt;.
+ * &lt;br&gt;
+ * Before using this tag, the user running ant must have access to the commands
+ * of PVCS (get and pcli) and must have access to the repository. Note that the way to specify
+ * the repository is platform dependent so use property to specify location of repository.
+ * &lt;br&gt;
+ * This version has been tested agains PVCS version 6.5 and 6.6 under Windows and Solaris.
+
+ *
+ * &lt;b&gt;19-04-2001&lt;/b&gt; &lt;p&gt;The task now has a more robust
+ * parser. It allows for platform independant file paths
+ * and supports file names with &lt;i&gt;()&lt;/i&gt;. Thanks to Erik Husby for
+ * bringing the bug to my attention.
+ *
+ * &lt;b&gt;27-04-2001&lt;/b&gt; &lt;p&gt;UNC paths are now handled properly.
+ * Fix provided by Don Jeffery. He also added an &lt;i&gt;UpdateOnly&lt;/i&gt; flag
+ * that, when true, conditions the PVCS get using the -U option to only
+ * update those files that have a modification time (in PVCS) that is newer
+ * than the existing workfile.
+ *
+ * &lt;b&gt;25-10-2002&lt;/b&gt; &lt;p&gt;Added a revision attribute that currently is a
+ * synonym for label, but in a future release the behavior of the label
+ * attribute will change to use the -v option of GET.  See bug #13847 for
+ * discussion.
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>Pvcs</name> <super><extends>extends <name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></extends></super> <block>{
+    <comment type="line">// CheckStyle - magic numbers</comment>
+    <comment type="line">// checking for "X:\ 0=dquote,1=letter,2=:,3=\</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>POS_1</name> =<init> <expr>1</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>POS_2</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>POS_3</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>pvcsbin</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>repository</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>pvcsProject</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>pvcsProjects</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>workspace</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>force</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>promotiongroup</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>label</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>revision</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>ignorerc</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>updateOnly</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>filenameFormat</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>lineStart</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>userId</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>config</name></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Constant for the thing to execute
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>PCLI_EXE</name> =<init> <expr>"pcli"</expr></init></decl>;</decl_stmt>
+
+    <comment type="block">/*
+     * Constant for the PCLI listversionedfiles recursive i a format "get" understands
+     */</comment>
+    <comment type="line">// private static final String PCLI_LVF_ARGS = "lvf -z -aw";</comment>
+
+    <comment type="javadoc">/**
+     * Constant for the thing to execute
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>GET_EXE</name> =<init> <expr>"get"</expr></init></decl>;</decl_stmt>
+
+
+    <comment type="javadoc">/**
+     * Run the command.
+     * @param cmd the command line to use.
+     * @param out the output stream handler to use.
+     * @return the exit code of the command.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>int</name></type> <name>runCmd</name><parameter_list>(<param><decl><type><name>Commandline</name></type> <name>cmd</name></decl></param>, <param><decl><type><name>ExecuteStreamHandler</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Project</name></type> <name>aProj</name> =<init> <expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Execute</name></type> <name>exe</name> =<init> <expr>new <call><name>Execute</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>exe</name>.<name>setAntRun</name></name><argument_list>(<argument><expr><name>aProj</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>exe</name>.<name>setWorkingDirectory</name></name><argument_list>(<argument><expr><call><name><name>aProj</name>.<name>getBaseDir</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>exe</name>.<name>setCommandline</name></name><argument_list>(<argument><expr><call><name><name>cmd</name>.<name>getCommandline</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><call><name><name>exe</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name><name>java</name>.<name>io</name>.<name>IOException</name></name></type> <name>e</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed executing: " + <call><name><name>cmd</name>.<name>toString</name></name><argument_list>()</argument_list></call>
+                + ". Exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>getExecutable</name><parameter_list>(<param><decl><type><name>String</name></type> <name>exe</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>correctedExe</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name>getPvcsbin</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>pvcsbin</name>.<name>endsWith</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>correctedExe</name>.<name>append</name></name><argument_list>(<argument><expr><name>pvcsbin</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>correctedExe</name>.<name>append</name></name><argument_list>(<argument><expr><name>pvcsbin</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+        <return>return <expr><call><name><name>correctedExe</name>.<name>append</name></name><argument_list>(<argument><expr><name>exe</name></expr></argument>)</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @exception org.apache.tools.ant.BuildException Something is stopping the build...
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>result</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>repository</name> == <name>null</name> || <call><name><name>repository</name>.<name>trim</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Required argument repository not specified"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <comment type="line">// Check workspace exists</comment>
+        <comment type="line">// Launch PCLI listversionedfiles -z -aw</comment>
+        <comment type="line">// Capture output</comment>
+        <comment type="line">// build the command line from what we got the format is</comment>
+        <decl_stmt><decl><type><name>Commandline</name></type> <name>commandLine</name> =<init> <expr>new <call><name>Commandline</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>commandLine</name>.<name>setExecutable</name></name><argument_list>(<argument><expr><call><name>getExecutable</name><argument_list>(<argument><expr><name>PCLI_EXE</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"lvf"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-z"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-aw"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name>getWorkspace</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-sp" + <call><name>getWorkspace</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-pr" + <call><name>getRepository</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>uid</name> =<init> <expr><call><name>getUserId</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>uid</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-id" + <name>uid</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">// default pvcs project is "/"</comment>
+        <if>if <condition>(<expr><call><name>getPvcsproject</name><argument_list>()</argument_list></call> == <name>null</name> &amp;&amp; <call><name>getPvcsprojects</name><argument_list>()</argument_list></call>.<call><name>isEmpty</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>pvcsProject</name> = "/"</expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name>getPvcsproject</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name>getPvcsproject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<call><name>getPvcsprojects</name><argument_list>()</argument_list></call>.<call><name>isEmpty</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name>getPvcsprojects</name><argument_list>()</argument_list></call>.<call><name>elements</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>projectName</name> =<init> <expr>((<name>PvcsProject</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call>).<call><name>getName</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>projectName</name> == <name>null</name> || (<call><name><name>projectName</name>.<name>trim</name></name><argument_list>()</argument_list></call>).<call><name>equals</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"name is a required attribute "
+                        + "of pvcsproject"</expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name>projectName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>File</name></type> <name>tmp</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>tmp2</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Random</name></type> <name>rand</name> =<init> <expr>new <call><name>Random</name><argument_list>(<argument><expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>tmp</name> = new <call><name>File</name><argument_list>(<argument><expr>"pvcs_ant_" + <call><name><name>rand</name>.<name>nextLong</name></name><argument_list>()</argument_list></call> + ".log"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>FileOutputStream</name></type> <name>fos</name> =<init> <expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>tmp</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>tmp2</name> = new <call><name>File</name><argument_list>(<argument><expr>"pvcs_ant_" + <call><name><name>rand</name>.<name>nextLong</name></name><argument_list>()</argument_list></call> + ".log"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>commandLine</name>.<name>describeCommand</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>result</name> = <call><name>runCmd</name><argument_list>(<argument><expr><name>commandLine</name></expr></argument>,
+                                <argument><expr>new <call><name>PumpStreamHandler</name><argument_list>(<argument><expr><name>fos</name></expr></argument>,
+                                    <argument><expr>new <call><name>LogOutputStream</name><argument_list>(<argument><expr><name>this</name></expr></argument>,
+                                                        <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <finally>finally <block>{
+                <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>fos</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></finally></try>
+
+            <if>if <condition>(<expr><call><name><name>Execute</name>.<name>isFailure</name></name><argument_list>(<argument><expr><name>result</name></expr></argument>)</argument_list></call> &amp;&amp; !<name>ignorerc</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed executing: " + <call><name><name>commandLine</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <if>if <condition>(<expr>!<call><name><name>tmp</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Communication between ant and pvcs "
+                    + "failed. No output generated from executing PVCS "
+                    + "commandline interface \"pcli\" and \"get\""</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <comment type="line">// Create folders in workspace</comment>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Creating folders"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>createFolders</name><argument_list>(<argument><expr><name>tmp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// Massage PCLI lvf output transforming '\' to '/' so get command works appropriately</comment>
+            <expr_stmt><expr><call><name>massagePCLI</name><argument_list>(<argument><expr><name>tmp</name></expr></argument>, <argument><expr><name>tmp2</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// Launch get on output captured from PCLI lvf</comment>
+            <expr_stmt><expr><call><name><name>commandLine</name>.<name>clearArgs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>commandLine</name>.<name>setExecutable</name></name><argument_list>(<argument><expr><call><name>getExecutable</name><argument_list>(<argument><expr><name>GET_EXE</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><call><name>getConfig</name><argument_list>()</argument_list></call> != <name>null</name> &amp;&amp; <call><name>getConfig</name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-c" + <call><name>getConfig</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><call><name>getForce</name><argument_list>()</argument_list></call> != <name>null</name> &amp;&amp; <call><name>getForce</name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>"yes"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-Y"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-N"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <if>if <condition>(<expr><call><name>getPromotiongroup</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-G"
+                    + <call><name>getPromotiongroup</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <if>if <condition>(<expr><call><name>getLabel</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-v" + <call><name>getLabel</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <if>if <condition>(<expr><call><name>getRevision</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-r"
+                            + <call><name>getRevision</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></else></if>
+            }</block></else></if>
+
+            <if>if <condition>(<expr><name>updateOnly</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-U"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <expr_stmt><expr><call><name><name>commandLine</name>.<name>createArgument</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"@" + <call><name><name>tmp2</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Getting files"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Executing " + <call><name><name>commandLine</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>result</name> = <call><name>runCmd</name><argument_list>(<argument><expr><name>commandLine</name></expr></argument>,
+                <argument><expr>new <call><name>LogStreamHandler</name><argument_list>(<argument><expr><name>this</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>result</name> != 0 &amp;&amp; !<name>ignorerc</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed executing: " + <call><name><name>commandLine</name>.<name>toString</name></name><argument_list>()</argument_list></call>
+                    + ". Return code was " + <name>result</name></expr></init></decl>;</decl_stmt>
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+        }</block> <catch>catch (<param><decl><type><name>FileNotFoundException</name></type> <name>e</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed executing: " + <call><name><name>commandLine</name>.<name>toString</name></name><argument_list>()</argument_list></call>
+                + ". Exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed executing: " + <call><name><name>commandLine</name>.<name>toString</name></name><argument_list>()</argument_list></call>
+                + ". Exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>ParseException</name></type> <name>e</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed executing: " + <call><name><name>commandLine</name>.<name>toString</name></name><argument_list>()</argument_list></call>
+                + ". Exception: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <if>if <condition>(<expr><name>tmp</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>tmp</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>tmp2</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>tmp2</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parses the file and creates the folders specified in the output section
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>createFolders</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>ParseException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>BufferedReader</name></type> <name>in</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>in</name> = new <call><name>BufferedReader</name><argument_list>(<argument><expr>new <call><name>FileReader</name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>MessageFormat</name></type> <name>mf</name> =<init> <expr>new <call><name>MessageFormat</name><argument_list>(<argument><expr><call><name>getFilenameFormat</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><call><name><name>in</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><name>line</name> != <name>null</name></expr>)</condition> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Considering \"" + <name>line</name> + "\""</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"\"\\"</expr></argument>)</argument_list></call>    <comment type="line">// Checking for "\</comment>
+                    || <call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"\"/"</expr></argument>)</argument_list></call>  <comment type="line">// or           "/</comment>
+                                               <comment type="line">// or           "X:\...</comment>
+                   || (<call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; <name>POS_3</name> &amp;&amp; <call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"\""</expr></argument>)</argument_list></call>
+                        &amp;&amp; <call><name><name>Character</name>.<name>isLetter</name></name><argument_list>(<argument><expr><call><name><name>line</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>POS_1</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                        &amp;&amp; <call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><call><name><name>line</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>POS_2</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>":"</expr></argument>)</argument_list></call>
+                        &amp;&amp; <call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><call><name><name>line</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>POS_3</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>"\\"</expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>Object</name><index>[]</index></type> <name>objs</name> =<init> <expr><call><name><name>mf</name>.<name>parse</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>f</name> =<init> <expr>(<name>String</name>) <name><name>objs</name><index>[<expr>1</expr>]</index></name></expr></init></decl>;</decl_stmt>
+                    <comment type="line">// Extract the name of the directory from the filename</comment>
+                    <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>f</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>separator</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><name>index</name> &gt; -1</expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>File</name></type> <name>dir</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name><name>f</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>index</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr>!<call><name><name>dir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Creating " + <call><name><name>dir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <if>if <condition>(<expr><call><name><name>dir</name>.<name>mkdirs</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Created " + <call><name><name>dir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                    <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            }</block></then> <else>else <block>{
+                                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Failed to create "
+                                    + <call><name><name>dir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                    <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            }</block></else></if>
+                        }</block></then> <else>else <block>{
+                            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>dir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call> + " exists. Skipping"</expr></argument>,
+                                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></else></if>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"File separator problem with " + <name>line</name></expr></argument>,
+                            <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Skipped \"" + <name>line</name> + "\""</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <expr_stmt><expr><name>line</name> = <call><name><name>in</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Simple hack to handle the PVCS command-line tools botch when
+     * handling UNC notation.
+     * @throws IOException if there is an error.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>massagePCLI</name><parameter_list>(<param><decl><type><name>File</name></type> <name>in</name></decl></param>, <param><decl><type><name>File</name></type> <name>out</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>BufferedReader</name></type> <name>inReader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>BufferedWriter</name></type> <name>outWriter</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>inReader</name> = new <call><name>BufferedReader</name><argument_list>(<argument><expr>new <call><name>FileReader</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>outWriter</name> = new <call><name>BufferedWriter</name><argument_list>(<argument><expr>new <call><name>FileWriter</name><argument_list>(<argument><expr><name>out</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>s</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr>(<name>s</name> = <call><name><name>inReader</name>.<name>readLine</name></name><argument_list>()</argument_list></call>) != <name>null</name></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>sNormal</name> =<init> <expr><call><name><name>s</name>.<name>replace</name></name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>outWriter</name>.<name>write</name></name><argument_list>(<argument><expr><name>sNormal</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>outWriter</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>inReader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>outWriter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get network name of the PVCS repository
+     * @return String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getRepository</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>repository</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     *  The filenameFormat attribute defines a MessageFormat string used
+     *  to parse the output of the pcli command.  It defaults to
+     *  &lt;code&gt;{0}-arc({1})&lt;/code&gt;.  Repositories where the archive
+     *   extension is not  -arc should set this.
+     * @return the filename format attribute.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getFilenameFormat</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>filenameFormat</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The format of the folder names; optional.
+     * This must be in a format suitable for
+     * &lt;code&gt;java.text.MessageFormat&lt;/code&gt;.
+     *  Index 1 of the format will be used as the file name.
+     *  Defaults to &lt;code&gt;{0}-arc({1})&lt;/code&gt;
+     * @param f the format to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFilenameFormat</name><parameter_list>(<param><decl><type><name>String</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>filenameFormat</name> = <name>f</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+
+     * The lineStart attribute is used to parse the output of the pcli
+     * command. It defaults to &lt;code&gt;&amp;quot;P:&lt;/code&gt;.  The parser already
+     * knows about / and \\, this property is useful in cases where the
+     * repository is accessed on a Windows platform via a drive letter
+     * mapping.
+     * @return the lineStart attribute.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getLineStart</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>lineStart</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * What a valid return value from PVCS looks like
+     *  when it describes a file.  Defaults to &lt;code&gt;&amp;quot;P:&lt;/code&gt;.
+     * If you are not using an UNC name for your repository and the
+     * drive letter &lt;code&gt;P&lt;/code&gt; is incorrect for your setup, you may
+     * need to change this value, UNC names will always be
+     * accepted.
+     * @param l the value to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLineStart</name><parameter_list>(<param><decl><type><name>String</name></type> <name>l</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>lineStart</name> = <name>l</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The network name of the PVCS repository; required.
+     * @param repo String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRepository</name><parameter_list>(<param><decl><type><name>String</name></type> <name>repo</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>repository</name> = <name>repo</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get name of the project in the PVCS repository
+     * @return String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getPvcsproject</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>pvcsProject</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The project within the PVCS repository to extract files from;
+     * optional, default &amp;quot;/&amp;quot;
+     * @param prj String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPvcsproject</name><parameter_list>(<param><decl><type><name>String</name></type> <name>prj</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>pvcsProject</name> = <name>prj</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get name of the project in the PVCS repository
+     * @return Vector
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Vector</name></type> <name>getPvcsprojects</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>pvcsProjects</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get name of the workspace to store the retrieved files
+     * @return String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getWorkspace</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>workspace</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Workspace to use; optional.
+     * By specifying a workspace, the files are extracted to that location.
+     * A PVCS workspace is a name for a location of the workfiles and
+     * isn't as such the location itself.
+     * You define the location for a workspace using the PVCS GUI clients.
+     * If this isn't specified the default workspace for the current user is used.
+     * @param ws String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setWorkspace</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ws</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>workspace</name> = <name>ws</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get name of the PVCS bin directory
+     * @return String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getPvcsbin</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>pvcsbin</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specifies the location of the PVCS bin directory; optional if on the PATH.
+     * On some systems the PVCS executables &lt;i&gt;pcli&lt;/i&gt;
+     * and &lt;i&gt;get&lt;/i&gt; are not found in the PATH. In such cases this attribute
+     * should be set to the bin directory of the PVCS installation containing
+     * the executables mentioned before. If this attribute isn't specified the
+     * tag expects the executables to be found using the PATH environment variable.
+     * @param bin PVCS bin directory
+     * @todo use a File setter and resolve paths.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPvcsbin</name><parameter_list>(<param><decl><type><name>String</name></type> <name>bin</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>pvcsbin</name> = <name>bin</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get value of force
+     * @return String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getForce</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>force</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specifies the value of the force argument; optional.
+     * If set to &lt;i&gt;yes&lt;/i&gt; all files that exists and are
+     * writable are overwritten. Default &lt;i&gt;no&lt;/i&gt; causes the files
+     * that are writable to be ignored. This stops the PVCS command
+     * &lt;i&gt;get&lt;/i&gt; to stop asking questions!
+     * @todo make a boolean setter
+     * @param f String (yes/no)
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setForce</name><parameter_list>(<param><decl><type><name>String</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>f</name> != <name>null</name> &amp;&amp; <call><name><name>f</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr>"yes"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>force</name> = "yes"</expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>force</name> = "no"</expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get value of promotiongroup
+     * @return String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getPromotiongroup</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>promotiongroup</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specifies the name of the promotiongroup argument
+     * @param w String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPromotiongroup</name><parameter_list>(<param><decl><type><name>String</name></type> <name>w</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>promotiongroup</name> = <name>w</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get value of label
+     * @return String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getLabel</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>label</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Only files marked with this label are extracted; optional.
+     * @param l String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLabel</name><parameter_list>(<param><decl><type><name>String</name></type> <name>l</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>label</name> = <name>l</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get value of revision
+     * @return String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getRevision</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>revision</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Only files with this revision are extract; optional.
+     * @param r String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRevision</name><parameter_list>(<param><decl><type><name>String</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>revision</name> = <name>r</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get value of ignorereturncode
+     * @return String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getIgnoreReturnCode</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>ignorerc</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If set to true the return value from executing the pvcs
+     * commands are ignored; optional, default false.
+     * @param b a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIgnoreReturnCode</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>ignorerc</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Specify a project within the PVCS repository to extract files from.
+     * @param p the pvcs project to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addPvcsproject</name><parameter_list>(<param><decl><type><name>PvcsProject</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>pvcsProjects</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get the updateOnly attribute.
+     * @return the updateOnly attribute.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getUpdateOnly</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>updateOnly</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If set to &lt;i&gt;true&lt;/i&gt; files are fetched only if
+     * newer than existing local files; optional, default false.
+     * @param l a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUpdateOnly</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>l</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>updateOnly</name> = <name>l</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * returns the path of the configuration file to be used
+     * @return the path of the config file
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getConfig</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>config</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets a configuration file other than the default to be used.
+     * These files have a .cfg extension and are often found in archive or pvcsprop folders.
+     * @param f config file - can be given absolute or relative to ant basedir
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setConfig</name><parameter_list>(<param><decl><type><name>File</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>config</name> = <call><name><name>f</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Get the userid.
+     * @return the userid.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getUserId</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>userId</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * User ID
+     * @param u the value to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUserId</name><parameter_list>(<param><decl><type><name>String</name></type> <name>u</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>userId</name> = <name>u</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates a Pvcs object
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Pvcs</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>pvcsProject</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>pvcsProjects</name> = new <call><name>Vector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>workspace</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>repository</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>pvcsbin</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>force</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>promotiongroup</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>label</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>ignorerc</name> = false</expr>;</expr_stmt>
+        <expr_stmt><expr><name>updateOnly</name> = false</expr>;</expr_stmt>
+        <expr_stmt><expr><name>lineStart</name> = "\"P:"</expr>;</expr_stmt>
+        <expr_stmt><expr><name>filenameFormat</name> = "{0}-arc({1})"</expr>;</expr_stmt>
+    }</block></constructor>
+}</block></class>
+
+</unit>

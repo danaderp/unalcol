@@ -1,0 +1,775 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\util\LayoutPreservingProperties.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>ByteArrayInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStreamReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStreamWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PushbackReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Properties</name></name>;</import>
+
+<comment type="javadoc">/**
+ * &lt;p&gt;A Properties collection which preserves comments and whitespace
+ * present in the input stream from which it was loaded.&lt;/p&gt;
+ * &lt;p&gt;The class defers the usual work of the &lt;a href="http://java.sun.com/j2se/1.3/docs/api/java/util/Properties.html"&gt;java.util.Properties&lt;/a&gt;
+ * class to there, but it also keeps track of the contents of the
+ * input stream from which it was loaded (if applicable), so that it can
+ * write out the properties in as close a form as possible to the input.&lt;/p&gt;
+ * If no changes occur to property values, the output should be the same
+ * as the input, except for the leading date stamp, as normal for a
+ * properties file. Properties added are appended to the file. Properties
+ * whose values are changed are changed in place. Properties that are
+ * removed are excised. If the &lt;code&gt;removeComments&lt;/code&gt; flag is set,
+ * then the comments immediately preceding the property are also removed.&lt;/p&gt;
+ * &lt;p&gt;If a second set of properties is loaded into an existing set, the
+ * lines of the second set are added to the end. Note however, that if a
+ * property already stored is present in a stream subsequently loaded, then
+ * that property is removed before the new value is set. For example,
+ * consider the file&lt;/p&gt;
+ * &lt;pre&gt; # the first line
+ * alpha=one
+ *
+ * # the second line
+ * beta=two&lt;/pre&gt;
+ * &lt;p&gt;This file is loaded, and then the following is also loaded into the
+ * same &lt;code&gt;LayoutPreservingProperties&lt;/code&gt; object&lt;/p&gt;
+ * &lt;pre&gt; # association
+ * beta=band
+ *
+ * # and finally
+ * gamma=rays&lt;/pre&gt;
+ * &lt;/p&gt;The resulting collection sequence of logical lines depends on whether
+ * or not &lt;code&gt;removeComments&lt;/code&gt; was set at the time the second stream
+ * is loaded. If it is set, then the resulting list of lines is&lt;/p&gt;
+ * &lt;pre&gt; # the first line
+ * alpha=one
+ *
+ * # association
+ * beta=band
+ *
+ * # and finally
+ * gamma=rays&lt;/pre&gt;
+ * &lt;p&gt;If the flag is not set, then the comment "the second line" is retained,
+ * although the key-value pair &lt;code&gt;beta=two&lt;/code&gt; is removed.&lt;/p&gt;
+ */</comment>
+<class><specifier>public</specifier> class <name>LayoutPreservingProperties</name> <super><extends>extends <name>Properties</name></extends></super> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>LS</name> =<init> <expr><name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Logical lines have escaping and line continuation taken care
+     * of. Comments and blank lines are logical lines; they are not
+     * removed.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ArrayList</name></type> <name>logicalLines</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Position in the &lt;code&gt;logicalLines&lt;/code&gt; list, keyed by property name.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>HashMap</name></type> <name>keyedPairLines</name> =<init> <expr>new <call><name>HashMap</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Flag to indicate that, when we remove a property from the file, we
+     * also want to remove the comments that precede it.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>removeComments</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Create a new, empty, Properties collection, with no defaults.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>LayoutPreservingProperties</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Create a new, empty, Properties collection, with the specified defaults.
+     * @param defaults the default property values
+     */</comment>
+    <constructor><specifier>public</specifier> <name>LayoutPreservingProperties</name><parameter_list>(<param><decl><type><name>Properties</name></type> <name>defaults</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>defaults</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Returns &lt;code&gt;true&lt;/code&gt; if comments are removed along with
+     * properties, or &lt;code&gt;false&lt;/code&gt; otherwise. If
+     * &lt;code&gt;true&lt;/code&gt;, then when a property is removed, the comment
+     * preceding it in the original file is removed also.
+     * @return &lt;code&gt;true&lt;/code&gt; if leading comments are removed when
+     * a property is removed; &lt;code&gt;false&lt;/code&gt; otherwise
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isRemoveComments</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>removeComments</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the behaviour for comments accompanying properties that
+     * are being removed. If &lt;code&gt;true&lt;/code&gt;, then when a property
+     * is removed, the comment preceding it in the original file is
+     * removed also.
+     * @param val &lt;code&gt;true&lt;/code&gt; if leading comments are to be
+     * removed when a property is removed; &lt;code&gt;false&lt;/code&gt;
+     * otherwise
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRemoveComments</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>val</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>removeComments</name> = <name>val</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>load</name><parameter_list>(<param><decl><type><name>InputStream</name></type> <name>inStream</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>s</name> =<init> <expr><call><name>readLines</name><argument_list>(<argument><expr><name>inStream</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>ba</name> =<init> <expr><call><name><name>s</name>.<name>getBytes</name></name><argument_list>(<argument><expr><name><name>ResourceUtils</name>.<name>ISO_8859_1</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>ByteArrayInputStream</name></type> <name>bais</name> =<init> <expr>new <call><name>ByteArrayInputStream</name><argument_list>(<argument><expr><name>ba</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>super</name>.<name>load</name></name><argument_list>(<argument><expr><name>bais</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>put</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>key</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>NullPointerException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Object</name></type> <name>obj</name> =<init> <expr><call><name><name>super</name>.<name>put</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// the above call will have failed if key or value are null</comment>
+        <expr_stmt><expr><call><name>innerSetProperty</name><argument_list>(<argument><expr><call><name><name>key</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>value</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>obj</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>setProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>key</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>NullPointerException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Object</name></type> <name>obj</name> =<init> <expr><call><name><name>super</name>.<name>setProperty</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// the above call will have failed if key or value are null</comment>
+        <expr_stmt><expr><call><name>innerSetProperty</name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>obj</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Store a new key-value pair, or add a new one. The normal
+     * functionality is taken care of by the superclass in the call to
+     * {@link #setProperty}; this method takes care of this classes
+     * extensions.
+     * @param key the key of the property to be stored
+     * @param value the value to be stored
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>innerSetProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>key</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>value</name> = <call><name>escapeValue</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name><name>keyedPairLines</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Integer</name></type> <name>i</name> =<init> <expr>(<name>Integer</name>) <call><name><name>keyedPairLines</name>.<name>get</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Pair</name></type> <name>p</name> =<init> <expr>(<name>Pair</name>) <call><name><name>logicalLines</name>.<name>get</name></name><argument_list>(<argument><expr><call><name><name>i</name>.<name>intValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>p</name>.<name>setValue</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>key</name> = <call><name>escapeName</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>Pair</name></type> <name>p</name> =<init> <expr>new <call><name>Pair</name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>p</name>.<name>setNew</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>keyedPairLines</name>.<name>put</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr>new <call><name>Integer</name><argument_list>(<argument><expr><call><name><name>logicalLines</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>logicalLines</name>.<name>add</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>clear</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>super</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>keyedPairLines</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>logicalLines</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>remove</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>key</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Object</name></type> <name>obj</name> =<init> <expr><call><name><name>super</name>.<name>remove</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Integer</name></type> <name>i</name> =<init> <expr>(<name>Integer</name>) <call><name><name>keyedPairLines</name>.<name>remove</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>null</name> != <name>i</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>removeComments</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>removeCommentsEndingAt</name><argument_list>(<argument><expr><call><name><name>i</name>.<name>intValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>logicalLines</name>.<name>set</name></name><argument_list>(<argument><expr><call><name><name>i</name>.<name>intValue</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>obj</name></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>LayoutPreservingProperties</name></type> <name>dolly</name> =<init>
+            <expr>(<name>LayoutPreservingProperties</name>) <call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name><name>dolly</name>.<name>keyedPairLines</name></name> = (<name>HashMap</name>) <call><name><name>this</name>.<name>keyedPairLines</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>dolly</name>.<name>logicalLines</name></name> = (<name>ArrayList</name>) <call><name><name>this</name>.<name>logicalLines</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>dolly</name>.<name>logicalLines</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>LogicalLine</name></type> <name>line</name> =<init> <expr>(<name>LogicalLine</name>) <call><name><name>dolly</name>.<name>logicalLines</name>.<name>get</name></name><argument_list>(<argument><expr><name>j</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>line</name> <name>instanceof</name> <name>Pair</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>Pair</name></type> <name>p</name> =<init> <expr>(<name>Pair</name>) <name>line</name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>dolly</name>.<name>logicalLines</name>.<name>set</name></name><argument_list>(<argument><expr><name>j</name></expr></argument>, <argument><expr><call><name><name>p</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <comment type="line">// no reason to clone other lines are they are immutable</comment>
+        }</block></for>
+        <return>return <expr><name>dolly</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Echo the lines of the properties (including blanks and comments) to the
+     * stream.
+     * @param out the stream to write to
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>listLines</name><parameter_list>(<param><decl><type><name>PrintStream</name></type> <name>out</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"-- logical lines --"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name><name>logicalLines</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>LogicalLine</name></type> <name>line</name> =<init> <expr>(<name>LogicalLine</name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>line</name> <name>instanceof</name> <name>Blank</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"blank:   \"" + <name>line</name> + "\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then>
+            <else>else <if>if <condition>(<expr><name>line</name> <name>instanceof</name> <name>Comment</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"comment: \"" + <name>line</name> + "\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then>
+            <else>else <if>if <condition>(<expr><name>line</name> <name>instanceof</name> <name>Pair</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"pair:    \"" + <name>line</name> + "\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if></else></if>
+        }</block></while>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Save the properties to a file.
+     * @param dest the file to write to
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>saveAs</name><parameter_list>(<param><decl><type><name>File</name></type> <name>dest</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>FileOutputStream</name></type> <name>fos</name> =<init> <expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>dest</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>store</name><argument_list>(<argument><expr><name>fos</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>fos</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>store</name><parameter_list>(<param><decl><type><name>OutputStream</name></type> <name>out</name></decl></param>, <param><decl><type><name>String</name></type> <name>header</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>OutputStreamWriter</name></type> <name>osw</name> =<init> <expr>new <call><name>OutputStreamWriter</name><argument_list>(<argument><expr><name>out</name></expr></argument>, <argument><expr><name><name>ResourceUtils</name>.<name>ISO_8859_1</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>skipLines</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>totalLines</name> =<init> <expr><call><name><name>logicalLines</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>header</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>osw</name>.<name>write</name></name><argument_list>(<argument><expr>"#" + <name>header</name> + <name>LS</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>totalLines</name> &gt; 0
+                &amp;&amp; <call><name><name>logicalLines</name>.<name>get</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call> <name>instanceof</name> <name>Comment</name>
+                &amp;&amp; <call><name><name>header</name>.<name>equals</name></name><argument_list>(<argument><expr><call><name><name>logicalLines</name>.<name>get</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call>.<call><name>substring</name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>skipLines</name> = 1</expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+
+        <comment type="line">// we may be updatiung a file written by this class, replace</comment>
+        <comment type="line">// the date comment instead of adding a new one and preserving</comment>
+        <comment type="line">// the one written last time</comment>
+        <if>if <condition>(<expr><name>totalLines</name> &gt; <name>skipLines</name>
+            &amp;&amp; <call><name><name>logicalLines</name>.<name>get</name></name><argument_list>(<argument><expr><name>skipLines</name></expr></argument>)</argument_list></call> <name>instanceof</name> <name>Comment</name></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>DateUtils</name>.<name>parseDateFromHeader</name></name><argument_list>(<argument><expr><call><name><name>logicalLines</name>
+                                              .<name>get</name></name><argument_list>(<argument><expr><name>skipLines</name></expr></argument>)</argument_list></call>
+                                              .<call><name>toString</name><argument_list>()</argument_list></call>.<call><name>substring</name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>skipLines</name>++</expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name><name>java</name>.<name>text</name>.<name>ParseException</name></name></type> <name>pe</name></decl></param>) <block>{
+                <comment type="line">// not an existing date comment</comment>
+            }</block></catch></try>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>osw</name>.<name>write</name></name><argument_list>(<argument><expr>"#" + <call><name><name>DateUtils</name>.<name>getDateForHeader</name></name><argument_list>()</argument_list></call> + <name>LS</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>boolean</name></type> <name>writtenSep</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name><name>logicalLines</name>.<name>subList</name></name><argument_list>(<argument><expr><name>skipLines</name></expr></argument>, <argument><expr><name>totalLines</name></expr></argument>)</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init>
+             <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr/>) <block>{
+            <decl_stmt><decl><type><name>LogicalLine</name></type> <name>line</name> =<init> <expr>(<name>LogicalLine</name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>line</name> <name>instanceof</name> <name>Pair</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr>((<name>Pair</name>)<name>line</name>).<call><name>isNew</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr>!<name>writtenSep</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>osw</name>.<name>write</name></name><argument_list>(<argument><expr><name>LS</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>writtenSep</name> = true</expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>osw</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>line</name>.<name>toString</name></name><argument_list>()</argument_list></call> + <name>LS</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then>
+            <else>else <if>if <condition>(<expr><name>line</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>osw</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>line</name>.<name>toString</name></name><argument_list>()</argument_list></call> + <name>LS</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if>
+        }</block></for>
+        <expr_stmt><expr><call><name><name>osw</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Reads a properties file into an internally maintained
+     * collection of logical lines (possibly spanning physcial lines),
+     * which make up the comments, blank lines and properties of the
+     * file.
+     * @param is the stream from which to read the data
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>readLines</name><parameter_list>(<param><decl><type><name>InputStream</name></type> <name>is</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>InputStreamReader</name></type> <name>isr</name> =<init> <expr>new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>is</name></expr></argument>, <argument><expr><name><name>ResourceUtils</name>.<name>ISO_8859_1</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>PushbackReader</name></type> <name>pbr</name> =<init> <expr>new <call><name>PushbackReader</name><argument_list>(<argument><expr><name>isr</name></expr></argument>, <argument><expr>1</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name><name>logicalLines</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <comment type="line">// we add a blank line for spacing</comment>
+            <expr_stmt><expr><call><name><name>logicalLines</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name>Blank</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>s</name> =<init> <expr><call><name>readFirstLine</name><argument_list>(<argument><expr><name>pbr</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>BufferedReader</name></type> <name>br</name> =<init> <expr>new <call><name>BufferedReader</name><argument_list>(<argument><expr><name>pbr</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>boolean</name></type> <name>continuation</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>comment</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>fileBuffer</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>logicalLineBuffer</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><name>s</name> != <name>null</name></expr>)</condition> <block>{
+            <expr_stmt><expr><call><name><name>fileBuffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>LS</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>continuation</name></expr>)</condition><then> <block>{
+                <comment type="line">// put in the line feed that was removed</comment>
+                <expr_stmt><expr><name>s</name> = "\n" + <name>s</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">// could be a comment, if first non-whitespace is a # or !</comment>
+                <expr_stmt><expr><name>comment</name> = <call><name><name>s</name>.<name>matches</name></name><argument_list>(<argument><expr>"^( |\t|\f)*(#|!).*"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <comment type="line">// continuation if not a comment and the line ends is an</comment>
+            <comment type="line">// odd number of backslashes</comment>
+            <if>if <condition>(<expr>!<name>comment</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>continuation</name> = <call><name>requiresContinuation</name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <expr_stmt><expr><call><name><name>logicalLineBuffer</name>.<name>append</name></name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr>!<name>continuation</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>LogicalLine</name></type> <name>line</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>comment</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>line</name> = new <call><name>Comment</name><argument_list>(<argument><expr><call><name><name>logicalLineBuffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <if>if <condition>(<expr><call><name><name>logicalLineBuffer</name>.<name>toString</name></name><argument_list>()</argument_list></call>.<call><name>trim</name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>line</name> = new <call><name>Blank</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>line</name> = new <call><name>Pair</name><argument_list>(<argument><expr><call><name><name>logicalLineBuffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr><call><name>unescape</name><argument_list>(<argument><expr>((<name>Pair</name>)<name>line</name>).<call><name>getName</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><call><name><name>keyedPairLines</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// this key is already present, so we remove it and add</comment>
+                        <comment type="line">// the new one</comment>
+                        <expr_stmt><expr><call><name>remove</name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <expr_stmt><expr><call><name><name>keyedPairLines</name>.<name>put</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr>new <call><name>Integer</name><argument_list>(<argument><expr><call><name><name>logicalLines</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if></else></if>
+                <expr_stmt><expr><call><name><name>logicalLines</name>.<name>add</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>logicalLineBuffer</name>.<name>setLength</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><name>s</name> = <call><name><name>br</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><call><name><name>fileBuffer</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Reads the first line and determines the EOL-style of the file
+     * (relies on the style to be consistent, of course).
+     *
+     * &lt;p&gt;Sets LS as a side-effect.&lt;/p&gt;
+     *
+     * @return the first line without any line separator, leaves the
+     * reader positioned after the first line separator
+     *
+     * @since Ant 1.8.2
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>readFirstLine</name><parameter_list>(<param><decl><type><name>PushbackReader</name></type> <name>r</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>sb</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr>80</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>ch</name> =<init> <expr><call><name><name>r</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>hasCR</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <comment type="line">// when reaching EOF before the first EOL, assume native line</comment>
+        <comment type="line">// feeds</comment>
+        <expr_stmt><expr><name>LS</name> = <name><name>StringUtils</name>.<name>LINE_SEP</name></name></expr>;</expr_stmt>
+
+        <while>while <condition>(<expr><name>ch</name> &gt;= 0</expr>)</condition> <block>{
+            <if>if <condition>(<expr><name>hasCR</name> &amp;&amp; <name>ch</name> != '\n'</expr>)</condition><then> <block>{
+                <comment type="line">// line feed is sole CR</comment>
+                <expr_stmt><expr><call><name><name>r</name>.<name>unread</name></name><argument_list>(<argument><expr><name>ch</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <break>break;</break>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>ch</name> == '\r'</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>LS</name> = "\r"</expr>;</expr_stmt>
+                <expr_stmt><expr><name>hasCR</name> = true</expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name>ch</name> == '\n'</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>LS</name> = <name>hasCR</name> ? "\r\n" : "\n"</expr>;</expr_stmt>
+                <break>break;</break>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>(<name>char</name>) <name>ch</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if></else></if>
+            <expr_stmt><expr><name>ch</name> = <call><name><name>r</name>.<name>read</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns &lt;code&gt;true&lt;/code&gt; if the line represented by
+     * &lt;code&gt;s&lt;/code&gt; is to be continued on the next line of the file,
+     * or &lt;code&gt;false&lt;/code&gt; otherwise.
+     * @param s the contents of the line to examine
+     * @return &lt;code&gt;true&lt;/code&gt; if the line is to be continued,
+     * &lt;code&gt;false&lt;/code&gt; otherwise
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>requiresContinuation</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>char</name><index>[]</index></type> <name>ca</name> =<init> <expr><call><name><name>s</name>.<name>toCharArray</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>i</name> =<init> <expr><name><name>ca</name>.<name>length</name></name> - 1</expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><name>i</name> &gt; 0 &amp;&amp; <name><name>ca</name><index>[<expr><name>i</name></expr>]</index></name> == '\\'</expr>)</condition> <block>{
+            <expr_stmt><expr><name>i</name>--</expr>;</expr_stmt>
+        }</block></while>
+        <comment type="line">// trailing backslashes</comment>
+        <decl_stmt><decl><type><name>int</name></type> <name>tb</name> =<init> <expr><name><name>ca</name>.<name>length</name></name> - <name>i</name> - 1</expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>tb</name> % 2 == 1</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Unescape the string according to the rules for a Properites
+     * file, as laid out in the docs for &lt;a
+     * href="http://java.sun.com/j2se/1.3/docs/api/java/util/Properties.html"&gt;java.util.Properties&lt;/a&gt;.
+     * @param s the string to unescape (coming from the source file)
+     * @return the unescaped string
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>unescape</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <comment type="block">/*
+         * The following combinations are converted:
+         * \n  newline
+         * \r  carraige return
+         * \f  form feed
+         * \t  tab
+         * \\  backslash
+         * \u0000  unicode character
+         * Any other slash is ignored, so
+         * \b  becomes 'b'.
+         */</comment>
+
+        <decl_stmt><decl><type><name>char</name><index>[]</index></type> <name>ch</name> =<init> <expr>new <name><name>char</name><index>[<expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call> + 1</expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>s</name>.<name>getChars</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>ch</name></expr></argument>, <argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>ch</name><index>[<expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>]</index></name> = '\n'</expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buffy</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>ch</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>char</name></type> <name>c</name> =<init> <expr><name><name>ch</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>c</name> == '\n'</expr>)</condition><then> <block>{
+                <comment type="line">// we have hit out end-of-string marker</comment>
+                <break>break;</break>
+            }</block></then>
+            <else>else <if>if <condition>(<expr><name>c</name> == '\\'</expr>)</condition><then> <block>{
+                <comment type="line">// possibly an escape sequence</comment>
+                <expr_stmt><expr><name>c</name> = <name><name>ch</name><index>[<expr>++<name>i</name></expr>]</index></name></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>c</name> == 'n'</expr>)</condition><then>
+                    <expr_stmt><expr><call><name><name>buffy</name>.<name>append</name></name><argument_list>(<argument><expr>'\n'</expr></argument>)</argument_list></call></expr>;</expr_stmt></then>
+                <else>else <if>if <condition>(<expr><name>c</name> == 'r'</expr>)</condition><then>
+                    <expr_stmt><expr><call><name><name>buffy</name>.<name>append</name></name><argument_list>(<argument><expr>'\r'</expr></argument>)</argument_list></call></expr>;</expr_stmt></then>
+                <else>else <if>if <condition>(<expr><name>c</name> == 'f'</expr>)</condition><then>
+                    <expr_stmt><expr><call><name><name>buffy</name>.<name>append</name></name><argument_list>(<argument><expr>'\f'</expr></argument>)</argument_list></call></expr>;</expr_stmt></then>
+                <else>else <if>if <condition>(<expr><name>c</name> == 't'</expr>)</condition><then>
+                    <expr_stmt><expr><call><name><name>buffy</name>.<name>append</name></name><argument_list>(<argument><expr>'\t'</expr></argument>)</argument_list></call></expr>;</expr_stmt></then>
+                <else>else <if>if <condition>(<expr><name>c</name> == 'u'</expr>)</condition><then> <block>{
+                    <comment type="line">// handle unicode escapes</comment>
+                    <expr_stmt><expr><name>c</name> = <call><name>unescapeUnicode</name><argument_list>(<argument><expr><name>ch</name></expr></argument>, <argument><expr><name>i</name>+1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>i</name> += 4</expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>buffy</name>.<name>append</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then>
+                <else>else
+                    <expr_stmt><expr><call><name><name>buffy</name>.<name>append</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt></else></if></else></if></else></if></else></if></else></if>
+            }</block></then>
+            <else>else <block>{
+                <expr_stmt><expr><call><name><name>buffy</name>.<name>append</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if></else></if>
+        }</block></for>
+        <return>return <expr><call><name><name>buffy</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Retrieve the unicode character whose code is listed at position
+     * &lt;code&gt;i&lt;/code&gt; in the character array &lt;code&gt;ch&lt;/code&gt;.
+     * @param ch the character array containing the unicode character code
+     * @return the character extracted
+     */</comment>
+    <function><type><specifier>private</specifier> <name>char</name></type> <name>unescapeUnicode</name><parameter_list>(<param><decl><type><name><name>char</name><index>[]</index></name></type> <name>ch</name></decl></param>, <param><decl><type><name>int</name></type> <name>i</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>s</name> =<init> <expr>new <call><name>String</name><argument_list>(<argument><expr><name>ch</name></expr></argument>, <argument><expr><name>i</name></expr></argument>, <argument><expr>4</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr>(<name>char</name>) <call><name><name>Integer</name>.<name>parseInt</name></name><argument_list>(<argument><expr><name>s</name></expr></argument>, <argument><expr>16</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Escape the string &lt;code&gt;s&lt;/code&gt; according to the rules in the
+     * docs for &lt;a
+     * href="http://java.sun.com/j2se/1.3/docs/api/java/util/Properties.html"&gt;java.util.Properties&lt;/a&gt;.
+     * @param s the string to escape
+     * @return the escaped string
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>escapeValue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>escape</name><argument_list>(<argument><expr><name>s</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Escape the string &lt;code&gt;s&lt;/code&gt; according to the rules in the
+     * docs for &lt;a
+     * href="http://java.sun.com/j2se/1.3/docs/api/java/util/Properties.html"&gt;java.util.Properties&lt;/a&gt;.
+     * This method escapes all the whitespace, not just the stuff at
+     * the beginning.
+     * @param s the string to escape
+     * @return the escaped string
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>escapeName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>escape</name><argument_list>(<argument><expr><name>s</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Escape the string &lt;code&gt;s&lt;/code&gt; according to the rules in the
+     * docs for &lt;a
+     * href="http://java.sun.com/j2se/1.3/docs/api/java/util/Properties.html"&gt;java.util.Properties&lt;/a&gt;.
+     * @param s the string to escape
+     * @param escapeAllSpaces if &lt;code&gt;true&lt;/code&gt; the method escapes
+     * all the spaces, if &lt;code&gt;false&lt;/code&gt;, it escapes only the
+     * leading whitespace
+     * @return the escaped string
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>escape</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>escapeAllSpaces</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>s</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>char</name><index>[]</index></type> <name>ch</name> =<init> <expr>new <name><name>char</name><index>[<expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>s</name>.<name>getChars</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>ch</name></expr></argument>, <argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>forEscaping</name> =<init> <expr>"\t\f\r\n\\:=#!"</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>escaped</name> =<init> <expr>"tfrn\\:=#!"</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buffy</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>leadingSpace</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>ch</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>char</name></type> <name>c</name> =<init> <expr><name><name>ch</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>c</name> == ' '</expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>escapeAllSpaces</name> || <name>leadingSpace</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>buffy</name>.<name>append</name></name><argument_list>(<argument><expr>"\\"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>leadingSpace</name> = false</expr>;</expr_stmt>
+            }</block></else></if>
+            <decl_stmt><decl><type><name>int</name></type> <name>p</name> =<init> <expr><call><name><name>forEscaping</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>p</name> != -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>buffy</name>.<name>append</name></name><argument_list>(<argument><expr>"\\"</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><call><name><name>escaped</name>.<name>substring</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>,<argument><expr><name>p</name>+1</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name>c</name> &lt; 0x0020 || <name>c</name> &gt; 0x007e</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>buffy</name>.<name>append</name></name><argument_list>(<argument><expr><call><name>escapeUnicode</name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>buffy</name>.<name>append</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if></else></if>
+        }</block></for>
+        <return>return <expr><call><name><name>buffy</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return the unicode escape sequence for a character, in the form
+     * \u005CuNNNN.
+     * @param ch the character to encode
+     * @return the unicode escape sequence
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>escapeUnicode</name><parameter_list>(<param><decl><type><name>char</name></type> <name>ch</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>"\\" + <call><name><name>UnicodeUtil</name>.<name>EscapeUnicode</name></name><argument_list>(<argument><expr><name>ch</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+    <comment type="javadoc">/**
+     * Remove the comments in the leading up the {@link logicalLines}
+     * list leading up to line &lt;code&gt;pos&lt;/code&gt;.
+     * @param pos the line number to which the comments lead
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>removeCommentsEndingAt</name><parameter_list>(<param><decl><type><name>int</name></type> <name>pos</name></decl></param>)</parameter_list> <block>{
+        <comment type="block">/* We want to remove comments preceding this position. Step
+         * back counting blank lines (call this range B1) until we hit
+         * something non-blank. If what we hit is not a comment, then
+         * exit. If what we hit is a comment, then step back counting
+         * comment lines (call this range C1). Nullify lines in C1 and
+         * B1.
+         */</comment>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>end</name> =<init> <expr><name>pos</name> - 1</expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// step pos back until it hits something non-blank</comment>
+        <for>for (<init><expr><name>pos</name> = <name>end</name></expr>;</init> <condition><expr><name>pos</name> &gt; 0</expr>;</condition> <incr><expr><name>pos</name>--</expr></incr>) <block>{
+            <if>if <condition>(<expr>!(<call><name><name>logicalLines</name>.<name>get</name></name><argument_list>(<argument><expr><name>pos</name></expr></argument>)</argument_list></call> <name>instanceof</name> <name>Blank</name>)</expr>)</condition><then> <block>{
+                <break>break;</break>
+            }</block></then></if>
+        }</block></for>
+
+        <comment type="line">// if the thing it hits is not a comment, then we have nothing</comment>
+        <comment type="line">// to remove</comment>
+        <if>if <condition>(<expr>!(<call><name><name>logicalLines</name>.<name>get</name></name><argument_list>(<argument><expr><name>pos</name></expr></argument>)</argument_list></call> <name>instanceof</name> <name>Comment</name>)</expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <comment type="line">// step back until we hit the start of the comment</comment>
+        <for>for (<init>;</init> <condition><expr><name>pos</name> &gt;= 0</expr>;</condition> <incr><expr><name>pos</name>--</expr></incr>) <block>{
+            <if>if <condition>(<expr>!(<call><name><name>logicalLines</name>.<name>get</name></name><argument_list>(<argument><expr><name>pos</name></expr></argument>)</argument_list></call> <name>instanceof</name> <name>Comment</name>)</expr>)</condition><then> <block>{
+                <break>break;</break>
+            }</block></then></if>
+        }</block></for>
+
+        <comment type="line">// now we want to delete from pos+1 to end</comment>
+        <for>for (<init><expr><name>pos</name>++</expr> ;</init><condition><expr><name>pos</name> &lt;= <name>end</name></expr>;</condition> <incr><expr><name>pos</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>logicalLines</name>.<name>set</name></name><argument_list>(<argument><expr><name>pos</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A logical line of the properties input stream.
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> <specifier>abstract</specifier> class <name>LogicalLine</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>text</name></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>LogicalLine</name><parameter_list>(<param><decl><type><name>String</name></type> <name>text</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>text</name></name> = <name>text</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setText</name><parameter_list>(<param><decl><type><name>String</name></type> <name>text</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>text</name></name> = <name>text</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>text</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * A blank line of the input stream.
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>Blank</name> <super><extends>extends <name>LogicalLine</name></extends></super> <block>{
+        <constructor><specifier>public</specifier> <name>Blank</name><parameter_list>()</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * A comment line of the input stream.
+     */</comment>
+    <class><specifier>private</specifier> class <name>Comment</name> <super><extends>extends <name>LogicalLine</name></extends></super> <block>{
+        <constructor><specifier>public</specifier> <name>Comment</name><parameter_list>(<param><decl><type><name>String</name></type> <name>text</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>text</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * A key-value pair from the input stream. This may span more than
+     * one physical line, but it is constitutes as a single logical
+     * line.
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>Pair</name> <super><extends>extends <name>LogicalLine</name></extends> <implements>implements <name>Cloneable</name></implements></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>name</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>value</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>added</name></decl>;</decl_stmt>
+
+        <constructor><specifier>public</specifier> <name>Pair</name><parameter_list>(<param><decl><type><name>String</name></type> <name>text</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>text</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>parsePair</name><argument_list>(<argument><expr><name>text</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <constructor><specifier>public</specifier> <name>Pair</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>name</name> + "=" + <name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>name</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getValue</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>value</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setValue</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>value</name></name> = <name>value</name></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setText</name><argument_list>(<argument><expr><name>name</name> + "=" + <name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isNew</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>added</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setNew</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>val</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>added</name> = <name>val</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>Object</name></type> <name>dolly</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>dolly</name> = <call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block>
+            <catch>catch (<param><decl><type><name>CloneNotSupportedException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">// should be fine</comment>
+                <expr_stmt><expr><call><name><name>e</name>.<name>printStackTrace</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+            <return>return <expr><name>dolly</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>parsePair</name><parameter_list>(<param><decl><type><name>String</name></type> <name>text</name></decl></param>)</parameter_list> <block>{
+            <comment type="line">// need to find first non-escaped '=', ':', '\t' or ' '.</comment>
+            <decl_stmt><decl><type><name>int</name></type> <name>pos</name> =<init> <expr><call><name>findFirstSeparator</name><argument_list>(<argument><expr><name>text</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>pos</name> == -1</expr>)</condition><then> <block>{
+                <comment type="line">// trim leading whitespace only</comment>
+                <expr_stmt><expr><name>name</name> = <name>text</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>value</name> = <name>null</name></expr>;</expr_stmt>
+            }</block></then>
+            <else>else <block>{
+                <expr_stmt><expr><name>name</name> = <call><name><name>text</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>pos</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>value</name> = <call><name><name>text</name>.<name>substring</name></name><argument_list>(<argument><expr><name>pos</name>+1</expr></argument>, <argument><expr><call><name><name>text</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <comment type="line">// trim leading whitespace only</comment>
+            <expr_stmt><expr><name>name</name> = <call><name>stripStart</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>" \t\f"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>private</specifier> <name>String</name></type> <name>stripStart</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>, <param><decl><type><name>String</name></type> <name>chars</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>s</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <for>for (<init>;</init><condition><expr><name>i</name> &lt; <call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <if>if <condition>(<expr><call><name><name>chars</name>.<name>indexOf</name></name><argument_list>(<argument><expr><call><name><name>s</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call> == -1</expr>)</condition><then> <block>{
+                    <break>break;</break>
+                }</block></then></if>
+            }</block></for>
+            <if>if <condition>(<expr><name>i</name> == <call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>""</expr>;</return>
+            }</block></then></if>
+            <return>return <expr><call><name><name>s</name>.<name>substring</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>private</specifier> <name>int</name></type> <name>findFirstSeparator</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+            <comment type="line">// Replace double backslashes with underscores so that they don't</comment>
+            <comment type="line">// confuse us looking for '\t' or '\=', for example, but they also</comment>
+            <comment type="line">// don't change the position of other characters</comment>
+            <expr_stmt><expr><name>s</name> = <call><name><name>s</name>.<name>replaceAll</name></name><argument_list>(<argument><expr>"\\\\\\\\"</expr></argument>, <argument><expr>"__"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// Replace single backslashes followed by separators, so we don't</comment>
+            <comment type="line">// pick them up</comment>
+            <expr_stmt><expr><name>s</name> = <call><name><name>s</name>.<name>replaceAll</name></name><argument_list>(<argument><expr>"\\\\="</expr></argument>, <argument><expr>"__"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>s</name> = <call><name><name>s</name>.<name>replaceAll</name></name><argument_list>(<argument><expr>"\\\\:"</expr></argument>, <argument><expr>"__"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>s</name> = <call><name><name>s</name>.<name>replaceAll</name></name><argument_list>(<argument><expr>"\\\\ "</expr></argument>, <argument><expr>"__"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>s</name> = <call><name><name>s</name>.<name>replaceAll</name></name><argument_list>(<argument><expr>"\\\\t"</expr></argument>, <argument><expr>"__"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// Now only the unescaped separators are left</comment>
+            <return>return <expr><call><name>indexOfAny</name><argument_list>(<argument><expr><name>s</name></expr></argument>, <argument><expr>" :=\t"</expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>private</specifier> <name>int</name></type> <name>indexOfAny</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>, <param><decl><type><name>String</name></type> <name>chars</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>s</name> == <name>null</name> || <name>chars</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr>-1</expr>;</return>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>int</name></type> <name>p</name> =<init> <expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call> + 1</expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <call><name><name>chars</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>x</name> =<init> <expr><call><name><name>s</name>.<name>indexOf</name></name><argument_list>(<argument><expr><call><name><name>chars</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>x</name> != -1 &amp;&amp; <name>x</name> &lt; <name>p</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>p</name> = <name>x</name></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+            <if>if <condition>(<expr><name>p</name> == <call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call> + 1</expr>)</condition><then> <block>{
+                <return>return <expr>-1</expr>;</return>
+            }</block></then></if>
+            <return>return <expr><name>p</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+}</block></class>
+</unit>

@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\CopyPath.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileNameMapper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Reference</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Copy the contents of a path to a destination, using the mapper of choice
+ *
+ * @since Ant 1.7.0
+ *
+ * @ant.task category="filesystem"
+ * @deprecated this task should have never been released and was
+ * obsoleted by ResourceCollection support in Copy available since Ant
+ * 1.7.0.  Don't use it.
+ */</comment>
+
+<class><specifier>public</specifier> class <name>CopyPath</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+
+    <comment type="line">// Error messages</comment>
+    <comment type="javadoc">/** No destdir attribute */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_DESTDIR</name> =<init> <expr>"No destDir specified"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** No path  */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_PATH</name> =<init> <expr>"No path specified"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** No mapper  */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_MAPPER</name> =<init> <expr>"No mapper specified"</expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// fileutils</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">// --- Fields --</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>FileNameMapper</name></type> <name>mapper</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>path</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>destDir</name></decl>;</decl_stmt>
+
+    <comment type="line">// TODO not read, yet in a public setter</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>granularity</name> =<init> <expr><call><name><name>FILE_UTILS</name>.<name>getFileTimestampGranularity</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>preserveLastModified</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The dest dir attribute.
+     * @param destDir the value of the destdir attribute.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>destDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destDir</name></name> = <name>destDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add a mapper
+     *
+     * @param newmapper the mapper to add.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>FileNameMapper</name></type> <name>newmapper</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>mapper</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one mapper allowed"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>mapper</name> = <name>newmapper</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the path to be used when running the Java class.
+     *
+     * @param s
+     *            an Ant Path object containing the path.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createPath</name><argument_list>()</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the path to use by reference.
+     *
+     * @param r
+     *            a reference to an existing path.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createPath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a path.
+     *
+     * @return a path to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createPath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>path</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>path</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>path</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the number of milliseconds leeway to give before deciding a
+     * target is out of date.
+     * TODO: This is not yet used.
+     * @param granularity the granularity used to decide if a target is out of
+     *                    date.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setGranularity</name><parameter_list>(<param><decl><type><name>long</name></type> <name>granularity</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>granularity</name></name> = <name>granularity</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Give the copied files the same last modified time as the original files.
+     * @param preserveLastModified if true preserve the modified time;
+     *                             default is false.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPreserveLastModified</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>preserveLastModified</name></name> = <name>preserveLastModified</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Ensure we have a consistent and legal set of attributes, and set any
+     * internal flags necessary based on different combinations of attributes.
+     *
+     * @throws BuildException
+     *             if an error occurs.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>validateAttributes</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>destDir</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_DESTDIR</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>mapper</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_MAPPER</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>path</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_PATH</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This is a very minimal derivative of the normal copy logic.
+     *
+     * @throws BuildException
+     *             if something goes wrong with the build.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"This task should have never been released and was"
+            + " obsoleted by ResourceCollection support in &lt;copy&gt; available"
+            + " since Ant 1.7.0.  Don't use it."</expr></argument>,
+            <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>validateAttributes</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>sourceFiles</name> =<init> <expr><call><name><name>path</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name><name>sourceFiles</name>.<name>length</name></name> == 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Path is empty"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></then></if>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>sources</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>sources</name> &lt; <name><name>sourceFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>sources</name>++</expr></incr>) <block>{
+
+            <decl_stmt><decl><type><name>String</name></type> <name>sourceFileName</name> =<init> <expr><name><name>sourceFiles</name><index>[<expr><name>sources</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>sourceFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>sourceFileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>toFiles</name> =<init> <expr>(<name><name>String</name><index>[]</index></name>) <call><name><name>mapper</name>.<name>mapFileName</name></name><argument_list>(<argument><expr><name>sourceFileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>toFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>destFileName</name> =<init> <expr><name><name>toFiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>destFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>destDir</name></expr></argument>, <argument><expr><name>destFileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><call><name><name>sourceFile</name>.<name>equals</name></name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Skipping self-copy of " + <name>sourceFileName</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <continue>continue;</continue>
+                }</block></then></if>
+                <if>if <condition>(<expr><call><name><name>sourceFile</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Skipping directory " + <name>sourceFileName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <continue>continue;</continue>
+                }</block></then></if>
+                <try>try <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Copying " + <name>sourceFile</name> + " to " + <name>destFile</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                    <expr_stmt><expr><call><name><name>FILE_UTILS</name>.<name>copyFile</name></name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr>false</expr></argument>,
+                            <argument><expr><name>preserveLastModified</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed to copy " + <name>sourceFile</name> + " to " + <name>destFile</name> + " due to "
+                            + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><call><name><name>destFile</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; !<call><name><name>destFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>msg</name> += " and I couldn't delete the corrupt " + <name>destFile</name></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>ioe</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></for>
+        }</block></for>
+    }</block></function>
+}</block></class>
+</unit>

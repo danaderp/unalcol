@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Recorder.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildEvent</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>SubBuildListener</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>EnumeratedAttribute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>LogLevel</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Adds a listener to the current build process that records the
+ * output to a file.
+ * &lt;p&gt;Several recorders can exist at the same time.  Each recorder is
+ * associated with a file.  The filename is used as a unique identifier for
+ * the recorders.  The first call to the recorder task with an unused filename
+ * will create a recorder (using the parameters provided) and add it to the
+ * listeners of the build.  All subsequent calls to the recorder task using
+ * this filename will modify that recorders state (recording or not) or other
+ * properties (like logging level).&lt;/p&gt;
+ * &lt;p&gt;Some technical issues: the file's print stream is flushed for &amp;quot;finished&amp;quot;
+ * events (buildFinished, targetFinished and taskFinished), and is closed on
+ * a buildFinished event.&lt;/p&gt;
+ * @see RecorderEntry
+ * @version 0.5
+ * @since Ant 1.4
+ * @ant.task name="record" category="utility"
+ */</comment>
+<class><specifier>public</specifier> class <name>Recorder</name> <super><extends>extends <name>Task</name></extends> <implements>implements <name>SubBuildListener</name></implements></super> <block>{
+
+    <comment type="line">//////////////////////////////////////////////////////////////////////</comment>
+    <comment type="line">// ATTRIBUTES</comment>
+
+    <comment type="javadoc">/** The name of the file to record to. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>filename</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Whether or not to append. Need Boolean to record an unset state (null).
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Boolean</name></type> <name>append</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * Whether to start or stop recording. Need Boolean to record an unset
+     * state (null).
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Boolean</name></type> <name>start</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** The level to log at. A level of -1 means not initialized yet. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>loglevel</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Strip task banners if true.  */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>emacsMode</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** The list of recorder entries. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name>Hashtable</name></type> <name>recorderEntries</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="line">//////////////////////////////////////////////////////////////////////</comment>
+    <comment type="line">// CONSTRUCTORS / INITIALIZERS</comment>
+
+    <comment type="javadoc">/**
+     * Overridden so we can add the task as build listener.
+     *
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>init</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>addBuildListener</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="line">//////////////////////////////////////////////////////////////////////</comment>
+    <comment type="line">// ACCESSOR METHODS</comment>
+
+    <comment type="javadoc">/**
+     * Sets the name of the file to log to, and the name of the recorder
+     * entry.
+     *
+     * @param fname File name of logfile.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>fname</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>filename</name> = <name>fname</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Sets the action for the associated recorder entry.
+     *
+     * @param action The action for the entry to take: start or stop.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAction</name><parameter_list>(<param><decl><type><name>ActionChoices</name></type> <name>action</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>action</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equalsIgnoreCase</name><argument_list>(<argument><expr>"start"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>start</name> = <name><name>Boolean</name>.<name>TRUE</name></name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>start</name> = <name><name>Boolean</name>.<name>FALSE</name></name></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Whether or not the logger should append to a previous file.
+     * @param append if true, append to a previous file.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAppend</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>append</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>append</name></name> = (<name>append</name> ? <name><name>Boolean</name>.<name>TRUE</name></name> : <name><name>Boolean</name>.<name>FALSE</name></name>)</expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set emacs mode.
+     * @param emacsMode if true use emacs mode
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEmacsMode</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>emacsMode</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>emacsMode</name></name> = <name>emacsMode</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Sets the level to which this recorder entry should log to.
+     * @param level the level to set.
+     * @see VerbosityLevelChoices
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLoglevel</name><parameter_list>(<param><decl><type><name>VerbosityLevelChoices</name></type> <name>level</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>loglevel</name> = <call><name><name>level</name>.<name>getLevel</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="line">//////////////////////////////////////////////////////////////////////</comment>
+    <comment type="line">// CORE / MAIN BODY</comment>
+
+    <comment type="javadoc">/**
+     * The main execution.
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>filename</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"No filename specified"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>log</name><argument_list>(<argument><expr>"setting a recorder for name " + <name>filename</name></expr></argument>,
+            <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// get the recorder entry</comment>
+        <decl_stmt><decl><type><name>RecorderEntry</name></type> <name>recorder</name> =<init> <expr><call><name>getRecorder</name><argument_list>(<argument><expr><name>filename</name></expr></argument>, <argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// set the values on the recorder</comment>
+        <expr_stmt><expr><call><name><name>recorder</name>.<name>setMessageOutputLevel</name></name><argument_list>(<argument><expr><name>loglevel</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>recorder</name>.<name>setEmacsMode</name></name><argument_list>(<argument><expr><name>emacsMode</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>start</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><call><name><name>start</name>.<name>booleanValue</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>recorder</name>.<name>reopenFile</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>recorder</name>.<name>setRecordState</name></name><argument_list>(<argument><expr><name>start</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>recorder</name>.<name>setRecordState</name></name><argument_list>(<argument><expr><name>start</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>recorder</name>.<name>closeFile</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="line">//////////////////////////////////////////////////////////////////////</comment>
+    <comment type="line">// INNER CLASSES</comment>
+
+    <comment type="javadoc">/**
+     * A list of possible values for the &lt;code&gt;setAction()&lt;/code&gt; method.
+     * Possible values include: start and stop.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>ActionChoices</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name><index>[]</index></type> <name>VALUES</name> =<init> <expr><block>{<expr>"start"</expr>, <expr>"stop"</expr>}</block></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * @see EnumeratedAttribute#getValues()
+         */</comment>
+        <comment type="javadoc">/** {@inheritDoc}. */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>VALUES</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+
+    <comment type="javadoc">/**
+     * A list of possible values for the &lt;code&gt;setLoglevel()&lt;/code&gt; method.
+     * Possible values include: error, warn, info, verbose, debug.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>VerbosityLevelChoices</name> <super><extends>extends <name>LogLevel</name></extends></super> <block>{
+    }</block></class>
+
+
+    <comment type="javadoc">/**
+     * Gets the recorder that's associated with the passed in name. If the
+     * recorder doesn't exist, then a new one is created.
+     * @param name the name of the recorder
+     * @param proj the current project
+     * @return a recorder
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>RecorderEntry</name></type> <name>getRecorder</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Project</name></type> <name>proj</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Object</name></type> <name>o</name> =<init> <expr><call><name><name>recorderEntries</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>RecorderEntry</name></type> <name>entry</name></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>o</name> == <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// create a recorder entry</comment>
+            <expr_stmt><expr><name>entry</name> = new <call><name>RecorderEntry</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>append</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>entry</name>.<name>openFile</name></name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>entry</name>.<name>openFile</name></name><argument_list>(<argument><expr><call><name><name>append</name>.<name>booleanValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <expr_stmt><expr><call><name><name>entry</name>.<name>setProject</name></name><argument_list>(<argument><expr><name>proj</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>recorderEntries</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>entry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>entry</name> = (<name>RecorderEntry</name>) <name>o</name></expr>;</expr_stmt>
+        }</block></else></if>
+        <return>return <expr><name>entry</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation required by SubBuildListener interface.
+     * @param event ignored.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation required by SubBuildListener interface.
+     * @param event ignored.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>subBuildStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation required by SubBuildListener interface.
+     * @param event ignored.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation required by SubBuildListener interface.
+     * @param event ignored.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation required by SubBuildListener interface.
+     * @param event ignored.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation required by SubBuildListener interface.
+     * @param event ignored.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation required by SubBuildListener interface.
+     * @param event ignored.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>messageLogged</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Cleans recorder registry.
+     * @param event ignored.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>cleanup</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Cleans recorder registry, if this is the subbuild the task has
+     * been created in.
+     * @param event ignored.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>subBuildFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>event</name>.<name>getProject</name></name><argument_list>()</argument_list></call> == <call><name>getProject</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>cleanup</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * cleans recorder registry and removes itself from BuildListener list.
+     *
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>cleanup</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Hashtable</name></type> <name>entries</name> =<init> <expr>(<name>Hashtable</name>) <call><name><name>recorderEntries</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Iterator</name></type> <name>itEntries</name> =<init> <expr><call><name><name>entries</name>.<name>entrySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>itEntries</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name><name>Map</name>.<name>Entry</name></name></type> <name>entry</name> =<init> <expr>(<name><name>Map</name>.<name>Entry</name></name>) <call><name><name>itEntries</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>RecorderEntry</name></type> <name>re</name> =<init> <expr>(<name>RecorderEntry</name>) <call><name><name>entry</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>re</name>.<name>getProject</name></name><argument_list>()</argument_list></call> == <call><name>getProject</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>recorderEntries</name>.<name>remove</name></name><argument_list>(<argument><expr><call><name><name>entry</name>.<name>getKey</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></while>
+        <expr_stmt><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>removeBuildListener</name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+}</block></class>
+
+</unit>

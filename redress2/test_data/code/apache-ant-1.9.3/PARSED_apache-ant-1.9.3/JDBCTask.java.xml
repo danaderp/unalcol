@@ -1,0 +1,531 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\JDBCTask.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>sql</name>.<name>Connection</name></name>;</import>
+<import>import <name><name>java</name>.<name>sql</name>.<name>DatabaseMetaData</name></name>;</import>
+<import>import <name><name>java</name>.<name>sql</name>.<name>Driver</name></name>;</import>
+<import>import <name><name>java</name>.<name>sql</name>.<name>SQLException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Locale</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Properties</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>AntClassLoader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Reference</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Handles JDBC configuration needed by SQL type tasks.
+ * &lt;p&gt;
+ * The following example class prints the contents of the first column of each row in TableName.
+ *&lt;/p&gt;
+ *&lt;code&gt;&lt;pre&gt;
+package examples;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.taskdefs.JDBCTask;
+
+public class SQLExampleTask extends JDBCTask {
+
+    private String tableName;
+
+    public void execute() throws BuildException {
+        Connection conn = getConnection();
+        Statement stmt=null;
+        try {
+            if (tableName == null) {
+                throw new BuildException("TableName must be specified",location);
+            }
+            String sql = "SELECT * FROM "+tableName;
+            stmt= conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql);
+            while (rs.next()) {
+                log(rs.getObject(1).toString());
+            }
+        } catch (SQLException e) {
+
+        } finally {
+            if (stmt != null) {
+                try {stmt.close();}catch (SQLException ignore) {}
+            }
+            if (conn != null) {
+                try {conn.close();}catch (SQLException ignore) {}
+            }
+        }
+    }
+    public void setTableName(String tableName) {
+        this.tableName = tableName;
+    }
+
+}
+
+
+&lt;/pre&gt;&lt;/code&gt;
+
+
+
+ * @since Ant 1.5
+ *
+ */</comment>
+
+<class><specifier>public</specifier> <specifier>abstract</specifier> class <name>JDBCTask</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>HASH_TABLE_SIZE</name> =<init> <expr>3</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Used for caching loaders / driver. This is to avoid
+     * getting an OutOfMemoryError when calling this task
+     * multiple times in a row.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>AntClassLoader</name></argument>&gt;</argument_list></name></type> <name>LOADER_MAP</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>AntClassLoader</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>HASH_TABLE_SIZE</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>caching</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>classpath</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>AntClassLoader</name></type> <name>loader</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Autocommit flag. Default value is false
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>autocommit</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * DB driver.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>driver</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * DB url.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>url</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * User name.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>userId</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Password
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>password</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * RDBMS Product needed for this SQL.
+     **/</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>rdbms</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * RDBMS Version needed for this SQL.
+     **/</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>version</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * whether the task fails when ant fails to connect to the database.
+     * @since Ant 1.8.0
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>failOnConnectionError</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Additional properties to put into the JDBC connection string.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>List</name><argument_list>&lt;<argument><name>Property</name></argument>&gt;</argument_list></name></type> <name>connectionProperties</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>Property</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Sets the classpath for loading the driver.
+     * @param classpath The classpath to set
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>classpath</name></name> = <name>classpath</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Caching loaders / driver. This is to avoid
+     * getting an OutOfMemoryError when calling this task
+     * multiple times in a row; default: true
+     * @param enable a &lt;code&gt;boolean&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCaching</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>enable</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>caching</name> = <name>enable</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a path to the classpath for loading the driver.
+     * @return a path to be configured
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>classpath</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>classpath</name></name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>this</name>.<name>classpath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath for loading the driver
+     * using the classpath reference.
+     * @param r a reference to a classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createClasspath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Class name of the JDBC driver; required.
+     * @param driver The driver to set
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDriver</name><parameter_list>(<param><decl><type><name>String</name></type> <name>driver</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>driver</name></name> = <call><name><name>driver</name>.<name>trim</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the database connection URL; required.
+     * @param url The url to set
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUrl</name><parameter_list>(<param><decl><type><name>String</name></type> <name>url</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>url</name></name> = <name>url</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the password; required.
+     * @param password The password to set
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPassword</name><parameter_list>(<param><decl><type><name>String</name></type> <name>password</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>password</name></name> = <name>password</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Auto commit flag for database connection;
+     * optional, default false.
+     * @param autocommit The autocommit to set
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAutocommit</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>autocommit</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>autocommit</name></name> = <name>autocommit</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Execute task only if the lower case product name
+     * of the DB matches this
+     * @param rdbms The rdbms to set
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRdbms</name><parameter_list>(<param><decl><type><name>String</name></type> <name>rdbms</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>rdbms</name></name> = <name>rdbms</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the version string, execute task only if
+     * rdbms version match; optional.
+     * @param version The version to set
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setVersion</name><parameter_list>(<param><decl><type><name>String</name></type> <name>version</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>version</name></name> = <name>version</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * whether the task should cause the build to fail if it cannot
+     * connect to the database.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFailOnConnectionError</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>failOnConnectionError</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Verify we are connected to the correct RDBMS
+     * @param conn the jdbc connection
+     * @return true if we are connected to the correct RDBMS
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>isValidRdbms</name><parameter_list>(<param><decl><type><name>Connection</name></type> <name>conn</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>rdbms</name> == <name>null</name> &amp;&amp; <name>version</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+
+        <try>try <block>{
+            <decl_stmt><decl><type><name>DatabaseMetaData</name></type> <name>dmd</name> =<init> <expr><call><name><name>conn</name>.<name>getMetaData</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>rdbms</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>theVendor</name> =<init> <expr><call><name><name>dmd</name>.<name>getDatabaseProductName</name></name><argument_list>()</argument_list></call>.<call><name>toLowerCase</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"RDBMS = " + <name>theVendor</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>theVendor</name> == <name>null</name> || <call><name><name>theVendor</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>rdbms</name></expr></argument>)</argument_list></call> &lt; 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Not the required RDBMS: " + <name>rdbms</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <return>return <expr>false</expr>;</return>
+                }</block></then></if>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>version</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>theVersion</name> =<init> <expr><call><name><name>dmd</name>.<name>getDatabaseProductVersion</name></name><argument_list>()</argument_list></call>.<call><name>toLowerCase</name><argument_list>(<argument><expr><name><name>Locale</name>.<name>ENGLISH</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Version = " + <name>theVersion</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>theVersion</name> == <name>null</name>
+                        || !(<call><name><name>theVersion</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>version</name></expr></argument>)</argument_list></call>
+                        || <call><name><name>theVersion</name>.<name>indexOf</name></name><argument_list>(<argument><expr>" " + <name>version</name></expr></argument>)</argument_list></call> &gt;= 0)</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Not the required version: \"" + <name>version</name> + "\""</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <return>return <expr>false</expr>;</return>
+                }</block></then></if>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>SQLException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// Could not get the required information</comment>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Failed to obtain required RDBMS information"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>false</expr>;</return>
+        }</block></catch></try>
+
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the cache of loaders and drivers.
+     * @return a hashtable
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>static</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>AntClassLoader</name></argument>&gt;</argument_list></name></type> <name>getLoaderMap</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>LOADER_MAP</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the classloader used to create a driver.
+     * @return the classloader
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>AntClassLoader</name></type> <name>getLoader</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>loader</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Additional properties to put into the JDBC connection string.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConnectionProperty</name><parameter_list>(<param><decl><type><name>Property</name></type> <name>var</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>connectionProperties</name>.<name>add</name></name><argument_list>(<argument><expr><name>var</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates a new Connection as using the driver, url, userid and password
+     * specified.
+     *
+     * The calling method is responsible for closing the connection.
+     *
+     * @return Connection the newly created connection or null if the
+     * connection failed and failOnConnectionError is false.
+     * @throws BuildException if the UserId/Password/Url is not set or there
+     * is no suitable driver or the driver fails to load.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Connection</name></type> <name>getConnection</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>userId</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"UserId attribute must be set!"</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>password</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Password attribute must be set!"</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>url</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Url attribute must be set!"</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <try>try <block>{
+
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"connecting to " + <call><name>getUrl</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>Properties</name></type> <name>info</name> =<init> <expr>new <call><name>Properties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>info</name>.<name>put</name></name><argument_list>(<argument><expr>"user"</expr></argument>, <argument><expr><call><name>getUserId</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>info</name>.<name>put</name></name><argument_list>(<argument><expr>"password"</expr></argument>, <argument><expr><call><name>getPassword</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <for>for (<init><decl><type><name><name>Iterator</name><argument_list>&lt;<argument><name>Property</name></argument>&gt;</argument_list></name></type> <name>props</name> =<init> <expr><call><name><name>connectionProperties</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init>
+                 <condition><expr><call><name><name>props</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr/>) <block>{
+                <decl_stmt><decl><type><name>Property</name></type> <name>p</name> =<init> <expr><call><name><name>props</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>p</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><call><name><name>p</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>name</name> == <name>null</name> || <name>value</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Only name/value pairs are supported as connection"
+                        + " properties."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Setting connection property " + <name>name</name> + " to " + <name>value</name></expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>info</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></for>
+
+            <decl_stmt><decl><type><name>Connection</name></type> <name>conn</name> =<init> <expr><call><name>getDriver</name><argument_list>()</argument_list></call>.<call><name>connect</name><argument_list>(<argument><expr><call><name>getUrl</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>info</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>conn</name> == <name>null</name></expr>)</condition><then> <block>{
+                <comment type="line">// Driver doesn't understand the URL</comment>
+                <throw>throw <expr>new <call><name>SQLException</name><argument_list>(<argument><expr>"No suitable Driver for " + <name>url</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <expr_stmt><expr><call><name><name>conn</name>.<name>setAutoCommit</name></name><argument_list>(<argument><expr><name>autocommit</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>conn</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>SQLException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// failed to connect</comment>
+            <if>if <condition>(<expr>!<name>failOnConnectionError</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Failed to connect: " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></then> <else>else <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></else></if>
+        }</block></catch></try>
+
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets an instance of the required driver.
+     * Uses the ant class loader and the optionally the provided classpath.
+     * @return Driver
+     * @throws BuildException
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Driver</name></type> <name>getDriver</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>driver</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Driver attribute must be set!"</expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>Driver</name></type> <name>driverInstance</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>dc</name></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+                <comment type="line">// check first that it is not already loaded otherwise</comment>
+                <comment type="line">// consecutive runs seems to end into an OutOfMemoryError</comment>
+                <comment type="line">// or it fails when there is a native library to load</comment>
+                <comment type="line">// several times.</comment>
+                <comment type="line">// this is far from being perfect but should work</comment>
+                <comment type="line">// in most cases.</comment>
+                <synchronized>synchronized (<expr><name>LOADER_MAP</name></expr>) <block>{
+                    <if>if <condition>(<expr><name>caching</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>loader</name> = (<name>AntClassLoader</name>) <call><name><name>LOADER_MAP</name>.<name>get</name></name><argument_list>(<argument><expr><name>driver</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                    <if>if <condition>(<expr><name>loader</name> == <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Loading " + <name>driver</name>
+                            + " using AntClassLoader with classpath "
+                            + <name>classpath</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>loader</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <if>if <condition>(<expr><name>caching</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name><name>LOADER_MAP</name>.<name>put</name></name><argument_list>(<argument><expr><name>driver</name></expr></argument>, <argument><expr><name>loader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Loading " + <name>driver</name>
+                            + " using a cached AntClassLoader."</expr></argument>,
+                                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block></synchronized>
+                <expr_stmt><expr><name>dc</name> = <call><name><name>loader</name>.<name>loadClass</name></name><argument_list>(<argument><expr><name>driver</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Loading " + <name>driver</name> + " using system loader."</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>dc</name> = <call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr><name>driver</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <expr_stmt><expr><name>driverInstance</name> = (<name>Driver</name>) <call><name><name>dc</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                    <argument><expr>"Class Not Found: JDBC driver " + <name>driver</name> + " could not be loaded"</expr></argument>,
+                    <argument><expr><name>e</name></expr></argument>,
+                    <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>IllegalAccessException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                    <argument><expr>"Illegal Access: JDBC driver " + <name>driver</name> + " could not be loaded"</expr></argument>,
+                    <argument><expr><name>e</name></expr></argument>,
+                    <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>InstantiationException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                    <argument><expr>"Instantiation Exception: JDBC driver " + <name>driver</name> + " could not be loaded"</expr></argument>,
+                    <argument><expr><name>e</name></expr></argument>,
+                    <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+        <return>return <expr><name>driverInstance</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the caching attribute.
+     * @param value a &lt;code&gt;boolean&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>isCaching</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>caching</name> = <name>value</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the classpath.
+     * @return Returns a Path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getClasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>classpath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the autocommit.
+     * @return Returns a boolean
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isAutocommit</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>autocommit</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the url.
+     * @return Returns a String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getUrl</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>url</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the userId.
+     * @return Returns a String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getUserId</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>userId</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the user name for the connection; required.
+     * @param userId The userId to set
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUserid</name><parameter_list>(<param><decl><type><name>String</name></type> <name>userId</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>userId</name></name> = <name>userId</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the password.
+     * @return Returns a String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getPassword</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>password</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the rdbms.
+     * @return Returns a String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getRdbms</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>rdbms</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the version.
+     * @return Returns a String
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getVersion</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>version</name></expr>;</return>
+    }</block></function>
+
+}</block></class>
+</unit>

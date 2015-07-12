@@ -1,0 +1,898 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ejb\WebsphereDeploymentTool.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ejb</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>JarEntry</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>JarFile</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>JarOutputStream</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>AntClassLoader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Java</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Environment</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Websphere deployment tool that augments the ejbjar task.
+ * Searches for the websphere specific deployment descriptors and
+ * adds them to the final ejb jar file. Websphere has two specific descriptors for session
+ * beans:
+ * &lt;ul&gt;
+ *    &lt;li&gt;ibm-ejb-jar-bnd.xmi&lt;/li&gt;
+ *    &lt;li&gt;ibm-ejb-jar-ext.xmi&lt;/li&gt;
+ * &lt;/ul&gt;
+ * and another two for container managed entity beans:
+ * &lt;ul&gt;
+ *    &lt;li&gt;Map.mapxmi&lt;/li&gt;
+ *    &lt;li&gt;Schema.dbxmi&lt;/li&gt;
+ * &lt;/ul&gt;
+ * In terms of WebSphere, the generation of container code and stubs is
+ * called &lt;code&gt;deployment&lt;/code&gt;. This step can be performed by the websphere
+ * element as part of the jar generation process. If the switch
+ * &lt;code&gt;ejbdeploy&lt;/code&gt; is on, the ejbdeploy tool from the websphere toolset
+ * is called for every ejb-jar. Unfortunately, this step only works, if you
+ * use the ibm jdk. Otherwise, the rmic (called by ejbdeploy) throws a
+ * ClassFormatError. Be sure to switch ejbdeploy off, if run ant with
+ * sun jdk.
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>WebsphereDeploymentTool</name> <super><extends>extends <name>GenericDeploymentTool</name></extends></super> <block>{
+
+    <comment type="javadoc">/** ID for ejb 1.1 */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>PUBLICID_EJB11</name>
+         =<init> <expr>"-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** ID for ejb 2.0 */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>PUBLICID_EJB20</name>
+         =<init> <expr>"-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Schema directory */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>SCHEMA_DIR</name> =<init> <expr>"Schema/"</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>WAS_EXT</name> =<init> <expr>"ibm-ejb-jar-ext.xmi"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>WAS_BND</name> =<init> <expr>"ibm-ejb-jar-bnd.xmi"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>WAS_CMP_MAP</name> =<init> <expr>"Map.mapxmi"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>protected</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>WAS_CMP_SCHEMA</name> =<init> <expr>"Schema.dbxmi"</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Instance variable that stores the suffix for the websphere jarfile. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>jarSuffix</name> =<init> <expr>".jar"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Instance variable that stores the location of the ejb 1.1 DTD file. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>ejb11DTD</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Instance variable that determines whether generic ejb jars are kept. */</comment>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>keepGeneric</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>alwaysRebuild</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>ejbdeploy</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Indicates if the old CMP location convention is to be used. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>newCMP</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The classpath to the websphere classes. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>wasClasspath</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The DB Vendor name, the EJB is persisted against */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>dbVendor</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The name of the database to create. (For top-down mapping only) */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>dbName</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The name of the schema to create. (For top-down mappings only) */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>dbSchema</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** true - Only generate the deployment code, do not run RMIC or Javac */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>codegen</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** true - Only output error messages, suppress informational messages */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>quiet</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** true - Disable the validation steps */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>novalidate</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** true - Disable warning and informational messages */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>nowarn</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** true - Disable informational messages */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>noinform</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** true - Enable internal tracing */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>trace</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Additional options for RMIC */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>rmicOptions</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** true- Use the WebSphere 3.5 compatible mapping rules */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>use35MappingRules</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** the scratchdir for the ejbdeploy operation */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>tempdir</name> =<init> <expr>"_ejbdeploy_temp"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** the home directory for websphere */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>websphereHome</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Get the classpath to the websphere classpaths.
+     * @return the websphere classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createWASClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>wasClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>wasClasspath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>wasClasspath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the websphere classpath.
+     * @param wasClasspath the websphere classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setWASClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>wasClasspath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>wasClasspath</name></name> = <name>wasClasspath</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/** Sets the DB Vendor for the Entity Bean mapping ; optional.
+     * &lt;p&gt;
+     * Valid options can be obtained by running the following command:
+     * &lt;code&gt;
+     * &amp;lt;WAS_HOME&amp;gt;/bin/EJBDeploy.[sh/bat] -help
+     * &lt;/code&gt;
+     * &lt;/p&gt;
+     * &lt;p&gt;
+     * This is also used to determine the name of the Map.mapxmi and
+     * Schema.dbxmi files, for example Account-DB2UDB_V81-Map.mapxmi
+     * and Account-DB2UDB_V81-Schema.dbxmi.
+     * &lt;/p&gt;
+     *
+     * @param dbvendor database vendor type
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDbvendor</name><parameter_list>(<param><decl><type><name>String</name></type> <name>dbvendor</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>dbVendor</name></name> = <name>dbvendor</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Sets the name of the Database to create; optional.
+     *
+     * @param dbName name of the database
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDbname</name><parameter_list>(<param><decl><type><name>String</name></type> <name>dbName</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>dbName</name></name> = <name>dbName</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Sets the name of the schema to create; optional.
+     *
+     * @param dbSchema name of the schema
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDbschema</name><parameter_list>(<param><decl><type><name>String</name></type> <name>dbSchema</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>dbSchema</name></name> = <name>dbSchema</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Flag, default false, to only generate the deployment
+     * code, do not run RMIC or Javac
+     *
+     * @param codegen option
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCodegen</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>codegen</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>codegen</name></name> = <name>codegen</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Flag, default true, to only output error messages.
+     *
+     * @param quiet option
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setQuiet</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>quiet</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>quiet</name></name> = <name>quiet</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Flag to disable the validation steps; optional, default false.
+     *
+     * @param novalidate option
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNovalidate</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>novalidate</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>novalidate</name></name> = <name>novalidate</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Flag to disable warning and informational messages; optional, default false.
+     *
+     * @param nowarn option
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNowarn</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>nowarn</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>nowarn</name></name> = <name>nowarn</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Flag to disable informational messages; optional, default false.
+     *
+     * @param noinform if true disables informational messages
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNoinform</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>noinform</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>noinform</name></name> = <name>noinform</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Flag to enable internal tracing when set, optional, default false.
+     *
+     * @param trace a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTrace</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>trace</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>trace</name></name> = <name>trace</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the rmic options.
+     *
+     * @param options the options to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRmicoptions</name><parameter_list>(<param><decl><type><name>String</name></type> <name>options</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>rmicOptions</name></name> = <name>options</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Flag to use the WebSphere 3.5 compatible mapping rules ; optional, default false.
+     *
+     * @param attr a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUse35</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>attr</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>use35MappingRules</name> = <name>attr</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the rebuild flag to false to only update changes in the jar rather
+     * than rerunning ejbdeploy; optional, default true.
+     * @param rebuild a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRebuild</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>rebuild</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>alwaysRebuild</name></name> = <name>rebuild</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * String value appended to the basename of the deployment
+     * descriptor to create the filename of the WebLogic EJB
+     * jar file. Optional, default '.jar'.
+     * @param inString the string to use as the suffix.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSuffix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>jarSuffix</name></name> = <name>inString</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * This controls whether the generic file used as input to
+     * ejbdeploy is retained; optional, default false.
+     * @param inValue either 'true' or 'false'.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setKeepgeneric</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>inValue</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>keepGeneric</name></name> = <name>inValue</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Decide, whether ejbdeploy should be called or not;
+     * optional, default true.
+     *
+     * @param ejbdeploy a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEjbdeploy</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>ejbdeploy</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>ejbdeploy</name></name> = <name>ejbdeploy</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Setter used to store the location of the Sun's Generic EJB DTD. This
+     * can be a file on the system or a resource on the classpath.
+     *
+     * @param inString the string to use as the DTD location.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setEJBdtd</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>ejb11DTD</name></name> = <name>inString</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the value of the oldCMP scheme. This is an antonym for newCMP
+     * @ant.attribute ignore="true"
+     * @param oldCMP a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOldCMP</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>oldCMP</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>newCMP</name></name> = !<name>oldCMP</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the value of the newCMP scheme. The old CMP scheme locates the
+     * websphere CMP descriptor based on the naming convention where the
+     * websphere CMP file is expected to be named with the bean name as the
+     * prefix. Under this scheme the name of the CMP descriptor does not match
+     * the name actually used in the main websphere EJB descriptor. Also,
+     * descriptors which contain multiple CMP references could not be used.
+     * @param newCMP a &lt;code&gt;boolean&lt;/code&gt; value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNewCMP</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>newCMP</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>newCMP</name></name> = <name>newCMP</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * The directory, where ejbdeploy will write temporary files;
+     * optional, defaults to '_ejbdeploy_temp'.
+     * @param tempdir the directory name to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTempdir</name><parameter_list>(<param><decl><type><name>String</name></type> <name>tempdir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>tempdir</name></name> = <name>tempdir</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>protected</specifier> <name>DescriptorHandler</name></type> <name>getDescriptorHandler</name><parameter_list>(<param><decl><type><name>File</name></type> <name>srcDir</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>DescriptorHandler</name></type> <name>handler</name> =<init> <expr>new <call><name>DescriptorHandler</name><argument_list>(<argument><expr><call><name>getTask</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>srcDir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// register all the DTDs, both the ones that are known and</comment>
+        <comment type="line">// any supplied by the user</comment>
+        <expr_stmt><expr><call><name><name>handler</name>.<name>registerDTD</name></name><argument_list>(<argument><expr><name>PUBLICID_EJB11</name></expr></argument>, <argument><expr><name>ejb11DTD</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<call><name><name>dtdLocations</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name><name>EjbJar</name>.<name>DTDLocation</name></name></type> <name>dtdLocation</name> =<init> <expr>(<name><name>EjbJar</name>.<name>DTDLocation</name></name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name><name>handler</name>.<name>registerDTD</name></name><argument_list>(<argument><expr><call><name><name>dtdLocation</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>dtdLocation</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <return>return <expr><name>handler</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Get a description handler.
+     * @param srcDir the source directory.
+     * @return the handler.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>DescriptorHandler</name></type> <name>getWebsphereDescriptorHandler</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>File</name></type> <name>srcDir</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>DescriptorHandler</name></type> <name>handler</name> =<init>
+            <expr>new <class><super><name>DescriptorHandler</name></super><argument_list>(<argument><expr><call><name>getTask</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>srcDir</name></expr></argument>)</argument_list> <block>{
+                <function><type><specifier>protected</specifier> <name>void</name></type> <name>processElement</name><parameter_list>()</parameter_list> <block>{
+                }</block></function>
+            }</block></class></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<call><name><name>dtdLocations</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name><name>EjbJar</name>.<name>DTDLocation</name></name></type> <name>dtdLocation</name> =<init> <expr>(<name><name>EjbJar</name>.<name>DTDLocation</name></name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name><name>handler</name>.<name>registerDTD</name></name><argument_list>(<argument><expr><call><name><name>dtdLocation</name>.<name>getPublicId</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>dtdLocation</name>.<name>getLocation</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>handler</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Add any vendor specific files which should be included in the EJB Jar.
+     * @param ejbFiles a hashtable entryname -&gt; file.
+     * @param baseName a prefix to use.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addVendorFiles</name><parameter_list>(<param><decl><type><name>Hashtable</name></type> <name>ejbFiles</name></decl></param>, <param><decl><type><name>String</name></type> <name>baseName</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>String</name></type> <name>ddPrefix</name> =<init> <expr>(<call><name>usingBaseJarName</name><argument_list>()</argument_list></call> ? "" : <name>baseName</name>)</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>dbPrefix</name> =<init> <expr>(<name>dbVendor</name> == <name>null</name>) ? "" : <name>dbVendor</name> + "-"</expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// Get the Extensions document</comment>
+        <decl_stmt><decl><type><name>File</name></type> <name>websphereEXT</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<name>descriptorDir</name></expr></argument>, <argument><expr><name>ddPrefix</name> + <name>WAS_EXT</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name><name>websphereEXT</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>META_DIR</name> + <name>WAS_EXT</name></expr></argument>,
+                <argument><expr><name>websphereEXT</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Unable to locate websphere extensions. "
+                + "It was expected to be in "
+                + <call><name><name>websphereEXT</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <decl_stmt><decl><type><name>File</name></type> <name>websphereBND</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<name>descriptorDir</name></expr></argument>, <argument><expr><name>ddPrefix</name> + <name>WAS_BND</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><call><name><name>websphereBND</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>META_DIR</name> + <name>WAS_BND</name></expr></argument>,
+                <argument><expr><name>websphereBND</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Unable to locate websphere bindings. "
+                + "It was expected to be in "
+                + <call><name><name>websphereBND</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <if>if <condition>(<expr>!<name>newCMP</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"The old method for locating CMP files has been DEPRECATED."</expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Please adjust your websphere descriptor and set "
+                + "newCMP=\"true\" to use the new CMP descriptor "
+                + "inclusion mechanism. "</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <comment type="line">// We attempt to put in the MAP and Schema files of CMP beans</comment>
+            <try>try <block>{
+                <comment type="line">// Add the Map file</comment>
+                <decl_stmt><decl><type><name>File</name></type> <name>websphereMAP</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<name>descriptorDir</name></expr></argument>,
+                    <argument><expr><name>ddPrefix</name> + <name>dbPrefix</name> + <name>WAS_CMP_MAP</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><call><name><name>websphereMAP</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>META_DIR</name> + <name>WAS_CMP_MAP</name></expr></argument>,
+                        <argument><expr><name>websphereMAP</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Unable to locate the websphere Map: "
+                        + <call><name><name>websphereMAP</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+
+                <decl_stmt><decl><type><name>File</name></type> <name>websphereSchema</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>getConfig</name><argument_list>()</argument_list></call>.<name>descriptorDir</name></expr></argument>,
+                    <argument><expr><name>ddPrefix</name> + <name>dbPrefix</name> + <name>WAS_CMP_SCHEMA</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><call><name><name>websphereSchema</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>META_DIR</name> + <name>SCHEMA_DIR</name> + <name>WAS_CMP_SCHEMA</name></expr></argument>,
+                        <argument><expr><name>websphereSchema</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Unable to locate the websphere Schema: "
+                        + <call><name><name>websphereSchema</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <comment type="line">// Theres nothing else to see here...keep moving sonny</comment>
+            }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Exception while adding Vendor specific files: "
+                    + <call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></else></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Get the vendor specific name of the Jar that will be output. The
+     * modification date of this jar will be checked against the dependent
+     * bean classes.
+     */</comment>
+    <function><type><name>File</name></type> <name>getVendorOutputJarFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>baseName</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><call><name>getDestDir</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>baseName</name> + <name>jarSuffix</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Gets the options for the EJB Deploy operation
+     *
+     * @return String
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>String</name></type> <name>getOptions</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">// Set the options</comment>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>options</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>dbVendor</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>options</name>.<name>append</name></name><argument_list>(<argument><expr>" -dbvendor "</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>dbVendor</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>dbName</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>options</name>.<name>append</name></name><argument_list>(<argument><expr>" -dbname \""</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>dbName</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>"\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>dbSchema</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>options</name>.<name>append</name></name><argument_list>(<argument><expr>" -dbschema \""</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>dbSchema</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>"\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>codegen</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>options</name>.<name>append</name></name><argument_list>(<argument><expr>" -codegen"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>quiet</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>options</name>.<name>append</name></name><argument_list>(<argument><expr>" -quiet"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>novalidate</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>options</name>.<name>append</name></name><argument_list>(<argument><expr>" -novalidate"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>nowarn</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>options</name>.<name>append</name></name><argument_list>(<argument><expr>" -nowarn"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>noinform</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>options</name>.<name>append</name></name><argument_list>(<argument><expr>" -noinform"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>trace</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>options</name>.<name>append</name></name><argument_list>(<argument><expr>" -trace"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>use35MappingRules</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>options</name>.<name>append</name></name><argument_list>(<argument><expr>" -35"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>rmicOptions</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>options</name>.<name>append</name></name><argument_list>(<argument><expr>" -rmic \""</expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr><name>rmicOptions</name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>"\""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <return>return <expr><call><name><name>options</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Helper method invoked by execute() for each websphere jar to be built.
+     * Encapsulates the logic of constructing a java task for calling
+     * websphere.ejbdeploy and executing it.
+     *
+     * @param sourceJar java.io.File representing the source (EJB1.1) jarfile.
+     * @param destJar java.io.File representing the destination, websphere
+     *      jarfile.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>buildWebsphereJar</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceJar</name></decl></param>, <param><decl><type><name>File</name></type> <name>destJar</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <if>if <condition>(<expr><name>ejbdeploy</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>Java</name></type> <name>javaTask</name> =<init> <expr>new <call><name>Java</name><argument_list>(<argument><expr><call><name>getTask</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <comment type="line">// Set the JvmArgs</comment>
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>createJvmarg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-Xms64m"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>createJvmarg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-Xmx128m"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// Set the Environment variable</comment>
+                <decl_stmt><decl><type><name><name>Environment</name>.<name>Variable</name></name></type> <name>var</name> =<init> <expr>new <call><name><name>Environment</name>.<name>Variable</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <expr_stmt><expr><call><name><name>var</name>.<name>setKey</name></name><argument_list>(<argument><expr>"websphere.lib.dir"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>libdir</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>websphereHome</name></expr></argument>, <argument><expr>"lib"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>var</name>.<name>setValue</name></name><argument_list>(<argument><expr><call><name><name>libdir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>addSysproperty</name></name><argument_list>(<argument><expr><name>var</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// Set the working directory</comment>
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>setDir</name></name><argument_list>(<argument><expr><name>websphereHome</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <comment type="line">// Set the Java class name</comment>
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>setTaskName</name></name><argument_list>(<argument><expr>"ejbdeploy"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>setClassname</name></name><argument_list>(<argument><expr>"com.ibm.etools.ejbdeploy.EJBDeploy"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name><name>sourceJar</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><name>tempdir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name><name>destJar</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setLine</name><argument_list>(<argument><expr><call><name>getOptions</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><call><name>getCombinedClasspath</name><argument_list>()</argument_list></call> != <name>null</name>
+                    &amp;&amp; <call><name>getCombinedClasspath</name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>javaTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr>"-cp"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>javaTask</name>.<name>createArg</name></name><argument_list>()</argument_list></call>.<call><name>setValue</name><argument_list>(<argument><expr><call><name>getCombinedClasspath</name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <decl_stmt><decl><type><name>Path</name></type> <name>classpath</name> =<init> <expr><name>wasClasspath</name></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><name>classpath</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>classpath</name> = <call><name>getCombinedClasspath</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>setFork</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>javaTask</name>.<name>setClasspath</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Calling websphere.ejbdeploy for " + <call><name><name>sourceJar</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><call><name><name>javaTask</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// Have to catch this because of the semantics of calling main()</comment>
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Exception while calling ejbdeploy. Details: " + <call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>writeJar</name><parameter_list>(<param><decl><type><name>String</name></type> <name>baseName</name></decl></param>, <param><decl><type><name>File</name></type> <name>jarFile</name></decl></param>, <param><decl><type><name>Hashtable</name></type> <name>files</name></decl></param>, <param><decl><type><name>String</name></type> <name>publicId</name></decl></param>)</parameter_list>
+         <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>ejbdeploy</name></expr>)</condition><then> <block>{
+            <comment type="line">// create the -generic.jar, if required</comment>
+            <decl_stmt><decl><type><name>File</name></type> <name>genericJarFile</name> =<init> <expr><call><name><name>super</name>.<name>getVendorOutputJarFile</name></name><argument_list>(<argument><expr><name>baseName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name><name>super</name>.<name>writeJar</name></name><argument_list>(<argument><expr><name>baseName</name></expr></argument>, <argument><expr><name>genericJarFile</name></expr></argument>, <argument><expr><name>files</name></expr></argument>, <argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// create the output .jar, if required</comment>
+            <if>if <condition>(<expr><name>alwaysRebuild</name> || <call><name>isRebuildRequired</name><argument_list>(<argument><expr><name>genericJarFile</name></expr></argument>, <argument><expr><name>jarFile</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>buildWebsphereJar</name><argument_list>(<argument><expr><name>genericJarFile</name></expr></argument>, <argument><expr><name>jarFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr>!<name>keepGeneric</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"deleting generic jar " + <call><name><name>genericJarFile</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>genericJarFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then> <else>else <block>{
+            <comment type="line">// create the "undeployed" output .jar, if required</comment>
+            <expr_stmt><expr><call><name><name>super</name>.<name>writeJar</name></name><argument_list>(<argument><expr><name>baseName</name></expr></argument>, <argument><expr><name>jarFile</name></expr></argument>, <argument><expr><name>files</name></expr></argument>, <argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Called to validate that the tool parameters have been configured.
+     * @throws BuildException if there is an error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>validateConfigured</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>super</name>.<name>validateConfigured</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>ejbdeploy</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>home</name> =<init> <expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr>"websphere.home"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>home</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The 'websphere.home' property must "
+                    + "be set when 'ejbdeploy=true'"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><name>websphereHome</name> = <call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><name>home</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Helper method to check to see if a websphere EBJ1.1 jar needs to be
+     * rebuilt using ejbdeploy. Called from writeJar it sees if the "Bean"
+     * classes are the only thing that needs to be updated and either updates
+     * the Jar with the Bean classfile or returns true, saying that the whole
+     * websphere jar needs to be regened with ejbdeploy. This allows faster
+     * build times for working developers. &lt;p&gt;
+     *
+     * The way websphere ejbdeploy works is it creates wrappers for the
+     * publicly defined methods as they are exposed in the remote interface.
+     * If the actual bean changes without changing the the method signatures
+     * then only the bean classfile needs to be updated and the rest of the
+     * websphere jar file can remain the same. If the Interfaces, ie. the
+     * method signatures change or if the xml deployment descriptors changed,
+     * the whole jar needs to be rebuilt with ejbdeploy. This is not strictly
+     * true for the xml files. If the JNDI name changes then the jar doesnt
+     * have to be rebuild, but if the resources references change then it
+     * does. At this point the websphere jar gets rebuilt if the xml files
+     * change at all.
+     *
+     * @param genericJarFile java.io.File The generic jar file.
+     * @param websphereJarFile java.io.File The websphere jar file to check to
+     *      see if it needs to be rebuilt.
+     * @return true if a rebuild is required.
+     */</comment>
+    <comment type="line">// CheckStyle:MethodLength OFF - this will no be fixed</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>isRebuildRequired</name><parameter_list>(<param><decl><type><name>File</name></type> <name>genericJarFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>websphereJarFile</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>boolean</name></type> <name>rebuild</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>JarFile</name></type> <name>genericJar</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>JarFile</name></type> <name>wasJar</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>newwasJarFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>JarOutputStream</name></type> <name>newJarStream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>ClassLoader</name></type> <name>genericLoader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <try>try <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Checking if websphere Jar needs to be rebuilt for jar "
+                + <call><name><name>websphereJarFile</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// Only go forward if the generic and the websphere file both exist</comment>
+            <if>if <condition>(<expr><call><name><name>genericJarFile</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; <call><name><name>genericJarFile</name>.<name>isFile</name></name><argument_list>()</argument_list></call>
+                 &amp;&amp; <call><name><name>websphereJarFile</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; <call><name><name>websphereJarFile</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">//open jar files</comment>
+                <expr_stmt><expr><name>genericJar</name> = new <call><name>JarFile</name><argument_list>(<argument><expr><name>genericJarFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>wasJar</name> = new <call><name>JarFile</name><argument_list>(<argument><expr><name>websphereJarFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <decl_stmt><decl><type><name>Hashtable</name></type> <name>genericEntries</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Hashtable</name></type> <name>wasEntries</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Hashtable</name></type> <name>replaceEntries</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">//get the list of generic jar entries</comment>
+                <for>for (<init><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>genericJar</name>.<name>entries</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                    <decl_stmt><decl><type><name>JarEntry</name></type> <name>je</name> =<init> <expr>(<name>JarEntry</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <expr_stmt><expr><call><name><name>genericEntries</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>je</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr>'\\'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>je</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+                <comment type="line">//get the list of websphere jar entries</comment>
+                <for>for (<init><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>wasJar</name>.<name>entries</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                    <decl_stmt><decl><type><name>JarEntry</name></type> <name>je</name> =<init> <expr>(<name>JarEntry</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <expr_stmt><expr><call><name><name>wasEntries</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>je</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>je</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+
+                <comment type="line">//Cycle Through generic and make sure its in websphere</comment>
+                <expr_stmt><expr><name>genericLoader</name> = <call><name>getClassLoaderFromJar</name><argument_list>(<argument><expr><name>genericJarFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <for>for (<init><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>genericEntries</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>filepath</name> =<init> <expr>(<name>String</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <if>if <condition>(<expr><call><name><name>wasEntries</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>filepath</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <comment type="line">// File name/path match</comment>
+                        <comment type="line">// Check files see if same</comment>
+                        <decl_stmt><decl><type><name>JarEntry</name></type> <name>genericEntry</name> =<init> <expr>(<name>JarEntry</name>) <call><name><name>genericEntries</name>.<name>get</name></name><argument_list>(<argument><expr><name>filepath</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <decl_stmt><decl><type><name>JarEntry</name></type> <name>wasEntry</name> =<init> <expr>(<name>JarEntry</name>) <call><name><name>wasEntries</name>.<name>get</name></name><argument_list>(<argument><expr><name>filepath</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                        <if>if <condition>(<expr>(<call><name><name>genericEntry</name>.<name>getCrc</name></name><argument_list>()</argument_list></call> != <call><name><name>wasEntry</name>.<name>getCrc</name></name><argument_list>()</argument_list></call>)
+                            || (<call><name><name>genericEntry</name>.<name>getSize</name></name><argument_list>()</argument_list></call> != <call><name><name>wasEntry</name>.<name>getSize</name></name><argument_list>()</argument_list></call>)</expr>)</condition><then> <block>{
+
+                            <if>if <condition>(<expr><call><name><name>genericEntry</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>endsWith</name><argument_list>(<argument><expr>".class"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                <comment type="line">//File are different see if its an object or an interface</comment>
+                                <decl_stmt><decl><type><name>String</name></type> <name>classname</name>
+                                    =<init> <expr><call><name><name>genericEntry</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>replace</name><argument_list>(<argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>, <argument><expr>'.'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                                <expr_stmt><expr><name>classname</name> = <call><name><name>classname</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>classname</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>".class"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                                <decl_stmt><decl><type><name>Class</name></type> <name>genclass</name> =<init> <expr><call><name><name>genericLoader</name>.<name>loadClass</name></name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                                <if>if <condition>(<expr><call><name><name>genclass</name>.<name>isInterface</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                                    <comment type="line">//Interface changed   rebuild jar.</comment>
+                                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Interface " + <call><name><name>genclass</name>.<name>getName</name></name><argument_list>()</argument_list></call>
+                                        + " has changed"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                    <expr_stmt><expr><name>rebuild</name> = true</expr>;</expr_stmt>
+                                    <break>break;</break>
+                                }</block></then> <else>else <block>{
+                                    <comment type="line">//Object class Changed   update it.</comment>
+                                    <expr_stmt><expr><call><name><name>replaceEntries</name>.<name>put</name></name><argument_list>(<argument><expr><name>filepath</name></expr></argument>, <argument><expr><name>genericEntry</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                }</block></else></if>
+                            }</block></then> <else>else <block>{
+                                <comment type="line">// is it the manifest. If so ignore it</comment>
+                                <if>if <condition>(<expr>!<call><name><name>genericEntry</name>.<name>getName</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>"META-INF/MANIFEST.MF"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                    <comment type="line">//File other then class changed   rebuild</comment>
+                                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Non class file " + <call><name><name>genericEntry</name>.<name>getName</name></name><argument_list>()</argument_list></call>
+                                        + " has changed"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                    <expr_stmt><expr><name>rebuild</name> = true</expr>;</expr_stmt>
+                                }</block></then></if>
+                                <break>break;</break>
+                            }</block></else></if>
+                        }</block></then></if>
+                    }</block></then> <else>else <block>{
+                        <comment type="line">// a file doesn't exist rebuild</comment>
+
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"File " + <name>filepath</name> + " not present in websphere jar"</expr></argument>,
+                            <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>rebuild</name> = true</expr>;</expr_stmt>
+                        <break>break;</break>
+                    }</block></else></if>
+                }</block></for>
+
+                <if>if <condition>(<expr>!<name>rebuild</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"No rebuild needed - updating jar"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>newwasJarFile</name> = new <call><name>File</name><argument_list>(<argument><expr><call><name><name>websphereJarFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call> + ".temp"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <if>if <condition>(<expr><call><name><name>newwasJarFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>newwasJarFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+
+                    <expr_stmt><expr><name>newJarStream</name> = new <call><name>JarOutputStream</name><argument_list>(<argument><expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr><name>newwasJarFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>newJarStream</name>.<name>setLevel</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                    <comment type="line">//Copy files from old websphere jar</comment>
+                    <for>for (<init><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>wasEntries</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>buffer</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>DEFAULT_BUFFER_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                        <decl_stmt><decl><type><name>int</name></type> <name>bytesRead</name></decl>;</decl_stmt>
+                        <decl_stmt><decl><type><name>InputStream</name></type> <name>is</name></decl>;</decl_stmt>
+                        <decl_stmt><decl><type><name>JarEntry</name></type> <name>je</name> =<init> <expr>(<name>JarEntry</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                        <if>if <condition>(<expr><call><name><name>je</name>.<name>getCompressedSize</name></name><argument_list>()</argument_list></call> == -1
+                            || <call><name><name>je</name>.<name>getCompressedSize</name></name><argument_list>()</argument_list></call> == <call><name><name>je</name>.<name>getSize</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name><name>newJarStream</name>.<name>setLevel</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then> <else>else <block>{
+                            <expr_stmt><expr><call><name><name>newJarStream</name>.<name>setLevel</name></name><argument_list>(<argument><expr><name>JAR_COMPRESS_LEVEL</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></else></if>
+
+                        <comment type="line">// Update with changed Bean class</comment>
+                        <if>if <condition>(<expr><call><name><name>replaceEntries</name>.<name>containsKey</name></name><argument_list>(<argument><expr><call><name><name>je</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Updating Bean class from generic Jar " + <call><name><name>je</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <comment type="line">// Use the entry from the generic jar</comment>
+                            <expr_stmt><expr><name>je</name> = (<name>JarEntry</name>) <call><name><name>replaceEntries</name>.<name>get</name></name><argument_list>(<argument><expr><call><name><name>je</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><name>is</name> = <call><name><name>genericJar</name>.<name>getInputStream</name></name><argument_list>(<argument><expr><name>je</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then> <else>else <block>{
+                            <comment type="line">//use fle from original websphere jar</comment>
+
+                            <expr_stmt><expr><name>is</name> = <call><name><name>wasJar</name>.<name>getInputStream</name></name><argument_list>(<argument><expr><name>je</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></else></if>
+                        <expr_stmt><expr><call><name><name>newJarStream</name>.<name>putNextEntry</name></name><argument_list>(<argument><expr>new <call><name>JarEntry</name><argument_list>(<argument><expr><call><name><name>je</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                        <while>while <condition>(<expr>(<name>bytesRead</name> = <call><name><name>is</name>.<name>read</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>)</argument_list></call>) != -1</expr>)</condition> <block>{
+                            <expr_stmt><expr><call><name><name>newJarStream</name>.<name>write</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>bytesRead</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></while>
+                        <expr_stmt><expr><call><name><name>is</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></for>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"websphere Jar rebuild needed due to changed "
+                        + "interface or XML"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>rebuild</name> = true</expr>;</expr_stmt>
+            }</block></else></if>
+        }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>cnfe</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>cnfmsg</name> =<init> <expr>"ClassNotFoundException while processing ejb-jar file"
+                 + ". Details: "
+                 + <call><name><name>cnfe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>cnfmsg</name></expr></argument>, <argument><expr><name>cnfe</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"IOException while processing ejb-jar file "
+                 + ". Details: "
+                 + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>ioe</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <comment type="line">// need to close files and perhaps rename output</comment>
+            <if>if <condition>(<expr><name>genericJar</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>genericJar</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>closeException</name></decl></param>) <block>{
+                    <comment type="line">// Ignore</comment>
+                }</block></catch></try>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>wasJar</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>wasJar</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>closeException</name></decl></param>) <block>{
+                    <comment type="line">// Ignore</comment>
+                }</block></catch></try>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>newJarStream</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>newJarStream</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>closeException</name></decl></param>) <block>{
+                    <comment type="line">// Ignore</comment>
+                }</block></catch></try>
+
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>FILE_UTILS</name>.<name>rename</name></name><argument_list>(<argument><expr><name>newwasJarFile</name></expr></argument>, <argument><expr><name>websphereJarFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>renameException</name></decl></param>) <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>renameException</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>rebuild</name> = true</expr>;</expr_stmt>
+                }</block></catch></try>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>genericLoader</name> != <name>null</name>
+                &amp;&amp; <name>genericLoader</name> <name>instanceof</name> <name>AntClassLoader</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>AntClassLoader</name></type> <name>loader</name> =<init> <expr>(<name>AntClassLoader</name>) <name>genericLoader</name></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>loader</name>.<name>cleanup</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></finally></try>
+
+        <return>return <expr><name>rebuild</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Helper method invoked by isRebuildRequired to get a ClassLoader for a
+     * Jar File passed to it.
+     *
+     * @param classjar java.io.File representing jar file to get classes from.
+     * @return a classloader for the jar file.
+     * @throws IOException if there is an error.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>ClassLoader</name></type> <name>getClassLoaderFromJar</name><parameter_list>(<param><decl><type><name>File</name></type> <name>classjar</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Path</name></type> <name>lookupPath</name> =<init> <expr>new <call><name>Path</name><argument_list>(<argument><expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name><name>lookupPath</name>.<name>setLocation</name></name><argument_list>(<argument><expr><name>classjar</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>Path</name></type> <name>classpath</name> =<init> <expr><call><name>getCombinedClasspath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>lookupPath</name>.<name>append</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <return>return <expr><call><name>getTask</name><argument_list>()</argument_list></call>.<call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name>lookupPath</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

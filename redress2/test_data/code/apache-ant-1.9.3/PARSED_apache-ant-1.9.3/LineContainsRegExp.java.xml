@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\filters\LineContainsRegExp.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>filters</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Reader</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Parameter</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>RegularExpression</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>regexp</name>.<name>Regexp</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>regexp</name>.<name>RegexpUtil</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Filter which includes only those lines that contain the user-specified
+ * regular expression matching strings.
+ *
+ * Example:
+ * &lt;pre&gt;&amp;lt;linecontainsregexp&amp;gt;
+ *   &amp;lt;regexp pattern=&amp;quot;foo*&amp;quot;&amp;gt;
+ * &amp;lt;/linecontainsregexp&amp;gt;&lt;/pre&gt;
+ *
+ * Or:
+ *
+ * &lt;pre&gt;&amp;lt;filterreader classname=&amp;quot;org.apache.tools.ant.filters.LineContainsRegExp&amp;quot;&amp;gt;
+ *    &amp;lt;param type=&amp;quot;regexp&amp;quot; value=&amp;quot;foo*&amp;quot;/&amp;gt;
+ * &amp;lt;/filterreader&amp;gt;&lt;/pre&gt;
+ *
+ * This will fetch all those lines that contain the pattern &lt;code&gt;foo&lt;/code&gt;
+ *
+ */</comment>
+<class><specifier>public</specifier> <specifier>final</specifier> class <name>LineContainsRegExp</name>
+    <super><extends>extends <name>BaseParamFilterReader</name></extends>
+    <implements>implements <name>ChainableReader</name></implements></super> <block>{
+    <comment type="javadoc">/** Parameter name for the regular expression to filter on. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>REGEXP_KEY</name> =<init> <expr>"regexp"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Parameter name for the negate attribute. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>NEGATE_KEY</name> =<init> <expr>"negate"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Parameter name for the casesensitive attribute. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>CS_KEY</name> =<init> <expr>"casesensitive"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Vector that holds the expressions that input lines must contain. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>RegularExpression</name></argument>&gt;</argument_list></name></type> <name>regexps</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>RegularExpression</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Remaining line to be read from this filter, or &lt;code&gt;null&lt;/code&gt; if
+     * the next call to &lt;code&gt;read()&lt;/code&gt; should read the original stream
+     * to find the next matching line.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>line</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>negate</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>regexpOptions</name> =<init> <expr><name><name>Regexp</name>.<name>MATCH_DEFAULT</name></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Constructor for "dummy" instances.
+     *
+     * @see BaseFilterReader#BaseFilterReader()
+     */</comment>
+    <constructor><specifier>public</specifier> <name>LineContainsRegExp</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates a new filtered reader.
+     *
+     * @param in A Reader object providing the underlying stream.
+     *           Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>LineContainsRegExp</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Reader</name></type> <name>in</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Returns the next character in the filtered stream, only including
+     * lines from the original stream which match all of the specified
+     * regular expressions.
+     *
+     * @return the next character in the resulting stream, or -1
+     * if the end of the resulting stream has been reached
+     *
+     * @exception IOException if the underlying stream throws an IOException
+     * during reading
+     */</comment>
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr>!<call><name>getInitialized</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>initialize</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>setInitialized</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>ch</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>line</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>ch</name> = <call><name><name>line</name>.<name>charAt</name></name><argument_list>(<argument><expr>0</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call> == 1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>line</name> = <name>null</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>line</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr>1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then> <else>else <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>regexpsSize</name> =<init> <expr><call><name><name>regexps</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <for>for (<init><expr><name>line</name> = <call><name>readLine</name><argument_list>()</argument_list></call></expr>;</init> <condition><expr><name>line</name> != <name>null</name></expr>;</condition> <incr><expr><name>line</name> = <call><name>readLine</name><argument_list>()</argument_list></call></expr></incr>) <block>{
+                <decl_stmt><decl><type><name>boolean</name></type> <name>matches</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>matches</name> &amp;&amp; <name>i</name> &lt; <name>regexpsSize</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <decl_stmt><decl><type><name>RegularExpression</name></type> <name>regexp</name>
+                        =<init> <expr>(<name>RegularExpression</name>) <call><name><name>regexps</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>Regexp</name></type> <name>re</name> =<init> <expr><call><name><name>regexp</name>.<name>getRegexp</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><name>matches</name> = <call><name><name>re</name>.<name>matches</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>, <argument><expr><name>regexpOptions</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+                <if>if <condition>(<expr><name>matches</name> ^ <call><name>isNegated</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <break>break;</break>
+                }</block></then></if>
+            }</block></for>
+            <if>if <condition>(<expr><name>line</name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><call><name>read</name><argument_list>()</argument_list></call></expr>;</return>
+            }</block></then></if>
+        }</block></else></if>
+        <return>return <expr><name>ch</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a &lt;code&gt;regexp&lt;/code&gt; element.
+     *
+     * @param regExp The &lt;code&gt;regexp&lt;/code&gt; element to add.
+     *               Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredRegexp</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>RegularExpression</name></type> <name>regExp</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>this</name>.<name>regexps</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>regExp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the vector of regular expressions which must be contained within
+     * a line read from the original stream in order for it to match this
+     * filter.
+     *
+     * @param regexps A vector of regular expressions which must be contained
+     * within a line in order for it to match in this filter. Must not be
+     * &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setRegexps</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>RegularExpression</name></argument>&gt;</argument_list></name></type> <name>regexps</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>regexps</name></name> = <name>regexps</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the vector of regular expressions which must be contained within
+     * a line read from the original stream in order for it to match this
+     * filter.
+     *
+     * @return the vector of regular expressions which must be contained within
+     * a line read from the original stream in order for it to match this
+     * filter. The returned object is "live" - in other words, changes made to
+     * the returned object are mirrored in the filter.
+     */</comment>
+    <function><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>RegularExpression</name></argument>&gt;</argument_list></name></type> <name>getRegexps</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>regexps</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates a new LineContainsRegExp using the passed in
+     * Reader for instantiation.
+     *
+     * @param rdr A Reader object providing the underlying stream.
+     *            Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return a new filter based on this configuration, but filtering
+     *         the specified reader
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Reader</name></type> <name>chain</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Reader</name></type> <name>rdr</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>LineContainsRegExp</name></type> <name>newFilter</name> =<init> <expr>new <call><name>LineContainsRegExp</name><argument_list>(<argument><expr><name>rdr</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>newFilter</name>.<name>setRegexps</name></name><argument_list>(<argument><expr><call><name>getRegexps</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>newFilter</name>.<name>setNegate</name></name><argument_list>(<argument><expr><call><name>isNegated</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>newFilter</name>
+            .<name>setCaseSensitive</name></name><argument_list>(<argument><expr>!<call><name><name>RegexpUtil</name>.<name>hasFlag</name></name><argument_list>(<argument><expr><name>regexpOptions</name></expr></argument>,
+                                                  <argument><expr><name><name>Regexp</name>.<name>MATCH_CASE_INSENSITIVE</name></name></expr></argument>)</argument_list></call></expr></argument>
+                              )</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>newFilter</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the negation mode.  Default false (no negation).
+     * @param b the boolean negation mode to set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNegate</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>negate</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether to match casesensitevly.
+     * @since Ant 1.8.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCaseSensitive</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>regexpOptions</name> = <call><name><name>RegexpUtil</name>.<name>asOptions</name></name><argument_list>(<argument><expr><name>b</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find out whether we have been negated.
+     * @return boolean negation flag.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isNegated</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>negate</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parses parameters to add user defined regular expressions.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>initialize</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Parameter</name><index>[]</index></type> <name>params</name> =<init> <expr><call><name>getParameters</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>params</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>params</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <if>if <condition>(<expr><call><name><name>REGEXP_KEY</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>params</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getType</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>pattern</name> =<init> <expr><name><name>params</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getValue</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>RegularExpression</name></type> <name>regexp</name> =<init> <expr>new <call><name>RegularExpression</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>regexp</name>.<name>setPattern</name></name><argument_list>(<argument><expr><name>pattern</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>regexps</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>regexp</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <if>if <condition>(<expr><call><name><name>NEGATE_KEY</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>params</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getType</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>setNegate</name><argument_list>(<argument><expr><call><name><name>Project</name>.<name>toBoolean</name></name><argument_list>(<argument><expr><name><name>params</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <if>if <condition>(<expr><call><name><name>CS_KEY</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>params</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getType</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>setCaseSensitive</name><argument_list>(<argument><expr><call><name><name>Project</name>.<name>toBoolean</name></name><argument_list>(<argument><expr><name><name>params</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getValue</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if></else></if></else></if>
+            }</block></for>
+        }</block></then></if>
+    }</block></function>
+}</block></class>
+</unit>

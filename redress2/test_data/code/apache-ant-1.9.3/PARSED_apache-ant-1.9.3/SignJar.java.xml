@@ -1,0 +1,583 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\SignJar.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>IsSigned</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileProvider</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name>.<name>FileResource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>IdentityMapper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileNameMapper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>ResourceUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Signs JAR or ZIP files with the javasign command line tool. The tool detailed
+ * dependency checking: files are only signed if they are not signed. The
+ * &lt;tt&gt;signjar&lt;/tt&gt; attribute can point to the file to generate; if this file
+ * exists then its modification date is used as a cue as to whether to resign
+ * any JAR file.
+ *
+ * Timestamp driven signing is based on the unstable and inadequately documented
+ * information in the Java1.5 docs
+ * @see &lt;a href="http://java.sun.com/j2se/1.5.0/docs/guide/security/time-of-signing-beta1.html"&gt;
+ * beta documentation&lt;/a&gt;
+ * @ant.task category="java"
+ * @since Ant 1.1
+ */</comment>
+<class><specifier>public</specifier> class <name>SignJar</name> <super><extends>extends <name>AbstractJarSignerTask</name></extends></super> <block>{
+    <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * name to a signature file
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>sigfile</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * name of a single jar
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>File</name></type> <name>signedjar</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * flag for internal sf signing
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>internalsf</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * sign sections only?
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>sectionsonly</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * flag to preserve timestamp on modified files
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>preserveLastModified</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether to assume a jar which has an appropriate .SF file in is already
+     * signed.
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>boolean</name></type> <name>lazy</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * the output directory when using paths.
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>File</name></type> <name>destDir</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * mapper for todir work
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>FileNameMapper</name></type> <name>mapper</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * URL for a tsa; null implies no tsa support
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>tsaurl</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * alias for the TSA in the keystore
+     */</comment>
+    <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>tsacert</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * force signing even if the jar is already signed.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>force</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * signature algorithm
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>sigAlg</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * digest algorithm
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>digestAlg</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * error string for unit test verification: {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_TODIR_AND_SIGNEDJAR</name>
+            =<init> <expr>"'destdir' and 'signedjar' cannot both be set"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * error string for unit test verification: {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_TOO_MANY_MAPPERS</name> =<init> <expr>"Too many mappers"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * error string for unit test verification {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_SIGNEDJAR_AND_PATHS</name>
+        =<init> <expr>"You cannot specify the signed JAR when using paths or filesets"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * error string for unit test verification: {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_BAD_MAP</name> =<init> <expr>"Cannot map source file to anything sensible: "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * error string for unit test verification: {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_MAPPER_WITHOUT_DEST</name>
+        =<init> <expr>"The destDir attribute is required if a mapper is set"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * error string for unit test verification: {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_ALIAS</name> =<init> <expr>"alias attribute must be set"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * error string for unit test verification: {@value}
+     */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ERROR_NO_STOREPASS</name> =<init> <expr>"storepass attribute must be set"</expr></init></decl>;</decl_stmt>
+    <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+
+    <comment type="javadoc">/**
+     * name of .SF/.DSA file; optional
+     *
+     * @param sigfile the name of the .SF/.DSA file
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSigfile</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>String</name></type> <name>sigfile</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>sigfile</name></name> = <name>sigfile</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * name of signed JAR file; optional
+     *
+     * @param signedjar the name of the signed jar file
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSignedjar</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>File</name></type> <name>signedjar</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>signedjar</name></name> = <name>signedjar</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Flag to include the .SF file inside the signature; optional; default
+     * false
+     *
+     * @param internalsf if true include the .SF file inside the signature
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInternalsf</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>internalsf</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>internalsf</name></name> = <name>internalsf</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * flag to compute hash of entire manifest; optional, default false
+     *
+     * @param sectionsonly flag to compute hash of entire manifest
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSectionsonly</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>sectionsonly</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>sectionsonly</name></name> = <name>sectionsonly</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * flag to control whether the presence of a signature file means a JAR is
+     * signed; optional, default false
+     *
+     * @param lazy flag to control whether the presence of a signature
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLazy</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>lazy</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>lazy</name></name> = <name>lazy</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Optionally sets the output directory to be used.
+     *
+     * @param destDir the directory in which to place signed jars
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>destDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destDir</name></name> = <name>destDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * add a mapper to determine file naming policy. Only used with toDir
+     * processing.
+     *
+     * @param newMapper the mapper to add.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>FileNameMapper</name></type> <name>newMapper</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>mapper</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_TOO_MANY_MAPPERS</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>mapper</name> = <name>newMapper</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get the active mapper; may be null
+     * @return mapper or null
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>FileNameMapper</name></type> <name>getMapper</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>mapper</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get the -tsaurl url
+     * @return url or null
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getTsaurl</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>tsaurl</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     *
+     * @param tsaurl the tsa url.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTsaurl</name><parameter_list>(<param><decl><type><name>String</name></type> <name>tsaurl</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>tsaurl</name></name> = <name>tsaurl</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * get the -tsacert option
+     * @since Ant 1.7
+     * @return a certificate alias or null
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getTsacert</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>tsacert</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * set the alias in the keystore of the TSA to use;
+     * @param tsacert the cert alias.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTsacert</name><parameter_list>(<param><decl><type><name>String</name></type> <name>tsacert</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>tsacert</name></name> = <name>tsacert</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Whether to force signing of a jar even it is already signed.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setForce</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>force</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Should the task force signing of a jar even it is already
+     * signed?
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isForce</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>force</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Signature Algorithm; optional
+     *
+     * @param sigAlg the signature algorithm
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSigAlg</name><parameter_list>(<param><decl><type><name>String</name></type> <name>sigAlg</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>sigAlg</name></name> = <name>sigAlg</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Signature Algorithm; optional
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getSigAlg</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>sigAlg</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Digest Algorithm; optional
+     *
+     * @param digestAlg the digest algorithm
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDigestAlg</name><parameter_list>(<param><decl><type><name>String</name></type> <name>digestAlg</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>digestAlg</name></name> = <name>digestAlg</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Digest Algorithm; optional
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getDigestAlg</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>digestAlg</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * sign the jar(s)
+     *
+     * @throws BuildException on errors
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="line">//validation logic</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>hasJar</name> =<init> <expr><name>jar</name> != <name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>hasSignedJar</name> =<init> <expr><name>signedjar</name> != <name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>hasDestDir</name> =<init> <expr><name>destDir</name> != <name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>boolean</name></type> <name>hasMapper</name> =<init> <expr><name>mapper</name> != <name>null</name></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr>!<name>hasJar</name> &amp;&amp; !<call><name>hasResources</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_SOURCE</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>null</name> == <name>alias</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_ALIAS</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>null</name> == <name>storepass</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_NO_STOREPASS</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>hasDestDir</name> &amp;&amp; <name>hasSignedJar</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_TODIR_AND_SIGNEDJAR</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+
+        <if>if <condition>(<expr><call><name>hasResources</name><argument_list>()</argument_list></call> &amp;&amp; <name>hasSignedJar</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_SIGNEDJAR_AND_PATHS</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <comment type="line">//this isnt strictly needed, but by being fussy now,</comment>
+        <comment type="line">//we can change implementation details later</comment>
+        <if>if <condition>(<expr>!<name>hasDestDir</name> &amp;&amp; <name>hasMapper</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_MAPPER_WITHOUT_DEST</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>beginExecution</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+
+        <try>try <block>{
+            <comment type="line">//special case single jar handling with signedjar attribute set</comment>
+            <if>if <condition>(<expr><name>hasJar</name> &amp;&amp; <name>hasSignedJar</name></expr>)</condition><then> <block>{
+                <comment type="line">// single jar processing</comment>
+                <expr_stmt><expr><call><name>signOneJar</name><argument_list>(<argument><expr><name>jar</name></expr></argument>, <argument><expr><name>signedjar</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <comment type="line">//return here.</comment>
+                <return>return;</return>
+            }</block></then></if>
+
+            <comment type="line">//the rest of the method treats single jar like</comment>
+            <comment type="line">//a nested path with one file</comment>
+
+            <decl_stmt><decl><type><name>Path</name></type> <name>sources</name> =<init> <expr><call><name>createUnifiedSourcePath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <comment type="line">//set up our mapping policy</comment>
+            <decl_stmt><decl><type><name>FileNameMapper</name></type> <name>destMapper</name></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>hasMapper</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>destMapper</name> = <name>mapper</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">//no mapper? use the identity policy</comment>
+                <expr_stmt><expr><name>destMapper</name> = new <call><name>IdentityMapper</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+
+            <comment type="line">//at this point the paths are set up with lists of files,</comment>
+            <comment type="line">//and the mapper is ready to map from source dirs to dest files</comment>
+            <comment type="line">//now we iterate through every JAR giving source and dest names</comment>
+            <comment type="line">// deal with the paths</comment>
+            <for>for (<init><decl><type><name>Resource</name></type> <name>r</name> :<range> <expr><name>sources</name></expr></range></decl></init>) <block>{
+                <decl_stmt><decl><type><name>FileResource</name></type> <name>fr</name> =<init> <expr><call><name><name>ResourceUtils</name>
+                    .<name>asFileResource</name></name><argument_list>(<argument><expr><call><name><name>r</name>.<name>as</name></name><argument_list>(<argument><expr><name><name>FileProvider</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">//calculate our destination directory; it is either the destDir</comment>
+                <comment type="line">//attribute, or the base dir of the fileset (for in situ updates)</comment>
+                <decl_stmt><decl><type><name>File</name></type> <name>toDir</name> =<init> <expr><name>hasDestDir</name> ? <name>destDir</name> : <call><name><name>fr</name>.<name>getBaseDir</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">//determine the destination filename via the mapper</comment>
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>destFilenames</name> =<init> <expr><call><name><name>destMapper</name>.<name>mapFileName</name></name><argument_list>(<argument><expr><call><name><name>fr</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>destFilenames</name> == <name>null</name> || <name><name>destFilenames</name>.<name>length</name></name> != 1</expr>)</condition><then> <block>{
+                    <comment type="line">//we only like simple mappers.</comment>
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ERROR_BAD_MAP</name> + <call><name><name>fr</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>File</name></type> <name>destFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>toDir</name></expr></argument>, <argument><expr><name><name>destFilenames</name><index>[<expr>0</expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>signOneJar</name><argument_list>(<argument><expr><call><name><name>fr</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name>endExecution</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sign one jar.
+     * &lt;p/&gt;
+     * The signing only takes place if {@link #isUpToDate(File, File)} indicates
+     * that it is needed.
+     *
+     * @param jarSource source to sign
+     * @param jarTarget target; may be null
+     * @throws BuildException
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>signOneJar</name><parameter_list>(<param><decl><type><name>File</name></type> <name>jarSource</name></decl></param>, <param><decl><type><name>File</name></type> <name>jarTarget</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+
+        <decl_stmt><decl><type><name>File</name></type> <name>targetFile</name> =<init> <expr><name>jarTarget</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>targetFile</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>targetFile</name> = <name>jarSource</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>isUpToDate</name><argument_list>(<argument><expr><name>jarSource</name></expr></argument>, <argument><expr><name>targetFile</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>long</name></type> <name>lastModified</name> =<init> <expr><call><name><name>jarSource</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>ExecTask</name></type> <name>cmd</name> =<init> <expr><call><name>createJarSigner</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <expr_stmt><expr><call><name>setCommonOptions</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>bindToKeystore</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>null</name> != <name>sigfile</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>"-sigfile"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>value</name> =<init> <expr><name><name>this</name>.<name>sigfile</name></name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <try>try <block>{
+            <comment type="line">//DO NOT SET THE -signedjar OPTION if source==dest</comment>
+            <comment type="line">//unless you like fielding hotspot crash reports</comment>
+            <if>if <condition>(<expr>!<call><name><name>FILE_UTILS</name>.<name>areSame</name></name><argument_list>(<argument><expr><name>jarSource</name></expr></argument>, <argument><expr><name>targetFile</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>"-signedjar"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><call><name><name>targetFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioex</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ioex</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+
+        <if>if <condition>(<expr><name>internalsf</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>"-internalsf"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>sectionsonly</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>"-sectionsonly"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>sigAlg</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>"-sigalg"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><name>sigAlg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>digestAlg</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>"-digestalg"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><name>digestAlg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">//add -tsa operations if declared</comment>
+        <expr_stmt><expr><call><name>addTimestampAuthorityCommands</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//JAR source is required</comment>
+        <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><call><name><name>jarSource</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//alias is required for signing</comment>
+        <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><name>alias</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Signing JAR: "
+            + <call><name><name>jarSource</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>
+            + " to "
+            + <call><name><name>targetFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>
+            + " as " + <name>alias</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>cmd</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">// restore the lastModified attribute</comment>
+        <if>if <condition>(<expr><name>preserveLastModified</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>FILE_UTILS</name>.<name>setFileLastModified</name></name><argument_list>(<argument><expr><name>targetFile</name></expr></argument>, <argument><expr><name>lastModified</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If the tsa parameters are set, this passes them to the command.
+     * There is no validation of java version, as third party JDKs
+     * may implement this on earlier/later jarsigner implementations.
+     * @param cmd the exec task.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>addTimestampAuthorityCommands</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>ExecTask</name></type> <name>cmd</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>tsaurl</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>"-tsa"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><name>tsaurl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>tsacert</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr>"-tsacert"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addValue</name><argument_list>(<argument><expr><name>cmd</name></expr></argument>, <argument><expr><name>tsacert</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Compare a jar file with its corresponding signed jar. The logic for this
+     * is complex, and best explained in the source itself. Essentially if
+     * either file doesnt exist, or the destfile has an out of date timestamp,
+     * then the return value is false.
+     * &lt;p/&gt;
+     * If we are signing ourself, the check {@link #isSigned(File)} is used to
+     * trigger the process.
+     *
+     * @param jarFile       the unsigned jar file
+     * @param signedjarFile the result signed jar file
+     * @return true if the signedjarFile is considered up to date
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>isUpToDate</name><parameter_list>(<param><decl><type><name>File</name></type> <name>jarFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>signedjarFile</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isForce</name><argument_list>()</argument_list></call> || <name>null</name> == <name>jarFile</name> || !<call><name><name>jarFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">//these are pathological cases, but retained in case somebody</comment>
+            <comment type="line">//subclassed us.</comment>
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+
+        <comment type="line">//we normally compare destination with source</comment>
+        <decl_stmt><decl><type><name>File</name></type> <name>destFile</name> =<init> <expr><name>signedjarFile</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>destFile</name> == <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">//but if no dest is specified, compare source to source</comment>
+            <expr_stmt><expr><name>destFile</name> = <name>jarFile</name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">//if, by any means, the destfile and source match,</comment>
+        <if>if <condition>(<expr><call><name><name>jarFile</name>.<name>equals</name></name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>lazy</name></expr>)</condition><then> <block>{
+                <comment type="line">//we check the presence of signatures on lazy signing</comment>
+                <return>return <expr><call><name>isSigned</name><argument_list>(<argument><expr><name>jarFile</name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></then></if>
+            <comment type="line">//unsigned or non-lazy self signings are always false</comment>
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+
+        <comment type="line">//if they are different, the timestamps are used</comment>
+        <return>return <expr><call><name><name>FILE_UTILS</name>.<name>isUpToDate</name></name><argument_list>(<argument><expr><name>jarFile</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * test for a file being signed, by looking for a signature in the META-INF
+     * directory with our alias/sigfile.
+     *
+     * @param file the file to be checked
+     * @return true if the file is signed
+     * @see IsSigned#isSigned(File, String)
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>isSigned</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <return>return <expr><call><name><name>IsSigned</name>.<name>isSigned</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>sigfile</name> == <name>null</name> ? <name>alias</name> : <name>sigfile</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//just log this</comment>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>e</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr>false</expr>;</return>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * true to indicate that the signed jar modification date remains the same
+     * as the original. Defaults to false
+     *
+     * @param preserveLastModified if true preserve the last modified time
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPreserveLastModified</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>preserveLastModified</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>preserveLastModified</name></name> = <name>preserveLastModified</name></expr>;</expr_stmt>
+    }</block></function>
+}</block></class>
+</unit>

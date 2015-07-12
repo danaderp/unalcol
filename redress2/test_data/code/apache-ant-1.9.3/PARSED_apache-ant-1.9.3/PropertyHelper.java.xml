@@ -1,0 +1,1217 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\PropertyHelper.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>text</name>.<name>ParsePosition</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Collection</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Collections</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashSet</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Set</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>property</name>.<name>GetProperty</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>property</name>.<name>NullReturn</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>property</name>.<name>ParseNextProperty</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>property</name>.<name>ParseProperties</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>property</name>.<name>PropertyExpander</name></name>;</import>
+
+<comment type="block">/* ISSUES:
+ - ns param. It could be used to provide "namespaces" for properties, which
+ may be more flexible.
+ - Object value. In ant1.5 String is used for Properties - but it would be nice
+ to support generic Objects (the property remains immutable - you can't change
+ the associated object). This will also allow JSP-EL style setting using the
+ Object if an attribute contains only the property (name="${property}" could
+ avoid Object-&gt;String-&gt;Object conversion)
+ - Currently we "chain" only for get and set property (probably most users
+ will only need that - if they need more they can replace the top helper).
+ Need to discuss this and find if we need more.
+ */</comment>
+
+<comment type="block">/* update for impending Ant 1.8.0:
+
+   - I can't see any reason for ns and would like to deprecate it.
+   - Replacing chaining with delegates for certain behavioral aspects.
+   - Object value seems valuable as outlined.
+
+ */</comment>
+
+<comment type="javadoc">/**
+ * Deals with properties - substitution, dynamic properties, etc.
+ *
+ * &lt;p&gt;This code has been heavily restructured for Ant 1.8.0.  It is
+ * expected that custom PropertyHelper implementation that used the
+ * older chaining mechanism of Ant 1.6 won't work in all cases, and
+ * its usage is deprecated.  The preferred way to customize Ant's
+ * property handling is by {@link #add adding} {@link
+ * PropertyHelper.Delegate delegates} of the appropriate subinterface
+ * and have this implementation use them.&lt;/p&gt;
+ *
+ * &lt;p&gt;When {@link #parseProperties expanding a string that may contain
+ * properties} this class will delegate the actual parsing to {@link
+ * org.apache.tools.ant.property.ParseProperties#parseProperties
+ * parseProperties} inside the ParseProperties class which in turn
+ * uses the {@link org.apache.tools.ant.property.PropertyExpander
+ * PropertyExpander delegates} to find properties inside the string
+ * and this class to expand the propertiy names found into the
+ * corresponding values.&lt;/p&gt;
+ *
+ * &lt;p&gt;When {@link #getProperty looking up a property value} this class
+ * will first consult all {@link PropertyHelper.PropertyEvaluator
+ * PropertyEvaluator} delegates and fall back to an internal map of
+ * "project properties" if no evaluator matched the property name.&lt;/p&gt;
+ *
+ * &lt;p&gt;When {@link #setProperty setting a property value} this class
+ * will first consult all {@link PropertyHelper.PropertySetter
+ * PropertySetter} delegates and fall back to an internal map of
+ * "project properties" if no setter matched the property name.&lt;/p&gt;
+ *
+ * @since Ant 1.6
+ */</comment>
+<class><specifier>public</specifier> class <name>PropertyHelper</name> <super><implements>implements <name>GetProperty</name></implements></super> <block>{
+
+    <comment type="line">//  --------------------------------------------------------</comment>
+    <comment type="line">//</comment>
+    <comment type="line">//    The property delegate interfaces</comment>
+    <comment type="line">//</comment>
+    <comment type="line">//  --------------------------------------------------------</comment>
+
+    <comment type="javadoc">/**
+     * Marker interface for a PropertyHelper delegate.
+     * @since Ant 1.8.0
+     */</comment>
+    <class type="interface"><specifier>public</specifier> interface <name>Delegate</name> <block>{
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Looks up a property's value based on its name.
+     *
+     * &lt;p&gt;Can be used to look up properties in a different storage
+     * than the project instance (like local properties for example)
+     * or to implement custom "protocols" like Ant's
+     * &lt;code&gt;${toString:refid}&lt;/code&gt; syntax.&lt;/p&gt;
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <class type="interface"><specifier>public</specifier> interface <name>PropertyEvaluator</name> <super><extends>extends <name>Delegate</name></extends></super> <block>{
+        <comment type="javadoc">/**
+         * Evaluate a property.
+         *
+         * @param property the property's String "identifier".
+         * @param propertyHelper the invoking PropertyHelper.
+         * @return null if the property name could not be found, an
+         * instance of {@link org.apache.tools.ant.property.NullReturn
+         * NullReturn} to indicate a property with a name that can be
+         * matched but a value of &lt;code&gt;null&lt;/code&gt; and the property's
+         * value otherwise.
+         */</comment>
+        <function_decl><type><name>Object</name></type> <name>evaluate</name><parameter_list>(<param><decl><type><name>String</name></type> <name>property</name></decl></param>, <param><decl><type><name>PropertyHelper</name></type> <name>propertyHelper</name></decl></param>)</parameter_list>;</function_decl>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Sets or overrides a property.
+     *
+     * &lt;p&gt;Can be used to store properties in a different storage than
+     * the project instance (like local properties for example).&lt;/p&gt;
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <class type="interface"><specifier>public</specifier> interface <name>PropertySetter</name> <super><extends>extends <name>Delegate</name></extends></super> <block>{
+        <comment type="javadoc">/**
+         * Set a *new" property.
+         *
+         * &lt;p&gt;Should not replace the value of an existing property.&lt;/p&gt;
+         *
+         * @param property the property's String "identifier".
+         * @param value    the value to set.
+         * @param propertyHelper the invoking PropertyHelper.
+         * @return true if this entity 'owns' the property.
+         */</comment>
+        <function_decl><type><name>boolean</name></type> <name>setNew</name><parameter_list>(
+            <param><decl><type><name>String</name></type> <name>property</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>, <param><decl><type><name>PropertyHelper</name></type> <name>propertyHelper</name></decl></param>)</parameter_list>;</function_decl>
+
+        <comment type="javadoc">/**
+         * Set a property.
+         *
+         * &lt;p&gt;May replace the value of an existing property.&lt;/p&gt;
+         *
+         * @param property the property's String "identifier".
+         * @param value    the value to set.
+         * @param propertyHelper the invoking PropertyHelper.
+         * @return true if this entity 'owns' the property.
+         */</comment>
+        <function_decl><type><name>boolean</name></type> <name>set</name><parameter_list>(
+            <param><decl><type><name>String</name></type> <name>property</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>, <param><decl><type><name>PropertyHelper</name></type> <name>propertyHelper</name></decl></param>)</parameter_list>;</function_decl>
+    }</block></class>
+
+    <comment type="line">//TODO PropertyEnumerator Delegate type, would improve PropertySet</comment>
+
+    <comment type="line">//  --------------------------------------------------------</comment>
+    <comment type="line">//</comment>
+    <comment type="line">//    The predefined property delegates</comment>
+    <comment type="line">//</comment>
+    <comment type="line">//  --------------------------------------------------------</comment>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>PropertyEvaluator</name></type> <name>TO_STRING</name> =<init> <expr>new <class><super><name>PropertyEvaluator</name></super><argument_list>()</argument_list> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>String</name></type> <name>PREFIX</name> =<init> <expr>"toString:"</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>int</name></type> <name>PREFIX_LEN</name> =<init> <expr><call><name><name>PREFIX</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <function><type><specifier>public</specifier> <name>Object</name></type> <name>evaluate</name><parameter_list>(<param><decl><type><name>String</name></type> <name>property</name></decl></param>, <param><decl><type><name>PropertyHelper</name></type> <name>propertyHelper</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>Object</name></type> <name>o</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>property</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>PREFIX</name></expr></argument>)</argument_list></call> &amp;&amp; <call><name><name>propertyHelper</name>.<name>getProject</name></name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>o</name> = <call><name><name>propertyHelper</name>.<name>getProject</name></name><argument_list>()</argument_list></call>.<call><name>getReference</name><argument_list>(<argument><expr><call><name><name>property</name>.<name>substring</name></name><argument_list>(<argument><expr><name>PREFIX_LEN</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return <expr><name>o</name> == <name>null</name> ? <name>null</name> : <call><name><name>o</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>PropertyExpander</name></type> <name>DEFAULT_EXPANDER</name> =<init> <expr>new <class><super><name>PropertyExpander</name></super><argument_list>()</argument_list> <block>{
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>parsePropertyName</name><parameter_list>(
+            <param><decl><type><name>String</name></type> <name>s</name></decl></param>, <param><decl><type><name>ParsePosition</name></type> <name>pos</name></decl></param>, <param><decl><type><name>ParseNextProperty</name></type> <name>notUsed</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>pos</name>.<name>getIndex</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <comment type="line">//directly check near, triggering characters:</comment>
+            <if>if <condition>(<expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call> - <name>index</name> &gt;= 3
+                    &amp;&amp; '$' == <call><name><name>s</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>index</name></expr></argument>)</argument_list></call> &amp;&amp; '{' == <call><name><name>s</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>index</name> + 1</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>start</name> =<init> <expr><name>index</name> + 2</expr></init></decl>;</decl_stmt>
+                <comment type="line">//defer to String.indexOf() for protracted check:</comment>
+                <decl_stmt><decl><type><name>int</name></type> <name>end</name> =<init> <expr><call><name><name>s</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'}'</expr></argument>, <argument><expr><name>start</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>end</name> &lt; 0</expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Syntax error in property: "
+                            + <call><name><name>s</name>.<name>substring</name></name><argument_list>(<argument><expr><name>index</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>pos</name>.<name>setIndex</name></name><argument_list>(<argument><expr><name>end</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr><name>start</name> == <name>end</name> ? "" :  <call><name><name>s</name>.<name>substring</name></name><argument_list>(<argument><expr><name>start</name></expr></argument>, <argument><expr><name>end</name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></then></if>
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></function>
+    }</block></class></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** dummy */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>PropertyExpander</name></type> <name>SKIP_DOUBLE_DOLLAR</name>
+        =<init> <expr>new <class><super><name>PropertyExpander</name></super><argument_list>()</argument_list> <block>{
+            <comment type="line">// CheckStyle:LineLengthCheck OFF see too long</comment>
+            <comment type="javadoc">/**
+             * {@inheritDoc}
+             * @see org.apache.tools.ant.property.PropertyExpander#parsePropertyName(java.lang.String, java.text.ParsePosition, org.apache.tools.ant.PropertyHelper)
+             */</comment>
+            <comment type="line">// CheckStyle:LineLengthCheck ON</comment>
+            <function><type><specifier>public</specifier> <name>String</name></type> <name>parsePropertyName</name><parameter_list>(
+                <param><decl><type><name>String</name></type> <name>s</name></decl></param>, <param><decl><type><name>ParsePosition</name></type> <name>pos</name></decl></param>, <param><decl><type><name>ParseNextProperty</name></type> <name>notUsed</name></decl></param>)</parameter_list> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>pos</name>.<name>getIndex</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call> - <name>index</name> &gt;= 2</expr>)</condition><then> <block>{
+                    <comment type="block">/* check for $$; if found, advance by one--
+                     * this expander is at the bottom of the stack
+                     * and will thus be the last consulted,
+                     * so the next thing that ParseProperties will do
+                     * is advance the parse position beyond the second $
+                     */</comment>
+                    <if>if <condition>(<expr>'$' == <call><name><name>s</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>index</name></expr></argument>)</argument_list></call> &amp;&amp; '$' == <call><name><name>s</name>.<name>charAt</name></name><argument_list>(<argument><expr>++<name>index</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>pos</name>.<name>setIndex</name></name><argument_list>(<argument><expr><name>index</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then></if>
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></function>
+        }</block></class></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * @since Ant 1.8.0
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>PropertyEvaluator</name></type> <name>FROM_REF</name> =<init> <expr>new <class><super><name>PropertyEvaluator</name></super><argument_list>()</argument_list> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>String</name></type> <name>PREFIX</name> =<init> <expr>"ant.refid:"</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name>int</name></type> <name>PREFIX_LEN</name> =<init> <expr><call><name><name>PREFIX</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <function><type><specifier>public</specifier> <name>Object</name></type> <name>evaluate</name><parameter_list>(<param><decl><type><name>String</name></type> <name>prop</name></decl></param>, <param><decl><type><name>PropertyHelper</name></type> <name>helper</name></decl></param>)</parameter_list> <block>{
+            <return>return <expr><call><name><name>prop</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>PREFIX</name></expr></argument>)</argument_list></call> &amp;&amp; <call><name><name>helper</name>.<name>getProject</name></name><argument_list>()</argument_list></call> != <name>null</name>
+                ? <call><name><name>helper</name>.<name>getProject</name></name><argument_list>()</argument_list></call>.<call><name>getReference</name><argument_list>(<argument><expr><call><name><name>prop</name>.<name>substring</name></name><argument_list>(<argument><expr><name>PREFIX_LEN</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call>
+                : <name>null</name></expr>;</return>
+        }</block></function>
+    }</block></class></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Project</name></type> <name>project</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>PropertyHelper</name></type> <name>next</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>final</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>Delegate</name></extends></argument>&gt;</argument_list></name></argument>, <argument><name><name>List</name><argument_list>&lt;<argument><name>Delegate</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name></type> <name>delegates</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>Delegate</name></extends></argument>&gt;</argument_list></name></argument>, <argument><name><name>List</name><argument_list>&lt;<argument><name>Delegate</name></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Project properties map (usually String to String). */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>properties</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Map of "user" properties (as created in the Ant task, for example).
+     * Note that these key/value pairs are also always put into the
+     * project properties, so only the project properties need to be queried.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>userProperties</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Map of inherited "user" properties - that are those "user"
+     * properties that have been created by tasks and not been set
+     * from the command line or a GUI tool.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>inheritedProperties</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Default constructor.
+     */</comment>
+    <constructor><specifier>protected</specifier> <name>PropertyHelper</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>FROM_REF</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>TO_STRING</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>SKIP_DOUBLE_DOLLAR</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>DEFAULT_EXPANDER</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="line">//  --------------------------------------------------------</comment>
+    <comment type="line">//</comment>
+    <comment type="line">//    Some helper static methods to get and set properties</comment>
+    <comment type="line">//</comment>
+    <comment type="line">//  --------------------------------------------------------</comment>
+
+    <comment type="javadoc">/**
+     * A helper static method to get a property
+     * from a particular project.
+     * @param project the project in question.
+     * @param name the property name
+     * @return the value of the property if present, null otherwise.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>Object</name></type> <name>getProperty</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>PropertyHelper</name>.<name>getPropertyHelper</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call>
+            .<call><name>getProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A helper static method to set a property
+     * from a particular project.
+     * @param project the project in question.
+     * @param name the property name
+     * @param value the value to use.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>setProperty</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>PropertyHelper</name>.<name>getPropertyHelper</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call>
+            .<call><name>setProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * A helper static method to set a new property
+     * from a particular project.
+     * @param project the project in question.
+     * @param name the property name
+     * @param value the value to use.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>setNewProperty</name><parameter_list>(
+        <param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>PropertyHelper</name>.<name>getPropertyHelper</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call>
+            .<call><name>setNewProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="line">//override facility for subclasses to put custom hashtables in</comment>
+
+    <comment type="line">// --------------------  Hook management  --------------------</comment>
+
+    <comment type="javadoc">/**
+     * Set the project for which this helper is performing property resolution.
+     *
+     * @param p the project instance.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProject</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>project</name></name> = <name>p</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get this PropertyHelper's Project.
+     * @return Project
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Project</name></type> <name>getProject</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>project</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Prior to Ant 1.8.0 there have been 2 ways to hook into property handling:
+     *
+     *  - you can replace the main PropertyHelper. The replacement is required
+     * to support the same semantics (of course :-)
+     *
+     *  - you can chain a property helper capable of storing some properties.
+     *  Again, you are required to respect the immutability semantics (at
+     *  least for non-dynamic properties)
+     *
+     * &lt;p&gt;As of Ant 1.8.0 this method is never invoked by any code
+     * inside of Ant itself.&lt;/p&gt;
+     *
+     * @param next the next property helper in the chain.
+     * @deprecated use the delegate mechanism instead
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNext</name><parameter_list>(<param><decl><type><name>PropertyHelper</name></type> <name>next</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>next</name></name> = <name>next</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the next property helper in the chain.
+     *
+     * &lt;p&gt;As of Ant 1.8.0 this method is never invoked by any code
+     * inside of Ant itself except the {@link #setPropertyHook
+     * setPropertyHook} and {@link #getPropertyHook getPropertyHook}
+     * methods in this class.&lt;/p&gt;
+     *
+     * @return the next property helper.
+     * @deprecated use the delegate mechanism instead
+     */</comment>
+    <function><type><specifier>public</specifier> <name>PropertyHelper</name></type> <name>getNext</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>next</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Factory method to create a property processor.
+     * Users can provide their own or replace it using "ant.PropertyHelper"
+     * reference. User tasks can also add themselves to the chain, and provide
+     * dynamic properties.
+     *
+     * @param project the project for which the property helper is required.
+     *
+     * @return the project's property helper.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <specifier>synchronized</specifier> <name>PropertyHelper</name></type> <name>getPropertyHelper</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>PropertyHelper</name></type> <name>helper</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>project</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>helper</name> = (<name>PropertyHelper</name>) <call><name><name>project</name>.<name>getReference</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>
+                                                           .<name>REFID_PROPERTY_HELPER</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>helper</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>helper</name></expr>;</return>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>helper</name> = new <call><name>PropertyHelper</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>helper</name>.<name>setProject</name></name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><name>project</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>project</name>.<name>addReference</name></name><argument_list>(<argument><expr><name><name>MagicNames</name>.<name>REFID_PROPERTY_HELPER</name></name></expr></argument>, <argument><expr><name>helper</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <return>return <expr><name>helper</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the {@link PropertyExpander expanders}.
+     * @since Ant 1.8.0
+     * @return the expanders.
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Collection</name><argument_list>&lt;<argument><name>PropertyExpander</name></argument>&gt;</argument_list></name></type> <name>getExpanders</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><call><name>getDelegates</name><argument_list>(<argument><expr><name><name>PropertyExpander</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+
+    <comment type="line">// --------------------  Methods to override  --------------------</comment>
+
+    <comment type="javadoc">/**
+     * Sets a property. Any existing property of the same name
+     * is overwritten, unless it is a user property.
+     *
+     * If all helpers return false, the property will be saved in
+     * the default properties table by setProperty.
+     *
+     * &lt;p&gt;As of Ant 1.8.0 this method is never invoked by any code
+     * inside of Ant itself.&lt;/p&gt;
+     *
+     * @param ns   The namespace that the property is in (currently
+     *             not used.
+     * @param name The name of property to set.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param value The new value of the property.
+     *              Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param inherited True if this property is inherited (an [sub]ant[call] property).
+     * @param user      True if this property is a user property.
+     * @param isNew     True is this is a new property.
+     * @return true if this helper has stored the property, false if it
+     *    couldn't. Each helper should delegate to the next one (unless it
+     *    has a good reason not to).
+     * @deprecated PropertyHelper chaining is deprecated.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>setPropertyHook</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ns</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>,
+                                   <param><decl><type><name>Object</name></type> <name>value</name></decl></param>,
+                                   <param><decl><type><name>boolean</name></type> <name>inherited</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>user</name></decl></param>,
+                                   <param><decl><type><name>boolean</name></type> <name>isNew</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>getNext</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>boolean</name></type> <name>subst</name> =<init> <expr><call><name>getNext</name><argument_list>()</argument_list></call>.<call><name>setPropertyHook</name><argument_list>(<argument><expr><name>ns</name></expr></argument>, <argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>, <argument><expr><name>inherited</name></expr></argument>, <argument><expr><name>user</name></expr></argument>, <argument><expr><name>isNew</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <comment type="line">// If next has handled the property</comment>
+            <if>if <condition>(<expr><name>subst</name></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block></then></if>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get a property. If all hooks return null, the default
+     * tables will be used.
+     *
+     * &lt;p&gt;As of Ant 1.8.0 this method is never invoked by any code
+     * inside of Ant itself.&lt;/p&gt;
+     *
+     * @param ns namespace of the sought property.
+     * @param name name of the sought property.
+     * @param user True if this is a user property.
+     * @return The property, if returned by a hook, or null if none.
+     * @deprecated PropertyHelper chaining is deprecated.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>getPropertyHook</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ns</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>user</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>getNext</name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Object</name></type> <name>o</name> =<init> <expr><call><name>getNext</name><argument_list>()</argument_list></call>.<call><name>getPropertyHook</name><argument_list>(<argument><expr><name>ns</name></expr></argument>, <argument><expr><name>name</name></expr></argument>, <argument><expr><name>user</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>o</name> != <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><name>o</name></expr>;</return>
+            }</block></then></if>
+        }</block></then></if>
+        <comment type="line">// Experimental/Testing, will be removed</comment>
+        <if>if <condition>(<expr><name>project</name> != <name>null</name> &amp;&amp; <call><name><name>name</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"toString:"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>name</name> = <call><name><name>name</name>.<name>substring</name></name><argument_list>(<argument><expr>"toString:".<call><name>length</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>Object</name></type> <name>v</name> =<init> <expr><call><name><name>project</name>.<name>getReference</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr>(<name>v</name> == <name>null</name>) ? <name>null</name> : <call><name><name>v</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="line">// -------------------- Optional methods   --------------------</comment>
+    <comment type="line">// You can override those methods if you want to optimize or</comment>
+    <comment type="line">// do advanced things (like support a special syntax).</comment>
+    <comment type="line">// The methods do not chain - you should use them when embedding ant</comment>
+    <comment type="line">// (by replacing the main helper)</comment>
+
+    <comment type="javadoc">/**
+     * Parses a string containing &lt;code&gt;${xxx}&lt;/code&gt; style property
+     * references into two lists. The first list is a collection
+     * of text fragments, while the other is a set of string property names.
+     * &lt;code&gt;null&lt;/code&gt; entries in the first list indicate a property
+     * reference from the second list.
+     *
+     * &lt;p&gt;Delegates to {@link #parsePropertyStringDefault
+     * parsePropertyStringDefault}.&lt;/p&gt;
+     *
+     * &lt;p&gt;As of Ant 1.8.0 this method is never invoked by any code
+     * inside of Ant itself except {ProjectHelper#parsePropertyString
+     * ProjectHelper.parsePropertyString}.&lt;/p&gt;
+     *
+     * @param value     Text to parse. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param fragments List to add text fragments to.
+     *                  Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param propertyRefs List to add property names to.
+     *                     Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @exception BuildException if the string contains an opening
+     *                           &lt;code&gt;${&lt;/code&gt; without a closing
+     *                           &lt;code&gt;}&lt;/code&gt;
+     * @deprecated use the other mechanisms of this class instead
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>parsePropertyString</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>, <param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>fragments</name></decl></param>,
+                                    <param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>propertyRefs</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>parsePropertyStringDefault</name><argument_list>(<argument><expr><name>value</name></expr></argument>, <argument><expr><name>fragments</name></expr></argument>, <argument><expr><name>propertyRefs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Replaces &lt;code&gt;${xxx}&lt;/code&gt; style constructions in the given value
+     * with the string value of the corresponding data types.
+     *
+     * &lt;p&gt;Delegates to the one-arg version, completely ignoring the ns
+     * and keys parameters.&lt;/p&gt;
+     *
+     * @param ns    The namespace for the property.
+     * @param value The string to be scanned for property references.
+     *              May be &lt;code&gt;null&lt;/code&gt;, in which case this
+     *              method returns immediately with no effect.
+     * @param keys  Mapping (String to Object) of property names to their
+     *              values. If &lt;code&gt;null&lt;/code&gt;, only project properties will
+     *              be used.
+     *
+     * @exception BuildException if the string contains an opening
+     *                           &lt;code&gt;${&lt;/code&gt; without a closing
+     *                           &lt;code&gt;}&lt;/code&gt;
+     * @return the original string with the properties replaced, or
+     *         &lt;code&gt;null&lt;/code&gt; if the original string is &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <comment type="line">//TODO deprecate?  Recall why no longer using ns/keys params</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>replaceProperties</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ns</name></decl></param>, <param><decl><type><name>String</name></type> <name>value</name></decl></param>, <param><decl><type><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>keys</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <return>return <expr><call><name>replaceProperties</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Replaces &lt;code&gt;${xxx}&lt;/code&gt; style constructions in the given value
+     * with the string value of the corresponding data types.
+     *
+     * @param value The string to be scanned for property references.
+     *              May be &lt;code&gt;null&lt;/code&gt;, in which case this
+     *              method returns immediately with no effect.
+     *
+     * @exception BuildException if the string contains an opening
+     *                           &lt;code&gt;${&lt;/code&gt; without a closing
+     *                           &lt;code&gt;}&lt;/code&gt;
+     * @return the original string with the properties replaced, or
+     *         &lt;code&gt;null&lt;/code&gt; if the original string is &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>replaceProperties</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Object</name></type> <name>o</name> =<init> <expr><call><name>parseProperties</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>o</name> == <name>null</name> || <name>o</name> <name>instanceof</name> <name>String</name> ? (<name>String</name>) <name>o</name> : <call><name><name>o</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Decode properties from a String representation.  If the entire
+     * contents of the String resolve to a single property, that value
+     * is returned.  Otherwise a String is returned.
+     *
+     * @param value The string to be scanned for property references.
+     *              May be &lt;code&gt;null&lt;/code&gt;, in which case this
+     *              method returns immediately with no effect.
+     *
+     * @exception BuildException if the string contains an opening
+     *                           &lt;code&gt;${&lt;/code&gt; without a closing
+     *                           &lt;code&gt;}&lt;/code&gt;
+     * @return the original string with the properties replaced, or
+     *         &lt;code&gt;null&lt;/code&gt; if the original string is &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>parseProperties</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <return>return <expr>new <call><name>ParseProperties</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name>getExpanders</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>this</name></expr></argument>)</argument_list></call>
+            .<call><name>parseProperties</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Learn whether a String contains replaceable properties.
+     * @param value the String to check.
+     * @return &lt;code&gt;true&lt;/code&gt; if &lt;code&gt;value&lt;/code&gt; contains property notation.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>containsProperties</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>new <call><name>ParseProperties</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name>getExpanders</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>this</name></expr></argument>)</argument_list></call>
+            .<call><name>containsProperties</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="line">// -------------------- Default implementation  --------------------</comment>
+    <comment type="line">// Methods used to support the default behavior and provide backward</comment>
+    <comment type="line">// compatibility. Some will be deprecated, you should avoid calling them.</comment>
+
+    <comment type="javadoc">/**
+     * Default implementation of setProperty. Will be called from Project.
+     * This is the original 1.5 implementation, with calls to the hook
+     * added.
+     *
+     * &lt;p&gt;Delegates to the three-arg version, completely ignoring the
+     * ns parameter.&lt;/p&gt;
+     *
+     * @param ns      The namespace for the property (currently not used).
+     * @param name    The name of the property.
+     * @param value   The value to set the property to.
+     * @param verbose If this is true output extra log messages.
+     * @return true if the property is set.
+     * @deprecated namespaces are unnecessary.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>setProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ns</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>verbose</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>setProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>, <argument><expr><name>verbose</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Default implementation of setProperty. Will be called from Project.
+     *  @param name    The name of the property.
+     *  @param value   The value to set the property to.
+     *  @param verbose If this is true output extra log messages.
+     *  @return true if the property is set.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>setProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>verbose</name></decl></param>)</parameter_list> <block>{
+        <for>for (<init><decl><type><name>PropertySetter</name></type> <name>setter</name> :<range> <expr><call><name>getDelegates</name><argument_list>(<argument><expr><name><name>PropertySetter</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></range></decl></init>) <block>{
+            <if>if <condition>(<expr><call><name><name>setter</name>.<name>set</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>, <argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+            <comment type="line">// user (CLI) properties take precedence</comment>
+            <if>if <condition>(<expr><call><name><name>userProperties</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>project</name> != <name>null</name> &amp;&amp; <name>verbose</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr>"Override ignored for user property \""
+                                + <name>name</name> + "\""</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <return>return <expr>false</expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>project</name> != <name>null</name> &amp;&amp; <name>verbose</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name><name>properties</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr>"Overriding previous definition of property \""
+                                + <name>name</name> + "\""</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr>"Setting project property: " + <name>name</name> + " -&gt; "
+                            + <name>value</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>name</name> != <name>null</name> &amp;&amp; <name>value</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>properties</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <return>return <expr>true</expr>;</return>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets a property if no value currently exists. If the property
+     * exists already, a message is logged and the method returns with
+     * no other effect.
+     *
+     * &lt;p&gt;Delegates to the two-arg version, completely ignoring the
+     * ns parameter.&lt;/p&gt;
+     *
+     * @param ns   The namespace for the property (currently not used).
+     * @param name The name of property to set.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param value The new value of the property.
+     *              Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @since Ant 1.6
+     * @deprecated namespaces are unnecessary.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNewProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ns</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setNewProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets a property if no value currently exists. If the property
+     * exists already, a message is logged and the method returns with
+     * no other effect.
+     *
+     * @param name The name of property to set.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param value The new value of the property.
+     *              Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNewProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <for>for (<init><decl><type><name>PropertySetter</name></type> <name>setter</name> :<range> <expr><call><name>getDelegates</name><argument_list>(<argument><expr><name><name>PropertySetter</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></range></decl></init>) <block>{
+            <if>if <condition>(<expr><call><name><name>setter</name>.<name>setNew</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>, <argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return;</return>
+            }</block></then></if>
+        }</block></for>
+        <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+            <if>if <condition>(<expr><name>project</name> != <name>null</name> &amp;&amp; <call><name><name>properties</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr>"Override ignored for property \"" + <name>name</name>
+                            + "\""</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>project</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr>"Setting project property: " + <name>name</name>
+                            + " -&gt; " + <name>value</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>name</name> != <name>null</name> &amp;&amp; <name>value</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>properties</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets a user property, which cannot be overwritten by
+     * set/unset property calls. Any previous value is overwritten.
+     *
+     * &lt;p&gt;Delegates to the two-arg version, completely ignoring the
+     * ns parameter.&lt;/p&gt;
+     *
+     * @param ns   The namespace for the property (currently not used).
+     * @param name The name of property to set.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param value The new value of the property.
+     *              Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @deprecated namespaces are unnecessary.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUserProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ns</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setUserProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets a user property, which cannot be overwritten by
+     * set/unset property calls. Any previous value is overwritten.
+     *
+     * &lt;p&gt;Does &lt;code&gt;not&lt;/code&gt; consult any delegates.&lt;/p&gt;
+     *
+     * @param name The name of property to set.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param value The new value of the property.
+     *              Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUserProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>project</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr>"Setting ro project property: "
+                        + <name>name</name> + " -&gt; " + <name>value</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+            <expr_stmt><expr><call><name><name>userProperties</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>properties</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets an inherited user property, which cannot be overwritten by set/unset
+     * property calls. Any previous value is overwritten. Also marks
+     * these properties as properties that have not come from the
+     * command line.
+     *
+     * &lt;p&gt;Delegates to the two-arg version, completely ignoring the
+     * ns parameter.&lt;/p&gt;
+     *
+     * @param ns   The namespace for the property (currently not used).
+     * @param name The name of property to set.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param value The new value of the property.
+     *              Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @deprecated namespaces are unnecessary.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInheritedProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ns</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setInheritedProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets an inherited user property, which cannot be overwritten by set/unset
+     * property calls. Any previous value is overwritten. Also marks
+     * these properties as properties that have not come from the
+     * command line.
+     *
+     * &lt;p&gt;Does &lt;code&gt;not&lt;/code&gt; consult any delegates.&lt;/p&gt;
+     *
+     * @param name The name of property to set.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param value The new value of the property.
+     *              Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInheritedProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>project</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr>"Setting ro project property: " + <name>name</name> + " -&gt; "
+                        + <name>value</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <synchronized>synchronized (<expr><name>this</name></expr>) <block>{
+            <expr_stmt><expr><call><name><name>inheritedProperties</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>userProperties</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>properties</name>.<name>put</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="line">// -------------------- Getting properties  --------------------</comment>
+
+    <comment type="javadoc">/**
+     * Returns the value of a property, if it is set.  You can override
+     * this method in order to plug your own storage.
+     *
+     * &lt;p&gt;Delegates to the one-arg version ignoring the ns parameter.&lt;/p&gt;
+     *
+     * @param ns   The namespace for the property (currently not used).
+     * @param name The name of the property.
+     *             May be &lt;code&gt;null&lt;/code&gt;, in which case
+     *             the return value is also &lt;code&gt;null&lt;/code&gt;.
+     * @return the property value, or &lt;code&gt;null&lt;/code&gt; for no match
+     *         or if a &lt;code&gt;null&lt;/code&gt; name is provided.
+     * @deprecated namespaces are unnecessary.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>getProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ns</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>getProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the value of a property, if it is set.
+     *
+     * &lt;p&gt;This is the method that is invoked by {Project#getProperty
+     * Project.getProperty}.&lt;/p&gt;
+     *
+     * &lt;p&gt;You can override this method in order to plug your own
+     * storage but the recommended approach is to add your own
+     * implementation of {@link PropertyEvaluator PropertyEvaluator}
+     * instead.&lt;/p&gt;
+     *
+     * @param name The name of the property.
+     *             May be &lt;code&gt;null&lt;/code&gt;, in which case
+     *             the return value is also &lt;code&gt;null&lt;/code&gt;.
+     * @return the property value, or &lt;code&gt;null&lt;/code&gt; for no match
+     *         or if a &lt;code&gt;null&lt;/code&gt; name is provided.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>getProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>name</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>PropertyEvaluator</name></type> <name>evaluator</name> :<range> <expr><call><name>getDelegates</name><argument_list>(<argument><expr><name><name>PropertyEvaluator</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr></range></decl></init>) <block>{
+            <decl_stmt><decl><type><specifier>final</specifier> <name>Object</name></type> <name>o</name> =<init> <expr><call><name><name>evaluator</name>.<name>evaluate</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr><name>this</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>o</name> == <name>null</name></expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+            <return>return <expr><name>o</name> <name>instanceof</name> <name>NullReturn</name> ? <name>null</name> : <name>o</name></expr>;</return>
+        }</block></for>
+        <return>return <expr><call><name><name>properties</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the value of a user property, if it is set.
+     *
+     * &lt;p&gt;Delegates to the one-arg version ignoring the ns parameter.&lt;/p&gt;
+     *
+     * @param ns   The namespace for the property (currently not used).
+     * @param name The name of the property.
+     *             May be &lt;code&gt;null&lt;/code&gt;, in which case
+     *             the return value is also &lt;code&gt;null&lt;/code&gt;.
+     * @return the property value, or &lt;code&gt;null&lt;/code&gt; for no match
+     *         or if a &lt;code&gt;null&lt;/code&gt; name is provided.
+     * @deprecated namespaces are unnecessary.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>getUserProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>ns</name></decl></param>, <param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>getUserProperty</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the value of a user property, if it is set.
+     *
+     * &lt;p&gt;Does &lt;code&gt;not&lt;/code&gt; consult any delegates.&lt;/p&gt;
+     *
+     * @param name The name of the property.
+     *             May be &lt;code&gt;null&lt;/code&gt;, in which case
+     *             the return value is also &lt;code&gt;null&lt;/code&gt;.
+     * @return the property value, or &lt;code&gt;null&lt;/code&gt; for no match
+     *         or if a &lt;code&gt;null&lt;/code&gt; name is provided.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>getUserProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>name</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name><name>userProperties</name>.<name>get</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="line">// -------------------- Access to property tables  --------------------</comment>
+    <comment type="line">// This is used to support ant call and similar tasks. It should be</comment>
+    <comment type="line">// deprecated, it is possible to use a better (more efficient)</comment>
+    <comment type="line">// mechanism to preserve the context.</comment>
+
+    <comment type="javadoc">/**
+     * Returns a copy of the properties table.
+     *
+     * &lt;p&gt;Does not contain properties held by implementations of
+     * delegates (like local properties).&lt;/p&gt;
+     *
+     * @return a hashtable containing all properties (including user properties).
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>getProperties</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">//avoid concurrent modification:</comment>
+        <synchronized>synchronized (<expr><name>properties</name></expr>) <block>{
+            <return>return <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>properties</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></synchronized>
+        <comment type="line">// There is a better way to save the context. This shouldn't</comment>
+        <comment type="line">// delegate to next, it's for backward compatibility only.</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a copy of the user property hashtable
+     *
+     * &lt;p&gt;Does not contain properties held by implementations of
+     * delegates (like local properties).&lt;/p&gt;
+     *
+     * @return a hashtable containing just the user properties
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>getUserProperties</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">//avoid concurrent modification:</comment>
+        <synchronized>synchronized (<expr><name>userProperties</name></expr>) <block>{
+            <return>return <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>userProperties</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a copy of the inherited property hashtable
+     *
+     * &lt;p&gt;Does not contain properties held by implementations of
+     * delegates (like local properties).&lt;/p&gt;
+     *
+     * @return a hashtable containing just the inherited properties
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>getInheritedProperties</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">//avoid concurrent modification:</comment>
+        <synchronized>synchronized (<expr><name>inheritedProperties</name></expr>) <block>{
+            <return>return <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>inheritedProperties</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * special back door for subclasses, internal access to the hashtables
+     * @return the live hashtable of all properties
+     */</comment>
+    <function><type><specifier>protected</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>getInternalProperties</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>properties</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * special back door for subclasses, internal access to the hashtables
+     *
+     * @return the live hashtable of user properties
+     */</comment>
+    <function><type><specifier>protected</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>getInternalUserProperties</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>userProperties</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * special back door for subclasses, internal access to the hashtables
+     *
+     * @return the live hashtable inherited properties
+     */</comment>
+    <function><type><specifier>protected</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>Object</name></argument>&gt;</argument_list></name></type> <name>getInternalInheritedProperties</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>inheritedProperties</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Copies all user properties that have not been set on the
+     * command line or a GUI tool from this instance to the Project
+     * instance given as the argument.
+     *
+     * &lt;p&gt;To copy all "user" properties, you will also have to call
+     * {@link #copyUserProperties copyUserProperties}.&lt;/p&gt;
+     *
+     * &lt;p&gt;Does not copy properties held by implementations of
+     * delegates (like local properties).&lt;/p&gt;
+     *
+     * @param other the project to copy the properties to.  Must not be null.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyInheritedProperties</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>other</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">//avoid concurrent modification:</comment>
+        <synchronized>synchronized (<expr><name>inheritedProperties</name></expr>) <block>{
+            <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>inheritedProperties</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>arg</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>other</name>.<name>getUserProperty</name></name><argument_list>(<argument><expr><name>arg</name></expr></argument>)</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                    <continue>continue;</continue>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>Object</name></type> <name>value</name> =<init> <expr><call><name><name>inheritedProperties</name>.<name>get</name></name><argument_list>(<argument><expr><name>arg</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>other</name>.<name>setInheritedProperty</name></name><argument_list>(<argument><expr><name>arg</name></expr></argument>, <argument><expr><call><name><name>value</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Copies all user properties that have been set on the command
+     * line or a GUI tool from this instance to the Project instance
+     * given as the argument.
+     *
+     * &lt;p&gt;To copy all "user" properties, you will also have to call
+     * {@link #copyInheritedProperties copyInheritedProperties}.&lt;/p&gt;
+     *
+     * &lt;p&gt;Does not copy properties held by implementations of
+     * delegates (like local properties).&lt;/p&gt;
+     *
+     * @param other the project to copy the properties to.  Must not be null.
+     *
+     * @since Ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>copyUserProperties</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>other</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">//avoid concurrent modification:</comment>
+        <synchronized>synchronized (<expr><name>userProperties</name></expr>) <block>{
+            <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>userProperties</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>Object</name></type> <name>arg</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>inheritedProperties</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>arg</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <continue>continue;</continue>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>Object</name></type> <name>value</name> =<init> <expr><call><name><name>userProperties</name>.<name>get</name></name><argument_list>(<argument><expr><name>arg</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>other</name>.<name>setUserProperty</name></name><argument_list>(<argument><expr><call><name><name>arg</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>value</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="line">// -------------------- Property parsing  --------------------</comment>
+    <comment type="line">// Moved from ProjectHelper. You can override the static method -</comment>
+    <comment type="line">// this is used for backward compatibility (for code that calls</comment>
+    <comment type="line">// the parse method in ProjectHelper).</comment>
+
+    <comment type="javadoc">/**
+     * Default parsing method. It is here only to support backward compatibility
+     * for the static ProjectHelper.parsePropertyString().
+     */</comment>
+    <function><type><specifier>static</specifier> <name>void</name></type> <name>parsePropertyStringDefault</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>, <param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>fragments</name></decl></param>, <param><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>propertyRefs</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>prev</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>pos</name></decl>;</decl_stmt>
+        <comment type="line">//search for the next instance of $ from the 'prev' position</comment>
+        <while>while <condition>(<expr>(<name>pos</name> = <call><name><name>value</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"$"</expr></argument>, <argument><expr><name>prev</name></expr></argument>)</argument_list></call>) &gt;= 0</expr>)</condition> <block>{
+
+            <comment type="line">//if there was any text before this, add it as a fragment</comment>
+            <comment type="line">//TODO, this check could be modified to go if pos&gt;prev;</comment>
+            <comment type="line">//seems like this current version could stick empty strings</comment>
+            <comment type="line">//into the list</comment>
+            <if>if <condition>(<expr><name>pos</name> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>fragments</name>.<name>addElement</name></name><argument_list>(<argument><expr><call><name><name>value</name>.<name>substring</name></name><argument_list>(<argument><expr><name>prev</name></expr></argument>, <argument><expr><name>pos</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <comment type="line">//if we are at the end of the string, we tack on a $</comment>
+            <comment type="line">//then move past it</comment>
+            <if>if <condition>(<expr><name>pos</name> == (<call><name><name>value</name>.<name>length</name></name><argument_list>()</argument_list></call> - 1)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>fragments</name>.<name>addElement</name></name><argument_list>(<argument><expr>"$"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>prev</name> = <name>pos</name> + 1</expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>value</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>pos</name> + 1</expr></argument>)</argument_list></call> != '{'</expr>)</condition><then> <block>{
+                <comment type="line">//peek ahead to see if the next char is a property or not</comment>
+                <comment type="line">//not a property: insert the char as a literal</comment>
+                <comment type="block">/*
+                fragments.addElement(value.substring(pos + 1, pos + 2));
+                prev = pos + 2;
+                */</comment>
+                <if>if <condition>(<expr><call><name><name>value</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>pos</name> + 1</expr></argument>)</argument_list></call> == '$'</expr>)</condition><then> <block>{
+                    <comment type="line">//backwards compatibility two $ map to one mode</comment>
+                    <expr_stmt><expr><call><name><name>fragments</name>.<name>addElement</name></name><argument_list>(<argument><expr>"$"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>prev</name> = <name>pos</name> + 2</expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <comment type="line">//new behaviour: $X maps to $X for all values of X!='$'</comment>
+                    <expr_stmt><expr><call><name><name>fragments</name>.<name>addElement</name></name><argument_list>(<argument><expr><call><name><name>value</name>.<name>substring</name></name><argument_list>(<argument><expr><name>pos</name></expr></argument>, <argument><expr><name>pos</name> + 2</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>prev</name> = <name>pos</name> + 2</expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then> <else>else <block>{
+                <comment type="line">//property found, extract its name or bail on a typo</comment>
+                <decl_stmt><decl><type><name>int</name></type> <name>endName</name> =<init> <expr><call><name><name>value</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'}'</expr></argument>, <argument><expr><name>pos</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>endName</name> &lt; 0</expr>)</condition><then> <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Syntax error in property: " + <name>value</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>String</name></type> <name>propertyName</name> =<init> <expr><call><name><name>value</name>.<name>substring</name></name><argument_list>(<argument><expr><name>pos</name> + 2</expr></argument>, <argument><expr><name>endName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>fragments</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>propertyRefs</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>propertyName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>prev</name> = <name>endName</name> + 1</expr>;</expr_stmt>
+            }</block></else></if></else></if>
+        }</block></while>
+        <comment type="line">//no more $ signs found</comment>
+        <comment type="line">//if there is any tail to the file, append it</comment>
+        <if>if <condition>(<expr><name>prev</name> &lt; <call><name><name>value</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>fragments</name>.<name>addElement</name></name><argument_list>(<argument><expr><call><name><name>value</name>.<name>substring</name></name><argument_list>(<argument><expr><name>prev</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add the specified delegate object to this PropertyHelper.
+     * Delegates are processed in LIFO order.
+     * @param delegate the delegate to add.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>Delegate</name></type> <name>delegate</name></decl></param>)</parameter_list> <block>{
+        <synchronized>synchronized (<expr><name>delegates</name></expr>) <block>{
+            <for>for (<init><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>Delegate</name></extends></argument>&gt;</argument_list></name></type> <name>key</name> :<range> <expr><call><name>getDelegateInterfaces</name><argument_list>(<argument><expr><name>delegate</name></expr></argument>)</argument_list></call></expr></range></decl></init>) <block>{
+                <decl_stmt><decl><type><name><name>List</name><argument_list>&lt;<argument><name>Delegate</name></argument>&gt;</argument_list></name></type> <name>list</name> =<init> <expr><call><name><name>delegates</name>.<name>get</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>list</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>list</name> = new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>Delegate</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <comment type="line">//copy on write, top priority</comment>
+                    <expr_stmt><expr><name>list</name> = new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>Delegate</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>list</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>list</name>.<name>remove</name></name><argument_list>(<argument><expr><name>delegate</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+                <expr_stmt><expr><call><name><name>list</name>.<name>add</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>delegate</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>delegates</name>.<name>put</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>, <argument><expr><call><name><name>Collections</name>.<name>unmodifiableList</name></name><argument_list>(<argument><expr><name>list</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></synchronized>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the Collection of delegates of the specified type.
+     *
+     * @param type
+     *            delegate type.
+     * @return Collection.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>protected</specifier> <argument_list>&lt;<argument><name>D</name> <extends>extends <name>Delegate</name></extends></argument>&gt;</argument_list> <name><name>List</name><argument_list>&lt;<argument><name>D</name></argument>&gt;</argument_list></name></type> <name>getDelegates</name><parameter_list>(<param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>D</name></argument>&gt;</argument_list></name></type> <name>type</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><annotation>@<name>SuppressWarnings</name><argument_list>("unchecked")</argument_list></annotation>
+        <specifier>final</specifier> <name><name>List</name><argument_list>&lt;<argument><name>D</name></argument>&gt;</argument_list></name></type> <name>result</name> =<init> <expr>(<name><name>List</name><argument_list>&lt;<argument><name>D</name></argument>&gt;</argument_list></name>) <call><name><name>delegates</name>.<name>get</name></name><argument_list>(<argument><expr><name>type</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>result</name> == <name>null</name> ? <name><name>Collections</name>.<name><name/></name></name>&lt;<name>D</name>&gt; <call><name>emptyList</name><argument_list>()</argument_list></call> : <name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get all Delegate interfaces (excluding Delegate itself) from the specified Delegate.
+     * @param d the Delegate to inspect.
+     * @return Set&lt;Class&gt;
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>static</specifier> <name><name>Set</name><argument_list>&lt;<argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>Delegate</name></extends></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name></type> <name>getDelegateInterfaces</name><parameter_list>(<param><decl><type><name>Delegate</name></type> <name>d</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name><name>HashSet</name><argument_list>&lt;<argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>Delegate</name></extends></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name></type> <name>result</name> =<init> <expr>new <call><name><name>HashSet</name><argument_list>&lt;<argument><name><name>Class</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>Delegate</name></extends></argument>&gt;</argument_list></name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>c</name> =<init> <expr><call><name><name>d</name>.<name>getClass</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><name>c</name> != <name>null</name></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name><index>[]</index></type> <name>ifs</name> =<init> <expr><call><name><name>c</name>.<name>getInterfaces</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>ifs</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <if>if <condition>(<expr><name><name>Delegate</name>.<name><name/></name></name>class.<call><name>isAssignableFrom</name><argument_list>(<argument><expr><name><name>ifs</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><annotation>@<name>SuppressWarnings</name><argument_list>("unchecked")</argument_list></annotation>
+                    <specifier>final</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>Delegate</name></extends></argument>&gt;</argument_list></name></type> <name>delegateInterface</name> =<init> <expr>(<name><name>Class</name><argument_list>&lt;<argument><name>?</name> <extends>extends <name>Delegate</name></extends></argument>&gt;</argument_list></name>) <name><name>ifs</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>result</name>.<name>add</name></name><argument_list>(<argument><expr><name>delegateInterface</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+            <expr_stmt><expr><name>c</name> = <call><name><name>c</name>.<name>getSuperclass</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <expr_stmt><expr><call><name><name>result</name>.<name>remove</name></name><argument_list>(<argument><expr><name><name>Delegate</name>.<name><name/></name></name>class</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If the given object can be interpreted as a true/false value,
+     * turn it into a matching Boolean - otherwise return null.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>Boolean</name></type> <name>toBoolean</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>value</name> <name>instanceof</name> <name>Boolean</name></expr>)</condition><then> <block>{
+            <return>return <expr>(<name>Boolean</name>) <name>value</name></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>value</name> <name>instanceof</name> <name>String</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>s</name> =<init> <expr>(<name>String</name>) <name>value</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>Project</name>.<name>toBoolean</name></name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name><name>Boolean</name>.<name>TRUE</name></name></expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr>"off".<call><name>equalsIgnoreCase</name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call>
+                || "false".<call><name>equalsIgnoreCase</name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call>
+                || "no".<call><name>equalsIgnoreCase</name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name><name>Boolean</name>.<name>FALSE</name></name></expr>;</return>
+            }</block></then></if>
+        }</block></then></if>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns true if the object is null or an empty string.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>boolean</name></type> <name>nullOrEmpty</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><name>value</name> == <name>null</name> || "".<call><name>equals</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</return>
+
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns true if the value can be interpreted as a true value or
+     * cannot be interpreted as a false value and a property of the
+     * value's name exists.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>evalAsBooleanOrPropertyName</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Boolean</name></type> <name>b</name> =<init> <expr><call><name>toBoolean</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>b</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name><name>b</name>.<name>booleanValue</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name>getProperty</name><argument_list>(<argument><expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call> != <name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns true if the value is null or an empty string, can be
+     * interpreted as a true value or cannot be interpreted as a false
+     * value and a property of the value's name exists.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>testIfCondition</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>nullOrEmpty</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call> || <call><name>evalAsBooleanOrPropertyName</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns true if the value is null or an empty string, can be
+     * interpreted as a false value or cannot be interpreted as a true
+     * value and a property of the value's name doesn't exist.
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>testUnlessCondition</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>nullOrEmpty</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call> || !<call><name>evalAsBooleanOrPropertyName</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\Move.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>Os</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FilterSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FilterSetCollection</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Moves a file or directory to a new file or directory.
+ * By default, the
+ * destination file is overwritten if it already exists.
+ * When &lt;i&gt;overwrite&lt;/i&gt; is
+ * turned off, then files are only moved if the source file is
+ * newer than the destination file, or when the destination file does
+ * not exist.
+ *
+ * &lt;p&gt;Source files and directories are only deleted when the file or
+ * directory has been copied to the destination successfully.  Filtering
+ * also works.&lt;/p&gt;
+ *
+ * &lt;p&gt;This implementation is based on Arnout Kuiper's initial design
+ * document, the following mailing list discussions, and the
+ * copyfile/copydir tasks.&lt;/p&gt;
+ *
+ * @since Ant 1.2
+ *
+ * @ant.task category="filesystem"
+ */</comment>
+<class><specifier>public</specifier> class <name>Move</name> <super><extends>extends <name>Copy</name></extends></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>performGc</name> =<init> <expr><call><name><name>Os</name>.<name>isFamily</name></name><argument_list>(<argument><expr>"windows"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Constructor of object.
+     * This sets the forceOverwrite attribute of the Copy parent class
+     * to true.
+     *
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Move</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setOverwrite</name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Whether to perform a garbage collection before retrying a failed delete.
+     *
+     * &lt;p&gt;This may be required on Windows (where it is set to true by
+     * default) but also on other operating systems, for example when
+     * deleting directories from an NFS share.&lt;/p&gt;
+     *
+     * @since Ant 1.8.3
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPerformGcOnFailedDelete</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>performGc</name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/** {@inheritDoc}. */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>validateAttributes</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>file</name> != <name>null</name> &amp;&amp; <call><name><name>file</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr>(<name>destFile</name> != <name>null</name> &amp;&amp; <name>destDir</name> != <name>null</name>)
+                || (<name>destFile</name> == <name>null</name> &amp;&amp; <name>destDir</name> == <name>null</name>)</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"One and only one of tofile and todir must be set."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><name>destFile</name> = <name>destFile</name> == <name>null</name> ? new <call><name>File</name><argument_list>(<argument><expr><name>destDir</name></expr></argument>, <argument><expr><call><name><name>file</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call> : <name>destFile</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>destDir</name> = <name>destDir</name> == <name>null</name> ? <call><name><name>destFile</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call> : <name>destDir</name></expr>;</expr_stmt>
+
+            <expr_stmt><expr><call><name><name>completeDirMap</name>.<name>put</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>file</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>super</name>.<name>validateAttributes</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+<comment type="line">//************************************************************************</comment>
+<comment type="line">//  protected and private methods</comment>
+<comment type="line">//************************************************************************</comment>
+
+    <comment type="javadoc">/**
+     * Override copy's doFileOperations to move the files instead of copying them.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>doFileOperations</name><parameter_list>()</parameter_list> <block>{
+        <comment type="line">//Attempt complete directory renames, if any, first.</comment>
+        <if>if <condition>(<expr><call><name><name>completeDirMap</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>fromDirs</name> =<init> <expr><call><name><name>completeDirMap</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>fromDirs</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>fromDir</name> =<init> <expr>(<name>File</name>) <call><name><name>fromDirs</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>toDir</name> =<init> <expr>(<name>File</name>) <call><name><name>completeDirMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>fromDir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>boolean</name></type> <name>renamed</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+                <try>try <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Attempting to rename dir: " + <name>fromDir</name> + " to " + <name>toDir</name></expr></argument>, <argument><expr><name>verbosity</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>renamed</name> = <call><name>renameFile</name><argument_list>(<argument><expr><name>fromDir</name></expr></argument>, <argument><expr><name>toDir</name></expr></argument>, <argument><expr><name>filtering</name></expr></argument>, <argument><expr><name>forceOverwrite</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed to rename dir " + <name>fromDir</name>
+                            + " to " + <name>toDir</name> + " due to " + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>ioe</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+                <if>if <condition>(<expr>!<name>renamed</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>FileSet</name></type> <name>fs</name> =<init> <expr>new <call><name>FileSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>fs</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>fs</name>.<name>setDir</name></name><argument_list>(<argument><expr><name>fromDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name>addFileset</name><argument_list>(<argument><expr><name>fs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name><name>fs</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>dirs</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedDirectories</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name>scan</name><argument_list>(<argument><expr><name>fromDir</name></expr></argument>, <argument><expr><name>toDir</name></expr></argument>, <argument><expr><name>files</name></expr></argument>, <argument><expr><name>dirs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>int</name></type> <name>moveCount</name> =<init> <expr><call><name><name>fileCopyMap</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>moveCount</name> &gt; 0</expr>)</condition><then> <block>{   <comment type="line">// files to move</comment>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Moving " + <name>moveCount</name> + " file" + ((<name>moveCount</name> == 1) ? "" : "s")
+                    + " to " + <call><name><name>destDir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>fromFiles</name> =<init> <expr><call><name><name>fileCopyMap</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>fromFiles</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>fromFile</name> =<init> <expr>(<name>String</name>) <call><name><name>fromFiles</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>fromFile</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>boolean</name></type> <name>selfMove</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>f</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{ <comment type="line">//Is this file still available to be moved?</comment>
+                    <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>toFiles</name> =<init> <expr>(<name><name>String</name><index>[]</index></name>) <call><name><name>fileCopyMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>fromFile</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>toFiles</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>toFile</name> =<init> <expr>(<name>String</name>) <name><name>toFiles</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+                        <if>if <condition>(<expr><call><name><name>fromFile</name>.<name>equals</name></name><argument_list>(<argument><expr><name>toFile</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Skipping self-move of " + <name>fromFile</name></expr></argument>, <argument><expr><name>verbosity</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><name>selfMove</name> = true</expr>;</expr_stmt>
+
+                            <comment type="line">// if this is the last time through the loop then</comment>
+                            <comment type="line">// move will not occur, but that's what we want</comment>
+                            <continue>continue;</continue>
+                        }</block></then></if>
+                        <decl_stmt><decl><type><name>File</name></type> <name>d</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>toFile</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr>(<name>i</name> + 1) == <name><name>toFiles</name>.<name>length</name></name> &amp;&amp; !<name>selfMove</name></expr>)</condition><then> <block>{
+                            <comment type="line">// Only try to move if this is the last mapped file</comment>
+                            <comment type="line">// and one of the mappings isn't to itself</comment>
+                            <expr_stmt><expr><call><name>moveFile</name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr><name>d</name></expr></argument>, <argument><expr><name>filtering</name></expr></argument>, <argument><expr><name>forceOverwrite</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then> <else>else <block>{
+                            <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr><name>f</name></expr></argument>, <argument><expr><name>d</name></expr></argument>, <argument><expr><name>filtering</name></expr></argument>, <argument><expr><name>forceOverwrite</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></else></if>
+                    }</block></for>
+                }</block></then></if>
+            }</block></for>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>includeEmpty</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>int</name></type> <name>createCount</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>fromDirNames</name> =<init> <expr><call><name><name>dirCopyMap</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>fromDirNames</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>fromDirName</name> =<init> <expr>(<name>String</name>) <call><name><name>fromDirNames</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>toDirNames</name> =<init> <expr>(<name><name>String</name><index>[]</index></name>) <call><name><name>dirCopyMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>fromDirName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>boolean</name></type> <name>selfMove</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>toDirNames</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                    <if>if <condition>(<expr><call><name><name>fromDirName</name>.<name>equals</name></name><argument_list>(<argument><expr><name><name>toDirNames</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Skipping self-move of " + <name>fromDirName</name></expr></argument>, <argument><expr><name>verbosity</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>selfMove</name> = true</expr>;</expr_stmt>
+                        <continue>continue;</continue>
+                    }</block></then></if>
+                    <decl_stmt><decl><type><name>File</name></type> <name>d</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>toDirNames</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr>!<call><name><name>d</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <if>if <condition>(<expr>!<call><name><name>d</name>.<name>mkdirs</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Unable to create directory "
+                                    + <call><name><name>d</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_ERR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then> <else>else <block>{
+                            <expr_stmt><expr><name>createCount</name>++</expr>;</expr_stmt>
+                        }</block></else></if>
+                    }</block></then></if>
+                }</block></for>
+                <decl_stmt><decl><type><name>File</name></type> <name>fromDir</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>fromDirName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr>!<name>selfMove</name> &amp;&amp; <call><name>okToDelete</name><argument_list>(<argument><expr><name>fromDir</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>deleteDir</name><argument_list>(<argument><expr><name>fromDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+            <if>if <condition>(<expr><name>createCount</name> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Moved " + <call><name><name>dirCopyMap</name>.<name>size</name></name><argument_list>()</argument_list></call>
+                        + " empty director"
+                        + (<call><name><name>dirCopyMap</name>.<name>size</name></name><argument_list>()</argument_list></call> == 1 ? "y" : "ies")
+                        + " to " + <name>createCount</name>
+                        + " empty director"
+                        + (<name>createCount</name> == 1 ? "y" : "ies") + " under "
+                        + <call><name><name>destDir</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Try to move the file via a rename, but if this fails or filtering
+     * is enabled, copy the file then delete the sourceFile.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>moveFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>fromFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>toFile</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>filtering</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>boolean</name></type> <name>moved</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Attempting to rename: " + <name>fromFile</name> + " to " + <name>toFile</name></expr></argument>, <argument><expr><name>verbosity</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>moved</name> = <call><name>renameFile</name><argument_list>(<argument><expr><name>fromFile</name></expr></argument>, <argument><expr><name>toFile</name></expr></argument>, <argument><expr><name>filtering</name></expr></argument>, <argument><expr><name>forceOverwrite</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed to rename " + <name>fromFile</name>
+                + " to " + <name>toFile</name> + " due to " + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>ioe</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+
+        <if>if <condition>(<expr>!<name>moved</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>copyFile</name><argument_list>(<argument><expr><name>fromFile</name></expr></argument>, <argument><expr><name>toFile</name></expr></argument>, <argument><expr><name>filtering</name></expr></argument>, <argument><expr><name>overwrite</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr>!<call><name>getFileUtils</name><argument_list>()</argument_list></call>.<call><name>tryHardToDelete</name><argument_list>(<argument><expr><name>fromFile</name></expr></argument>, <argument><expr><name>performGc</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Unable to delete " + "file "
+                        + <call><name><name>fromFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Copy fromFile to toFile.
+     * @param fromFile
+     * @param toFile
+     * @param filtering
+     * @param overwrite
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>copyFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>fromFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>toFile</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>filtering</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Copying " + <name>fromFile</name> + " to " + <name>toFile</name></expr></argument>, <argument><expr><name>verbosity</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>FilterSetCollection</name></type> <name>executionFilters</name> =<init> <expr>new <call><name>FilterSetCollection</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>filtering</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>executionFilters</name>.<name>addFilterSet</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getGlobalFilterSet</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>filterIter</name> =<init> <expr><call><name>getFilterSets</name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>filterIter</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <expr_stmt><expr><call><name><name>executionFilters</name>.<name>addFilterSet</name></name><argument_list>(<argument><expr>(<name>FilterSet</name>) <call><name><name>filterIter</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <expr_stmt><expr><call><name>getFileUtils</name><argument_list>()</argument_list></call>.<call><name>copyFile</name><argument_list>(<argument><expr><name>fromFile</name></expr></argument>, <argument><expr><name>toFile</name></expr></argument>, <argument><expr><name>executionFilters</name></expr></argument>,
+                                    <argument><expr><call><name>getFilterChains</name><argument_list>()</argument_list></call></expr></argument>,
+                                    <argument><expr><name>forceOverwrite</name></expr></argument>,
+                                    <argument><expr><call><name>getPreserveLastModified</name><argument_list>()</argument_list></call></expr></argument>,
+                                    <comment type="block">/* append: */</comment> <argument><expr>false</expr></argument>,
+                                    <argument><expr><call><name>getEncoding</name><argument_list>()</argument_list></call></expr></argument>,
+                                    <argument><expr><call><name>getOutputEncoding</name><argument_list>()</argument_list></call></expr></argument>,
+                                    <argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name>getForce</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Failed to copy " + <name>fromFile</name>
+                    + " to " + <name>toFile</name> + " due to " + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>ioe</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Its only ok to delete a directory tree if there are no files in it.
+     * @param d the directory to check
+     * @return true if a deletion can go ahead
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>okToDelete</name><parameter_list>(<param><decl><type><name>File</name></type> <name>d</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>list</name> =<init> <expr><call><name><name>d</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>list</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>     <comment type="line">// maybe io error?</comment>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>list</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>s</name> =<init> <expr><name><name>list</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>d</name></expr></argument>, <argument><expr><name>s</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>f</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr>!<call><name>okToDelete</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <return>return <expr>false</expr>;</return>
+                }</block></then></if>
+            }</block></then> <else>else <block>{
+                <return>return <expr>false</expr>;</return>   <comment type="line">// found a file</comment>
+            }</block></else></if>
+        }</block></for>
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Go and delete the directory tree.
+     * @param d the directory to delete
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>deleteDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>d</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>deleteDir</name><argument_list>(<argument><expr><name>d</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Go and delete the directory tree.
+     * @param d the directory to delete
+     * @param deleteFiles whether to delete files
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>deleteDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>d</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>deleteFiles</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>list</name> =<init> <expr><call><name><name>d</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>list</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>      <comment type="line">// on an io error list() can return null</comment>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>list</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>s</name> =<init> <expr><name><name>list</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>d</name></expr></argument>, <argument><expr><name>s</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>f</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>deleteDir</name><argument_list>(<argument><expr><name>f</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name>deleteFiles</name> &amp;&amp; !<call><name>getFileUtils</name><argument_list>()</argument_list></call>.<call><name>tryHardToDelete</name><argument_list>(<argument><expr><name>f</name></expr></argument>,
+                                                                      <argument><expr><name>performGc</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Unable to delete file " + <call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"UNEXPECTED ERROR - The file "
+                        + <call><name><name>f</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call> + " should not exist!"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></else></if></else></if>
+        }</block></for>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Deleting directory " + <call><name><name>d</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>verbosity</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr>!<call><name>getFileUtils</name><argument_list>()</argument_list></call>.<call><name>tryHardToDelete</name><argument_list>(<argument><expr><name>d</name></expr></argument>, <argument><expr><name>performGc</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Unable to delete directory " + <call><name><name>d</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Attempts to rename a file from a source to a destination.
+     * If overwrite is set to true, this method overwrites existing file
+     * even if the destination file is newer.  Otherwise, the source file is
+     * renamed only if the destination file is older than it.
+     * Method then checks if token filtering is used.  If it is, this method
+     * returns false assuming it is the responsibility to the copyFile method.
+     *
+     * @param sourceFile the file to rename
+     * @param destFile   the destination file
+     * @param filtering  if true, filtering is in operation, file will
+     *                   be copied/deleted instead of renamed
+     * @param overwrite  if true force overwrite even if destination file
+     *                   is newer than source file
+     * @return true if the file was renamed
+     * @exception IOException if an error occurs
+     * @exception BuildException if an error occurs
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>renameFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>sourceFile</name></decl></param>, <param><decl><type><name>File</name></type> <name>destFile</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>filtering</name></decl></param>,
+                                 <param><decl><type><name>boolean</name></type> <name>overwrite</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name><name>destFile</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call> || <name>filtering</name> || <call><name>getFilterSets</name><argument_list>()</argument_list></call>.<call><name>size</name><argument_list>()</argument_list></call> &gt; 0
+                || <call><name>getFilterChains</name><argument_list>()</argument_list></call>.<call><name>size</name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <return>return <expr>false</expr>;</return>
+        }</block></then></if>
+
+        <comment type="line">// identical logic lives in ResourceUtils.copyResource():</comment>
+        <if>if <condition>(<expr><call><name><name>destFile</name>.<name>isFile</name></name><argument_list>()</argument_list></call> &amp;&amp; !<call><name><name>destFile</name>.<name>canWrite</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr>!<call><name>getForce</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"can't replace read-only destination "
+                                      + "file " + <name>destFile</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then> <else>else <if>if <condition>(<expr>!<call><name>getFileUtils</name><argument_list>()</argument_list></call>.<call><name>tryHardToDelete</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>IOException</name><argument_list>(<argument><expr>"failed to delete read-only "
+                                      + "destination file " + <name>destFile</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if></else></if>
+        }</block></then></if>
+
+        <comment type="line">// identical logic lives in FileUtils.rename():</comment>
+        <decl_stmt><decl><type><name>File</name></type> <name>parent</name> =<init> <expr><call><name><name>destFile</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>parent</name> != <name>null</name> &amp;&amp; !<call><name><name>parent</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>parent</name>.<name>mkdirs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>destFile</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>sourceFile</name> = <call><name>getFileUtils</name><argument_list>()</argument_list></call>.<call><name>normalize</name><argument_list>(<argument><expr><call><name><name>sourceFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>.<call><name>getCanonicalFile</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>destFile</name> = <call><name>getFileUtils</name><argument_list>()</argument_list></call>.<call><name>normalize</name><argument_list>(<argument><expr><call><name><name>destFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>destFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><call><name><name>sourceFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">//no point in renaming a file to its own canonical version...</comment>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Rename of " + <name>sourceFile</name> + " to " + <name>destFile</name>
+                    + " is a no-op."</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr>!(<call><name>getFileUtils</name><argument_list>()</argument_list></call>.<call><name>areSame</name><argument_list>(<argument><expr><name>sourceFile</name></expr></argument>, <argument><expr><name>destFile</name></expr></argument>)</argument_list></call>
+                  || <call><name>getFileUtils</name><argument_list>()</argument_list></call>.<call><name>tryHardToDelete</name><argument_list>(<argument><expr><name>destFile</name></expr></argument>, <argument><expr><name>performGc</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Unable to remove existing file " + <name>destFile</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></then></if></else></if>
+        <return>return <expr><call><name><name>sourceFile</name>.<name>renameTo</name></name><argument_list>(<argument><expr><name>destFile</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

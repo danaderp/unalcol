@@ -1,0 +1,918 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\depend\Depend.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>depend</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileWriter</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>URL</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>AntClassLoader</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>MatchingTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>rmic</name>.<name>DefaultRmicAdapter</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>rmic</name>.<name>WLRmic</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Reference</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>depend</name>.<name>DependencyAnalyzer</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Generates a dependency file for a given set of classes.
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>Depend</name> <super><extends>extends <name>MatchingTask</name></extends></super> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>ONE_SECOND</name> =<init> <expr>1000</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * A class (struct) user to manage information about a class
+     *
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>ClassFileInfo</name> <block>{
+        <comment type="javadoc">/** The file where the class file is stored in the file system */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>absoluteFile</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** The Java class name of this class */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>className</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** The source File containing this class */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>sourceFile</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** if user has been warned about this file not having a source file */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>isUserWarned</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    }</block></class>
+
+    <comment type="javadoc">/** The path where source files exist */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>srcPath</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The path where compiled class files exist. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>destPath</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The directory which contains the dependency cache. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>cache</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The list of source paths derived from the srcPath field. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>srcPathList</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * A map which gives for every class a list of the class which it
+     * affects.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Hashtable</name></type> <name>affectedClassMap</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** A map which gives information about a class */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Hashtable</name></type> <name>classFileInfoMap</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * A map which gives the list of jars and classes from the classpath
+     * that a class depends upon
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Hashtable</name></type> <name>classpathDependencies</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The list of classes which are out of date. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Hashtable</name></type> <name>outOfDateClasses</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * indicates that the dependency relationships should be extended beyond
+     * direct dependencies to include all classes. So if A directly affects
+     * B and B directly affects C, then A indirectly affects C.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>closure</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * flag to enable warning if we encounter RMI stubs
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>warnOnRmiStubs</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Flag which controls whether the reversed dependencies should be
+     * dumped to the log
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>dump</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The classpath to look for additional dependencies */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Path</name></type> <name>dependClasspath</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** constants used with the cache file */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>CACHE_FILE_NAME</name> =<init> <expr>"dependencies.txt"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** String Used to separate classnames in the dependency file */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>CLASSNAME_PREPEND</name> =<init> <expr>"||:"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Set the classpath to be used for this dependency check.
+     *
+     * @param classpath the classpath to be used when checking for
+     *      dependencies on elements in the classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>dependClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>dependClasspath</name> = <name>classpath</name></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name><name>dependClasspath</name>.<name>append</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the classpath to be used for this dependency check.
+     *
+     * @return the current dependency classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>getClasspath</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>dependClasspath</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a classpath to be used for this dependency check.
+     *
+     * @return A path object to be configured by Ant
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>dependClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>dependClasspath</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>dependClasspath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a reference to a classpath defined elsewhere.
+     *
+     * @param r a reference to a path object to be used as the depend
+     *      classpath
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspathRef</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>createClasspath</name><argument_list>()</argument_list></call>.<call><name>setRefid</name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Flag to set to true if you want dependency issues with RMI
+     * stubs to appear at warning level.
+     * @param warnOnRmiStubs if true set dependency issues to appear at warning level.
+     * @since Ant1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setWarnOnRmiStubs</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>warnOnRmiStubs</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>warnOnRmiStubs</name></name> = <name>warnOnRmiStubs</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Read the dependencies from cache file
+     *
+     * @return a collection of class dependencies
+     * @exception IOException if the dependency file cannot be read
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Hashtable</name></type> <name>readCachedDependencies</name><parameter_list>(<param><decl><type><name>File</name></type> <name>depFile</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>Hashtable</name></type> <name>dependencyMap</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>BufferedReader</name></type> <name>in</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>in</name> = new <call><name>BufferedReader</name><argument_list>(<argument><expr>new <call><name>FileReader</name><argument_list>(<argument><expr><name>depFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Vector</name></type> <name>dependencyList</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>className</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>prependLength</name> =<init> <expr><call><name><name>CLASSNAME_PREPEND</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr>(<name>line</name> = <call><name><name>in</name>.<name>readLine</name></name><argument_list>()</argument_list></call>) != <name>null</name></expr>)</condition> <block>{
+                <if>if <condition>(<expr><call><name><name>line</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>CLASSNAME_PREPEND</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>dependencyList</name> = new <call><name>Vector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>className</name> = <call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>prependLength</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>dependencyMap</name>.<name>put</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>, <argument><expr><name>dependencyList</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>dependencyList</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></while>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+
+        <return>return <expr><name>dependencyMap</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Write the dependencies to cache file
+     *
+     * @param dependencyMap the map of dependencies to be written out.
+     * @exception IOException if the dependency file cannot be written out.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>writeCachedDependencies</name><parameter_list>(<param><decl><type><name>Hashtable</name></type> <name>dependencyMap</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>cache</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>BufferedWriter</name></type> <name>pw</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>cache</name>.<name>mkdirs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>depFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>cache</name></expr></argument>, <argument><expr><name>CACHE_FILE_NAME</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <expr_stmt><expr><name>pw</name> = new <call><name>BufferedWriter</name><argument_list>(<argument><expr>new <call><name>FileWriter</name><argument_list>(<argument><expr><name>depFile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>dependencyMap</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>className</name> =<init> <expr>(<name>String</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <expr_stmt><expr><call><name><name>pw</name>.<name>write</name></name><argument_list>(<argument><expr><name>CLASSNAME_PREPEND</name> + <name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>pw</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                    <decl_stmt><decl><type><name>Vector</name></type> <name>dependencyList</name>
+                        =<init> <expr>(<name>Vector</name>) <call><name><name>dependencyMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>int</name></type> <name>size</name> =<init> <expr><call><name><name>dependencyList</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <for>for (<init><decl><type><name>int</name></type> <name>x</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>x</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>x</name>++</expr></incr>) <block>{
+                        <expr_stmt><expr><call><name><name>pw</name>.<name>write</name></name><argument_list>(<argument><expr><call><name><name>String</name>.<name>valueOf</name></name><argument_list>(<argument><expr><call><name><name>dependencyList</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>x</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>pw</name>.<name>newLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></for>
+                }</block></while>
+            }</block> <finally>finally <block>{
+                <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>pw</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></finally></try>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the classpath for dependency checking.
+     *
+     * This method removes the dest dirs if it is given from the dependency classpath
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Path</name></type> <name>getCheckClassPath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>dependClasspath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>destPathElements</name> =<init> <expr><call><name><name>destPath</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>classpathElements</name> =<init> <expr><call><name><name>dependClasspath</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>checkPath</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>classpathElements</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>element</name> =<init> <expr><name><name>classpathElements</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>boolean</name></type> <name>inDestPath</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>destPathElements</name>.<name>length</name></name> &amp;&amp; !<name>inDestPath</name></expr>;</condition> <incr><expr>++<name>j</name></expr></incr>) <block>{
+                <expr_stmt><expr><name>inDestPath</name> = <name><name>destPathElements</name><index>[<expr><name>j</name></expr>]</index></name>.<call><name>equals</name><argument_list>(<argument><expr><name>element</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <if>if <condition>(<expr>!<name>inDestPath</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name><name>checkPath</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>checkPath</name> = <name>element</name></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>checkPath</name> += ":" + <name>element</name></expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then></if>
+        }</block></for>
+
+        <decl_stmt><decl><type><name>Path</name></type> <name>p</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name><name>checkPath</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>p</name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>checkPath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Classpath without dest dir is " + <name>p</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>p</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Determine the dependencies between classes. Class dependencies are
+     * determined by examining the class references in a class file to other
+     * classes.
+     *
+     * This method sets up the following fields
+     * &lt;ul&gt;
+     *   &lt;li&gt;affectedClassMap - the list of classes each class affects&lt;/li&gt;
+     *   &lt;li&gt;classFileInfoMap - information about each class&lt;/li&gt;
+     *   &lt;li&gt;classpathDependencies - the list of jars and classes from the
+     *                             classpath that each class depends upon.&lt;/li&gt;
+     * &lt;/ul&gt;
+     *
+     * If required, the dependencies are written to the cache.
+     *
+     * @exception IOException if either the dependencies cache or the class
+     *      files cannot be read or written
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>determineDependencies</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><name>affectedClassMap</name> = new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>classFileInfoMap</name> = new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>cacheDirty</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>Hashtable</name></type> <name>dependencyMap</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>cacheFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>cacheFileExists</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>long</name></type> <name>cacheLastModified</name> =<init> <expr><name><name>Long</name>.<name>MAX_VALUE</name></name></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">// read the dependency cache from the disk</comment>
+        <if>if <condition>(<expr><name>cache</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>cacheFile</name> = new <call><name>File</name><argument_list>(<argument><expr><name>cache</name></expr></argument>, <argument><expr><name>CACHE_FILE_NAME</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>cacheFileExists</name> = <call><name><name>cacheFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>cacheLastModified</name> = <call><name><name>cacheFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>cacheFileExists</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>dependencyMap</name> = <call><name>readCachedDependencies</name><argument_list>(<argument><expr><name>cacheFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Enumeration</name></type> <name>classfileEnum</name> =<init> <expr><call><name>getClassFiles</name><argument_list>(<argument><expr><name>destPath</name></expr></argument>)</argument_list></call>.<call><name>elements</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>classfileEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>ClassFileInfo</name></type> <name>info</name> =<init> <expr>(<name>ClassFileInfo</name>) <call><name><name>classfileEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Adding class info for " + <name><name>info</name>.<name>className</name></name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>classFileInfoMap</name>.<name>put</name></name><argument_list>(<argument><expr><name><name>info</name>.<name>className</name></name></expr></argument>, <argument><expr><name>info</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>Vector</name></type> <name>dependencyList</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><name>cache</name> != <name>null</name></expr>)</condition><then> <block>{
+                <comment type="line">// try to read the dependency info from the map if it is</comment>
+                <comment type="line">// not out of date</comment>
+                <if>if <condition>(<expr><name>cacheFileExists</name>
+                    &amp;&amp; <name>cacheLastModified</name> &gt; <call><name><name>info</name>.<name>absoluteFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <comment type="line">// depFile exists and is newer than the class file</comment>
+                    <comment type="line">// need to get dependency list from the map.</comment>
+                    <expr_stmt><expr><name>dependencyList</name> = (<name>Vector</name>) <call><name><name>dependencyMap</name>.<name>get</name></name><argument_list>(<argument><expr><name><name>info</name>.<name>className</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>dependencyList</name> == <name>null</name></expr>)</condition><then> <block>{
+                <comment type="line">// not cached - so need to read directly from the class file</comment>
+                <decl_stmt><decl><type><name>DependencyAnalyzer</name></type> <name>analyzer</name> =<init> <expr>new <call><name>AntAnalyzer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>analyzer</name>.<name>addRootClass</name></name><argument_list>(<argument><expr><name><name>info</name>.<name>className</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>analyzer</name>.<name>addClassPath</name></name><argument_list>(<argument><expr><name>destPath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>analyzer</name>.<name>setClosure</name></name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>dependencyList</name> = new <call><name>Vector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>Enumeration</name></type> <name>depEnum</name> =<init> <expr><call><name><name>analyzer</name>.<name>getClassDependencies</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <while>while <condition>(<expr><call><name><name>depEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                    <decl_stmt><decl><type><name>Object</name></type> <name>o</name> =<init> <expr><call><name><name>depEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>dependencyList</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>o</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Class " + <name><name>info</name>.<name>className</name></name> + " depends on " + <name>o</name></expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></while>
+                <expr_stmt><expr><name>cacheDirty</name> = true</expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>dependencyMap</name>.<name>put</name></name><argument_list>(<argument><expr><name><name>info</name>.<name>className</name></name></expr></argument>, <argument><expr><name>dependencyList</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <comment type="line">// This class depends on each class in the dependency list. For each</comment>
+            <comment type="line">// one of those, add this class into their affected classes list</comment>
+            <decl_stmt><decl><type><name>Enumeration</name></type> <name>depEnum</name> =<init> <expr><call><name><name>dependencyList</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>depEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>dependentClass</name> =<init> <expr>(<name>String</name>) <call><name><name>depEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <decl_stmt><decl><type><name>Hashtable</name></type> <name>affectedClasses</name>
+                    =<init> <expr>(<name>Hashtable</name>) <call><name><name>affectedClassMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>dependentClass</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>affectedClasses</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>affectedClasses</name> = new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>affectedClassMap</name>.<name>put</name></name><argument_list>(<argument><expr><name>dependentClass</name></expr></argument>, <argument><expr><name>affectedClasses</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <expr_stmt><expr><call><name><name>affectedClasses</name>.<name>put</name></name><argument_list>(<argument><expr><name><name>info</name>.<name>className</name></name></expr></argument>, <argument><expr><name>info</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>dependentClass</name> + " affects " + <name><name>info</name>.<name>className</name></name></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></while>
+
+        <expr_stmt><expr><name>classpathDependencies</name> = <name>null</name></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>Path</name></type> <name>checkPath</name> =<init> <expr><call><name>getCheckClassPath</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>checkPath</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// now determine which jars each class depends upon</comment>
+            <expr_stmt><expr><name>classpathDependencies</name> = new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>AntClassLoader</name></type> <name>loader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>loader</name> = <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>createClassLoader</name><argument_list>(<argument><expr><name>checkPath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <decl_stmt><decl><type><name>Hashtable</name></type> <name>classpathFileCache</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Object</name></type> <name>nullFileMarker</name> =<init> <expr>new <call><name>Object</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>dependencyMap</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>className</name> =<init> <expr>(<name>String</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Determining classpath dependencies for " + <name>className</name></expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>Vector</name></type> <name>dependencyList</name> =<init> <expr>(<name>Vector</name>) <call><name><name>dependencyMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <decl_stmt><decl><type><name>Hashtable</name></type> <name>dependencies</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>classpathDependencies</name>.<name>put</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>, <argument><expr><name>dependencies</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <decl_stmt><decl><type><name>Enumeration</name></type> <name>e2</name> =<init> <expr><call><name><name>dependencyList</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <while>while <condition>(<expr><call><name><name>e2</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                        <decl_stmt><decl><type><name>String</name></type> <name>dependency</name> =<init> <expr>(<name>String</name>) <call><name><name>e2</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Looking for " + <name>dependency</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <decl_stmt><decl><type><name>Object</name></type> <name>classpathFileObject</name>
+                            =<init> <expr><call><name><name>classpathFileCache</name>.<name>get</name></name><argument_list>(<argument><expr><name>dependency</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr><name>classpathFileObject</name> == <name>null</name></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><name>classpathFileObject</name> = <name>nullFileMarker</name></expr>;</expr_stmt>
+
+                            <if>if <condition>(<expr>!<call><name><name>dependency</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"java."</expr></argument>)</argument_list></call>
+                                &amp;&amp; !<call><name><name>dependency</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"javax."</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                <decl_stmt><decl><type><name>URL</name></type> <name>classURL</name>
+                                    =<init> <expr><call><name><name>loader</name>.<name>getResource</name></name><argument_list>(<argument><expr><call><name><name>dependency</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call> + ".class"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"URL is " + <name>classURL</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                <if>if <condition>(<expr><name>classURL</name> != <name>null</name></expr>)</condition><then> <block>{
+                                    <if>if <condition>(<expr><call><name><name>classURL</name>.<name>getProtocol</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>"jar"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                        <decl_stmt><decl><type><name>String</name></type> <name>jarFilePath</name> =<init> <expr><call><name><name>classURL</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                                        <decl_stmt><decl><type><name>int</name></type> <name>classMarker</name> =<init> <expr><call><name><name>jarFilePath</name>.<name>indexOf</name></name><argument_list>(<argument><expr>'!'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                                        <expr_stmt><expr><name>jarFilePath</name> = <call><name><name>jarFilePath</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>classMarker</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                        <if>if <condition>(<expr><call><name><name>jarFilePath</name>.<name>startsWith</name></name><argument_list>(<argument><expr>"file:"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                            <expr_stmt><expr><name>classpathFileObject</name> = new <call><name>File</name><argument_list>(
+                                                                           <argument><expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call>.<call><name>fromURI</name><argument_list>(<argument><expr><name>jarFilePath</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                        }</block></then> <else>else <block>{
+                                            <throw>throw <expr>new <call><name>IOException</name><argument_list>(
+                                                                  <argument><expr>"Bizarre nested path in jar: protocol: "
+                                                                  + <name>jarFilePath</name></expr></argument>)</argument_list></call></expr>;</throw>
+                                        }</block></else></if>
+                                    }</block></then> <else>else <if>if <condition>(<expr><call><name><name>classURL</name>.<name>getProtocol</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>"file"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                                        <expr_stmt><expr><name>classpathFileObject</name> = new <call><name>File</name><argument_list>(
+                                                                       <argument><expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call>
+                                                                       .<call><name>fromURI</name><argument_list>(<argument><expr><call><name><name>classURL</name>.<name>toExternalForm</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                    }</block></then></if></else></if>
+                                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Class " + <name>className</name>
+                                        + " depends on " + <name>classpathFileObject</name>
+                                        + " due to " + <name>dependency</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                }</block></then></if>
+                            }</block></then> <else>else <block>{
+                                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Ignoring base classlib dependency "
+                                    + <name>dependency</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            }</block></else></if>
+                            <expr_stmt><expr><call><name><name>classpathFileCache</name>.<name>put</name></name><argument_list>(<argument><expr><name>dependency</name></expr></argument>, <argument><expr><name>classpathFileObject</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                        <if>if <condition>(<expr><name>classpathFileObject</name> != <name>nullFileMarker</name></expr>)</condition><then> <block>{
+                            <comment type="line">// we need to add this jar to the list for this class.</comment>
+                            <decl_stmt><decl><type><name>File</name></type> <name>jarFile</name> =<init> <expr>(<name>File</name>) <name>classpathFileObject</name></expr></init></decl>;</decl_stmt>
+                            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Adding a classpath dependency on " + <name>jarFile</name></expr></argument>,
+                                <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <expr_stmt><expr><call><name><name>dependencies</name>.<name>put</name></name><argument_list>(<argument><expr><name>jarFile</name></expr></argument>, <argument><expr><name>jarFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block></while>
+                }</block></for>
+            }</block> <finally>finally <block>{
+                <if>if <condition>(<expr><name>loader</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>loader</name>.<name>cleanup</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></finally></try>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"No classpath to check"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+
+        <comment type="line">// write the dependency cache to the disk</comment>
+        <if>if <condition>(<expr><name>cache</name> != <name>null</name> &amp;&amp; <name>cacheDirty</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>writeCachedDependencies</name><argument_list>(<argument><expr><name>dependencyMap</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Delete all the class files which are out of date, by way of their
+     * dependency on a class which is out of date
+     *
+     * @return the number of files deleted.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>int</name></type> <name>deleteAllAffectedFiles</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>count</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>outOfDateClasses</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>className</name> =<init> <expr>(<name>String</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>count</name> += <call><name>deleteAffectedFiles</name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>ClassFileInfo</name></type> <name>classInfo</name>
+                =<init> <expr>(<name>ClassFileInfo</name>) <call><name><name>classFileInfoMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>classInfo</name> != <name>null</name> &amp;&amp; <call><name><name>classInfo</name>.<name>absoluteFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name><name>classInfo</name>.<name>sourceFile</name></name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>warnOutOfDateButNotDeleted</name><argument_list>(<argument><expr><name>classInfo</name></expr></argument>, <argument><expr><name>className</name></expr></argument>, <argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><call><name><name>classInfo</name>.<name>absoluteFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>count</name>++</expr>;</expr_stmt>
+                }</block></else></if>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr><name>count</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Delete all the class files of classes which depend on the given class
+     *
+     * @param className the name of the class whose dependent classes will be
+     *      deleted
+     * @return the number of class files removed
+     */</comment>
+    <function><type><specifier>private</specifier> <name>int</name></type> <name>deleteAffectedFiles</name><parameter_list>(<param><decl><type><name>String</name></type> <name>className</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>count</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>Hashtable</name></type> <name>affectedClasses</name> =<init> <expr>(<name>Hashtable</name>) <call><name><name>affectedClassMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>affectedClasses</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>count</name></expr>;</return>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>Enumeration</name></type> <name>e</name> =<init> <expr><call><name><name>affectedClasses</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>affectedClass</name> =<init> <expr>(<name>String</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>ClassFileInfo</name></type> <name>affectedClassInfo</name>
+                =<init> <expr>(<name>ClassFileInfo</name>) <call><name><name>affectedClasses</name>.<name>get</name></name><argument_list>(<argument><expr><name>affectedClass</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr>!<call><name><name>affectedClassInfo</name>.<name>absoluteFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name><name>affectedClassInfo</name>.<name>sourceFile</name></name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>warnOutOfDateButNotDeleted</name><argument_list>(<argument><expr><name>affectedClassInfo</name></expr></argument>, <argument><expr><name>affectedClass</name></expr></argument>, <argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <continue>continue;</continue>
+            }</block></then></if>
+
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Deleting file " + <call><name><name>affectedClassInfo</name>.<name>absoluteFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                + " since " + <name>className</name> + " out of date"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><call><name><name>affectedClassInfo</name>.<name>absoluteFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>count</name>++</expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>closure</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>count</name> += <call><name>deleteAffectedFiles</name><argument_list>(<argument><expr><name>affectedClass</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">// without closure we may delete an inner class but not the</comment>
+                <comment type="line">// top level class which would not trigger a recompile.</comment>
+
+                <if>if <condition>(<expr><call><name><name>affectedClass</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"$"</expr></argument>)</argument_list></call> == -1</expr>)</condition><then> <block>{
+                    <continue>continue;</continue>
+                }</block></then></if>
+                <comment type="line">// need to delete the main class</comment>
+                <decl_stmt><decl><type><name>String</name></type> <name>topLevelClassName</name>
+                    =<init> <expr><call><name><name>affectedClass</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>affectedClass</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"$"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Top level class = " + <name>topLevelClassName</name></expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>ClassFileInfo</name></type> <name>topLevelClassInfo</name>
+                    =<init> <expr>(<name>ClassFileInfo</name>) <call><name><name>classFileInfoMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>topLevelClassName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>topLevelClassInfo</name> != <name>null</name>
+                    &amp;&amp; <call><name><name>topLevelClassInfo</name>.<name>absoluteFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Deleting file "
+                        + <call><name><name>topLevelClassInfo</name>.<name>absoluteFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+                        + " since one of its inner classes was removed"</expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>topLevelClassInfo</name>.<name>absoluteFile</name>.<name>delete</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>count</name>++</expr>;</expr_stmt>
+                    <if>if <condition>(<expr><name>closure</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>count</name> += <call><name>deleteAffectedFiles</name><argument_list>(<argument><expr><name>topLevelClassName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></then></if>
+            }</block></else></if>
+        }</block></for>
+        <return>return <expr><name>count</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * warn when a class is out of date, but not deleted as its source is unknown.
+     * MSG_WARN is the normal level, but we downgrade to MSG_VERBOSE for RMI files
+     * if {@link #warnOnRmiStubs is false}
+     * @param affectedClassInfo info about the affectd class
+     * @param affectedClass the name of the affected .class file
+     * @param className the file that is triggering the out of dateness
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>warnOutOfDateButNotDeleted</name><parameter_list>(
+                                            <param><decl><type><name>ClassFileInfo</name></type> <name>affectedClassInfo</name></decl></param>, <param><decl><type><name>String</name></type> <name>affectedClass</name></decl></param>,
+                                            <param><decl><type><name>String</name></type> <name>className</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>affectedClassInfo</name>.<name>isUserWarned</name></name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>int</name></type> <name>level</name> =<init> <expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<name>warnOnRmiStubs</name></expr>)</condition><then> <block>{
+            <comment type="line">//downgrade warnings on RMI stublike classes, as they are generated</comment>
+            <comment type="line">//by rmic, so there is no need to tell the user that their source is</comment>
+            <comment type="line">//missing.</comment>
+            <if>if <condition>(<expr><call><name>isRmiStub</name><argument_list>(<argument><expr><name>affectedClass</name></expr></argument>, <argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>level</name> = <name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"The class " + <name>affectedClass</name> + " in file "
+            + <call><name><name>affectedClassInfo</name>.<name>absoluteFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call>
+            + " is out of date due to " + <name>className</name>
+            + " but has not been deleted because its source file"
+            + " could not be determined"</expr></argument>, <argument><expr><name>level</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>affectedClassInfo</name>.<name>isUserWarned</name></name> = true</expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * test for being an RMI stub
+     * @param affectedClass  class being tested
+     * @param className      possible origin of the RMI stub
+     * @return whether the class affectedClass is a RMI stub
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isRmiStub</name><parameter_list>(<param><decl><type><name>String</name></type> <name>affectedClass</name></decl></param>, <param><decl><type><name>String</name></type> <name>className</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>isStub</name><argument_list>(<argument><expr><name>affectedClass</name></expr></argument>, <argument><expr><name>className</name></expr></argument>, <argument><expr><name><name>DefaultRmicAdapter</name>.<name>RMI_STUB_SUFFIX</name></name></expr></argument>)</argument_list></call>
+            || <call><name>isStub</name><argument_list>(<argument><expr><name>affectedClass</name></expr></argument>, <argument><expr><name>className</name></expr></argument>, <argument><expr><name><name>DefaultRmicAdapter</name>.<name>RMI_SKEL_SUFFIX</name></name></expr></argument>)</argument_list></call>
+            || <call><name>isStub</name><argument_list>(<argument><expr><name>affectedClass</name></expr></argument>, <argument><expr><name>className</name></expr></argument>, <argument><expr><name><name>WLRmic</name>.<name>RMI_STUB_SUFFIX</name></name></expr></argument>)</argument_list></call>
+            || <call><name>isStub</name><argument_list>(<argument><expr><name>affectedClass</name></expr></argument>, <argument><expr><name>className</name></expr></argument>, <argument><expr><name><name>WLRmic</name>.<name>RMI_SKEL_SUFFIX</name></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isStub</name><parameter_list>(<param><decl><type><name>String</name></type> <name>affectedClass</name></decl></param>, <param><decl><type><name>String</name></type> <name>baseClass</name></decl></param>, <param><decl><type><name>String</name></type> <name>suffix</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>(<name>baseClass</name> + <name>suffix</name>).<call><name>equals</name><argument_list>(<argument><expr><name>affectedClass</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Dump the dependency information loaded from the classes to the Ant log
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>dumpDependencies</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Reverse Dependency Dump for " + <call><name><name>affectedClassMap</name>.<name>size</name></name><argument_list>()</argument_list></call>
+            + " classes:"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>Enumeration</name></type> <name>classEnum</name> =<init> <expr><call><name><name>affectedClassMap</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>classEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>className</name> =<init> <expr>(<name>String</name>) <call><name><name>classEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>" Class " + <name>className</name> + " affects:"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>Hashtable</name></type> <name>affectedClasses</name>
+                =<init> <expr>(<name>Hashtable</name>) <call><name><name>affectedClassMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>Enumeration</name></type> <name>affectedClassEnum</name> =<init> <expr><call><name><name>affectedClasses</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>affectedClassEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>affectedClass</name> =<init> <expr>(<name>String</name>) <call><name><name>affectedClassEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>ClassFileInfo</name></type> <name>info</name>
+                    =<init> <expr>(<name>ClassFileInfo</name>) <call><name><name>affectedClasses</name>.<name>get</name></name><argument_list>(<argument><expr><name>affectedClass</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"    " + <name>affectedClass</name> + " in "
+                    + <call><name><name>info</name>.<name>absoluteFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></while>
+
+        <if>if <condition>(<expr><name>classpathDependencies</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Classpath file dependencies (Forward):"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>Enumeration</name></type> <name>classpathEnum</name> =<init> <expr><call><name><name>classpathDependencies</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>classpathEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>className</name> =<init> <expr>(<name>String</name>) <call><name><name>classpathEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>" Class " + <name>className</name> + " depends on:"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>Hashtable</name></type> <name>dependencies</name>
+                    =<init> <expr>(<name>Hashtable</name>) <call><name><name>classpathDependencies</name>.<name>get</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <decl_stmt><decl><type><name>Enumeration</name></type> <name>classpathFileEnum</name> =<init> <expr><call><name><name>dependencies</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <while>while <condition>(<expr><call><name><name>classpathFileEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>classpathFile</name> =<init> <expr>(<name>File</name>) <call><name><name>classpathFileEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"    " + <call><name><name>classpathFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></while>
+            }</block></while>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>determineOutOfDateClasses</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>outOfDateClasses</name> = new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>srcPathList</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>srcDir</name> =<init> <expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>resolveFile</name><argument_list>(<argument><expr><name><name>srcPathList</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>srcDir</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name><name>this</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>scanDir</name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>, <argument><expr><name>files</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+
+        <comment type="line">// now check classpath file dependencies</comment>
+        <if>if <condition>(<expr><name>classpathDependencies</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>Enumeration</name></type> <name>classpathDepsEnum</name> =<init> <expr><call><name><name>classpathDependencies</name>.<name>keys</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>classpathDepsEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>className</name> =<init> <expr>(<name>String</name>) <call><name><name>classpathDepsEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>outOfDateClasses</name>.<name>containsKey</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <continue>continue;</continue>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>ClassFileInfo</name></type> <name>info</name>
+                =<init> <expr>(<name>ClassFileInfo</name>) <call><name><name>classFileInfoMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// if we have no info about the class - it may have been deleted already and we</comment>
+            <comment type="line">// are using cached info.</comment>
+            <if>if <condition>(<expr><name>info</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>Hashtable</name></type> <name>dependencies</name>
+                    =<init> <expr>(<name>Hashtable</name>) <call><name><name>classpathDependencies</name>.<name>get</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <for>for (<init><decl><type><name>Enumeration</name></type> <name>e2</name> =<init> <expr><call><name><name>dependencies</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e2</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>classpathFile</name> =<init> <expr>(<name>File</name>) <call><name><name>e2</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr><call><name><name>classpathFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call>
+                        &gt; <call><name><name>info</name>.<name>absoluteFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Class " + <name>className</name>
+                            + " is out of date with respect to "
+                            + <name>classpathFile</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>outOfDateClasses</name>.<name>put</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>, <argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <break>break;</break>
+                    }</block></then></if>
+                }</block></for>
+            }</block></then></if>
+        }</block></while>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Does the work.
+     *
+     * @exception BuildException Thrown in case of an unrecoverable error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>long</name></type> <name>start</name> =<init> <expr><call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>srcPath</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"srcdir attribute must be set"</expr></argument>,
+                                         <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <expr_stmt><expr><name>srcPathList</name> = <call><name><name>srcPath</name>.<name>list</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name><name>srcPathList</name>.<name>length</name></name> == 0</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"srcdir attribute must be non-empty"</expr></argument>,
+                                         <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>destPath</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>destPath</name> = <name>srcPath</name></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>cache</name> != <name>null</name> &amp;&amp; <call><name><name>cache</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; !<call><name><name>cache</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The cache, if specified, must "
+                                         + "point to a directory"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>cache</name> != <name>null</name> &amp;&amp; !<call><name><name>cache</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>cache</name>.<name>mkdirs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <expr_stmt><expr><call><name>determineDependencies</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>dump</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>dumpDependencies</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>determineOutOfDateClasses</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>count</name> =<init> <expr><call><name>deleteAllAffectedFiles</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>long</name></type> <name>duration</name> =<init> <expr>(<call><name><name>System</name>.<name>currentTimeMillis</name></name><argument_list>()</argument_list></call> - <name>start</name>) / <name>ONE_SECOND</name></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>summaryLogLevel</name></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>count</name> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>summaryLogLevel</name> = <name><name>Project</name>.<name>MSG_INFO</name></name></expr>;</expr_stmt>
+            }</block></then>  <else>else <block>{
+                <expr_stmt><expr><name>summaryLogLevel</name> = <name><name>Project</name>.<name>MSG_DEBUG</name></name></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Deleted " + <name>count</name> + " out of date files in "
+                + <name>duration</name> + " seconds"</expr></argument>, <argument><expr><name>summaryLogLevel</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Scans the directory looking for source files that are newer than
+     * their class files. The results are returned in the class variable
+     * compileList
+     *
+     * @param srcDir the source directory
+     * @param files the names of the files in the source dir which are to be
+     *      checked.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>scanDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>srcDir</name></decl></param>, <param><decl><type><name><name>String</name><index>[]</index></name></type> <name>files</name></decl></param>)</parameter_list> <block>{
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>files</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>srcFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>srcDir</name></expr></argument>, <argument><expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name><name>files</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>endsWith</name><argument_list>(<argument><expr>".java"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>filePath</name> =<init> <expr><call><name><name>srcFile</name>.<name>getPath</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>className</name>
+                    =<init> <expr><call><name><name>filePath</name>.<name>substring</name></name><argument_list>(<argument><expr><call><name><name>srcDir</name>.<name>getPath</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> + 1</expr></argument>,
+                                         <argument><expr><call><name><name>filePath</name>.<name>length</name></name><argument_list>()</argument_list></call> - ".java".<call><name>length</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>className</name> = <call><name><name>ClassFileUtils</name>.<name>convertSlashName</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>ClassFileInfo</name></type> <name>info</name>
+                    =<init> <expr>(<name>ClassFileInfo</name>) <call><name><name>classFileInfoMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>info</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <comment type="line">// there was no class file. add this class to the list</comment>
+                    <expr_stmt><expr><call><name><name>outOfDateClasses</name>.<name>put</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>, <argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <if>if <condition>(<expr><call><name><name>srcFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call>
+                        &gt; <call><name><name>info</name>.<name>absoluteFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>outOfDateClasses</name>.<name>put</name></name><argument_list>(<argument><expr><name>className</name></expr></argument>, <argument><expr><name>className</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></else></if>
+            }</block></then></if>
+        }</block></for>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Get the list of class files we are going to analyse.
+     *
+     * @param classLocations a path structure containing all the directories
+     *      where classes can be found.
+     * @return a vector containing the classes to analyse.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Vector</name></type> <name>getClassFiles</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classLocations</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// break the classLocations into its components.</comment>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>classLocationsList</name> =<init> <expr><call><name><name>classLocations</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>Vector</name></type> <name>classFileList</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>classLocationsList</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>dir</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>classLocationsList</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>dir</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>addClassFiles</name><argument_list>(<argument><expr><name>classFileList</name></expr></argument>, <argument><expr><name>dir</name></expr></argument>, <argument><expr><name>dir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+
+        <return>return <expr><name>classFileList</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find the source file for a given class
+     *
+     * @param classname the classname in slash format.
+     * @param sourceFileKnownToExist if not null, a file already known to exist
+     *                               (saves call to .exists())
+     */</comment>
+    <function><type><specifier>private</specifier> <name>File</name></type> <name>findSourceFile</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>, <param><decl><type><name>File</name></type> <name>sourceFileKnownToExist</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>sourceFilename</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>innerIndex</name> =<init> <expr><call><name><name>classname</name>.<name>indexOf</name></name><argument_list>(<argument><expr>"$"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>innerIndex</name> != -1</expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>sourceFilename</name> = <call><name><name>classname</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>innerIndex</name></expr></argument>)</argument_list></call> + ".java"</expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>sourceFilename</name> = <name>classname</name> + ".java"</expr>;</expr_stmt>
+        }</block></else></if>
+
+        <comment type="line">// search the various source path entries</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>srcPathList</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>sourceFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name><name>srcPathList</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>, <argument><expr><name>sourceFilename</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>sourceFile</name>.<name>equals</name></name><argument_list>(<argument><expr><name>sourceFileKnownToExist</name></expr></argument>)</argument_list></call> || <call><name><name>sourceFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>sourceFile</name></expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add the list of class files from the given directory to the class
+     * file vector, including any subdirectories.
+     *
+     * @param classFileList a list of ClassFileInfo objects for all the
+     *      files in the directory tree
+     * @param dir the directory tree to be searched, recursively, for class
+     *      files
+     * @param root the root of the source tree. This is used to determine
+     *      the absolute class name from the relative position in the
+     *      source tree
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>addClassFiles</name><parameter_list>(<param><decl><type><name>Vector</name></type> <name>classFileList</name></decl></param>, <param><decl><type><name>File</name></type> <name>dir</name></decl></param>, <param><decl><type><name>File</name></type> <name>root</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>filesInDir</name> =<init> <expr><call><name><name>dir</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>filesInDir</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>int</name></type> <name>length</name> =<init> <expr><name><name>filesInDir</name>.<name>length</name></name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>int</name></type> <name>rootLength</name> =<init> <expr><call><name><name>root</name>.<name>getPath</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type> <name>sourceFileKnownToExist</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt> <comment type="line">// speed optimization</comment>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>length</name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>file</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>dir</name></expr></argument>, <argument><expr><name><name>filesInDir</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name><name>filesInDir</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>endsWith</name><argument_list>(<argument><expr>".class"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>ClassFileInfo</name></type> <name>info</name> =<init> <expr>new <call><name>ClassFileInfo</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name><name>info</name>.<name>absoluteFile</name></name> = <name>file</name></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>relativeName</name> =<init> <expr><call><name><name>file</name>.<name>getPath</name></name><argument_list>()</argument_list></call>.<call><name>substring</name><argument_list>(
+                                                               <argument><expr><name>rootLength</name> + 1</expr></argument>,
+                                                               <argument><expr><call><name><name>file</name>.<name>getPath</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> - ".class".<call><name>length</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name><name>info</name>.<name>className</name></name>
+                    = <call><name><name>ClassFileUtils</name>.<name>convertSlashName</name></name><argument_list>(<argument><expr><name>relativeName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name><name>info</name>.<name>sourceFile</name></name> = <name>sourceFileKnownToExist</name> = <call><name>findSourceFile</name><argument_list>(
+                                                                          <argument><expr><name>relativeName</name></expr></argument>, <argument><expr><name>sourceFileKnownToExist</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>classFileList</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>info</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>addClassFiles</name><argument_list>(<argument><expr><name>classFileList</name></expr></argument>, <argument><expr><name>file</name></expr></argument>, <argument><expr><name>root</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></for>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the directories path to find the Java source files.
+     *
+     * @param srcPath the source path
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSrcdir</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>srcPath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>srcPath</name></name> = <name>srcPath</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the destination directory where the compiled Java files exist.
+     *
+     * @param destPath the destination areas where build files are written
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestDir</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>destPath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destPath</name></name> = <name>destPath</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the dependency cache file.
+     *
+     * @param cache the dependency cache file
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCache</name><parameter_list>(<param><decl><type><name>File</name></type> <name>cache</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>cache</name></name> = <name>cache</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, transitive dependencies are followed until the
+     * closure of the dependency set if reached.
+     * When not set, the depend task will only follow
+     * direct dependencies between classes.
+     *
+     * @param closure indicate if dependency closure is required.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClosure</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>closure</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>closure</name></name> = <name>closure</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, the dependency information will be written
+     * to the debug level log.
+     *
+     * @param dump set to true to dump dependency information to the log
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDump</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>dump</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>dump</name></name> = <name>dump</name></expr>;</expr_stmt>
+    }</block></function>
+}</block></class>
+
+</unit>

@@ -1,0 +1,630 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ejb\EjbJar.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ejb</name></name>;</package>
+
+<comment type="line">// Standard java imports</comment>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>ParserConfigurationException</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>SAXParser</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>SAXParserFactory</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>MatchingTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>EnumeratedAttribute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>SAXException</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Provides automated EJB JAR file creation.
+ * &lt;p&gt;
+ * Extends the
+ * MatchingTask class provided in the default ant distribution to provide a
+ * directory scanning EJB jarfile generator.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * The task works by taking the deployment descriptors one at a time and
+ * parsing them to locate the names of the classes which should be placed in
+ * the jar. The classnames are translated to java.io.Files by replacing
+ * periods with File.separatorChar and resolving the generated filename as a
+ * relative path under the srcDir attribute. All necessary files are then
+ * assembled into a jarfile. One jarfile is constructed for each deployment
+ * descriptor found.
+ * &lt;/p&gt;
+ *
+ * */</comment>
+<class><specifier>public</specifier> class <name>EjbJar</name> <super><extends>extends <name>MatchingTask</name></extends></super> <block>{
+
+    <comment type="javadoc">/**
+     * Inner class used to record information about the location of a local DTD
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>DTDLocation</name>
+        <super><extends>extends <name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>DTDLocation</name></extends></super> <block>{
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * A class which contains the configuration state of the ejbjar task.
+     * This state is passed to the deployment tools for configuration
+     */</comment>
+    <class><specifier>static</specifier> class <name>Config</name> <block>{
+        <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+        <comment type="javadoc">/**
+         * Stores a handle to the directory under which to search for class
+         * files
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <name>File</name></type> <name>srcDir</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Stores a handle to the directory under which to search for
+         * deployment descriptors
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <name>File</name></type> <name>descriptorDir</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** Instance variable that marks the end of the 'basename' */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <name>String</name></type> <name>baseNameTerminator</name> =<init> <expr>"-"</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/** Stores a handle to the destination EJB Jar file */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <name>String</name></type> <name>baseJarName</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Instance variable that determines whether to use a package structure
+         * of a flat directory as the destination for the jar files.
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <name>boolean</name></type> <name>flatDestDir</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * The classpath to use when loading classes
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <name>Path</name></type> <name>classpath</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * A Fileset of support classes
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <name>List</name></type> <name>supportFileSets</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * The list of configured DTD locations
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <name>ArrayList</name></type> <name>dtdLocations</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * The naming scheme used to determine the generated jar name
+         * from the descriptor information
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <name>NamingScheme</name></type> <name>namingScheme</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * The Manifest file
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <name>File</name></type> <name>manifest</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * The dependency analyzer to use to add additional classes to the jar
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <name>String</name></type> <name>analyzer</name></decl>;</decl_stmt>
+        <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * An EnumeratedAttribute class for handling different EJB jar naming
+     * schemes
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>NamingScheme</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <comment type="javadoc">/**
+         * Naming scheme where generated jar is determined from the ejb-name in
+         * the deployment descriptor
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>EJB_NAME</name> =<init> <expr>"ejb-name"</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Naming scheme where the generated jar name is based on the
+         * name of the directory containing the deployment descriptor
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DIRECTORY</name> =<init> <expr>"directory"</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Naming scheme where the generated jar name is based on the name of
+         * the deployment descriptor file
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DESCRIPTOR</name> =<init> <expr>"descriptor"</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Naming scheme where the generated jar is named by the basejarname
+         * attribute
+         */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>BASEJARNAME</name> =<init> <expr>"basejarname"</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Gets the values of the NamingScheme
+         *
+         * @return an array of the values of this attribute class.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr><name>EJB_NAME</name></expr>, <expr><name>DIRECTORY</name></expr>, <expr><name>DESCRIPTOR</name></expr>, <expr><name>BASEJARNAME</name></expr>}</block></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * CMP versions supported
+     * valid CMP versions are 1.0 and 2.0
+     * @since ant 1.6
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>CMPVersion</name> <super><extends>extends <name>EnumeratedAttribute</name></extends></super> <block>{
+        <comment type="javadoc">/** 1.0 value */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>CMP1_0</name> =<init> <expr>"1.0"</expr></init></decl>;</decl_stmt>
+        <comment type="javadoc">/** 2.0 value */</comment>
+        <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>CMP2_0</name> =<init> <expr>"2.0"</expr></init></decl>;</decl_stmt>
+        <comment type="javadoc">/** {@inheritDoc}. */</comment>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getValues</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>new <name><name>String</name><index>[]</index></name><block>{
+                <expr><name>CMP1_0</name></expr>,
+                <expr><name>CMP2_0</name></expr>,
+            }</block></expr>;</return>
+        }</block></function>
+    }</block></class>
+    <comment type="javadoc">/**
+     * The config which is built by this task and used by the various deployment
+     * tools to access the configuration of the ejbjar task
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Config</name></type> <name>config</name> =<init> <expr>new <call><name>Config</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+
+    <comment type="javadoc">/**
+     * Stores a handle to the directory to put the Jar files in. This is
+     * only used by the generic deployment descriptor tool which is created
+     * if no other deployment descriptor tools are provided. Normally each
+     * deployment tool will specify the desitination dir itself.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type> <name>destDir</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Instance variable that stores the suffix for the generated jarfile. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>genericJarSuffix</name> =<init> <expr>"-generic.jar"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Instance variable that stores the CMP version for the jboss jarfile. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>cmpVersion</name> =<init> <expr><name><name>CMPVersion</name>.<name>CMP1_0</name></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** The list of deployment tools we are going to run. */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ArrayList</name></type> <name>deploymentTools</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Add a deployment tool to the list of deployment tools that will be
+     * processed
+     *
+     * @param deploymentTool a deployment tool instance to which descriptors
+     *        will be passed for processing.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addDeploymentTool</name><parameter_list>(<param><decl><type><name>EJBDeploymentTool</name></type> <name>deploymentTool</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>deploymentTool</name>.<name>setTask</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>deploymentTools</name>.<name>add</name></name><argument_list>(<argument><expr><name>deploymentTool</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a deployment tool for Weblogic server.
+     *
+     * @return the deployment tool instance to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>WeblogicDeploymentTool</name></type> <name>createWeblogic</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>WeblogicDeploymentTool</name></type> <name>tool</name> =<init> <expr>new <call><name>WeblogicDeploymentTool</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>addDeploymentTool</name><argument_list>(<argument><expr><name>tool</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>tool</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a deployment tool for Websphere 4.0 server.
+     *
+     * @return the deployment tool instance to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>WebsphereDeploymentTool</name></type> <name>createWebsphere</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>WebsphereDeploymentTool</name></type> <name>tool</name> =<init> <expr>new <call><name>WebsphereDeploymentTool</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>addDeploymentTool</name><argument_list>(<argument><expr><name>tool</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>tool</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a deployment tool for Borland server.
+     *
+     * @return the deployment tool instance to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>BorlandDeploymentTool</name></type> <name>createBorland</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Borland deployment tools"</expr></argument>,  <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>BorlandDeploymentTool</name></type> <name>tool</name> =<init> <expr>new <call><name>BorlandDeploymentTool</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>tool</name>.<name>setTask</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>deploymentTools</name>.<name>add</name></name><argument_list>(<argument><expr><name>tool</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>tool</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a deployment tool for iPlanet Application Server.
+     *
+     * @return the deployment tool instance to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>IPlanetDeploymentTool</name></type> <name>createIplanet</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"iPlanet Application Server deployment tools"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>IPlanetDeploymentTool</name></type> <name>tool</name> =<init> <expr>new <call><name>IPlanetDeploymentTool</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>addDeploymentTool</name><argument_list>(<argument><expr><name>tool</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>tool</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a deployment tool for JBoss server.
+     *
+     * @return the deployment tool instance to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>JbossDeploymentTool</name></type> <name>createJboss</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>JbossDeploymentTool</name></type> <name>tool</name> =<init> <expr>new <call><name>JbossDeploymentTool</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>addDeploymentTool</name><argument_list>(<argument><expr><name>tool</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>tool</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a deployment tool for JOnAS server.
+     *
+     * @return the deployment tool instance to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>JonasDeploymentTool</name></type> <name>createJonas</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"JOnAS deployment tools"</expr></argument>,  <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name>JonasDeploymentTool</name></type> <name>tool</name> =<init> <expr>new <call><name>JonasDeploymentTool</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>addDeploymentTool</name><argument_list>(<argument><expr><name>tool</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>tool</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a deployment tool for Weblogic when using the Toplink
+     * Object-Relational mapping.
+     *
+     * @return the deployment tool instance to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>WeblogicTOPLinkDeploymentTool</name></type> <name>createWeblogictoplink</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"The &lt;weblogictoplink&gt; element is no longer required. Please use "
+            + "the &lt;weblogic&gt; element and set newCMP=\"true\""</expr></argument>,
+            <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>WeblogicTOPLinkDeploymentTool</name></type> <name>tool</name>
+            =<init> <expr>new <call><name>WeblogicTOPLinkDeploymentTool</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>addDeploymentTool</name><argument_list>(<argument><expr><name>tool</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>tool</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds to the classpath used to locate the super classes and
+     * interfaces of the classes that will make up the EJB JAR.
+     *
+     * @return the path to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Path</name></type> <name>createClasspath</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>config</name>.<name>classpath</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>config</name>.<name>classpath</name></name> = new <call><name>Path</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><call><name><name>config</name>.<name>classpath</name>.<name>createPath</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a DTD location record. This stores the location of a DTD. The
+     * DTD is identified by its public Id. The location may either be a file
+     * location or a resource location.
+     *
+     * @return the DTD location object to be configured by Ant
+     */</comment>
+    <function><type><specifier>public</specifier> <name>DTDLocation</name></type> <name>createDTD</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>DTDLocation</name></type> <name>dtdLocation</name> =<init> <expr>new <call><name>DTDLocation</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>config</name>.<name>dtdLocations</name>.<name>add</name></name><argument_list>(<argument><expr><name>dtdLocation</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <return>return <expr><name>dtdLocation</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a fileset for support elements.
+     *
+     * @return a fileset which can be populated with support files.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>FileSet</name></type> <name>createSupport</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>FileSet</name></type> <name>supportFileSet</name> =<init> <expr>new <call><name>FileSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>config</name>.<name>supportFileSets</name>.<name>add</name></name><argument_list>(<argument><expr><name>supportFileSet</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>supportFileSet</name></expr>;</return>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Set the Manifest file to use when jarring. As of EJB 1.1, manifest
+     * files are no longer used to configure the EJB. However, they still
+     * have a vital importance if the EJB is intended to be packaged in an
+     * EAR file. By adding "Class-Path" settings to a Manifest file, the EJB
+     * can look for classes inside the EAR file itself, allowing for easier
+     * deployment. This is outlined in the J2EE specification, and all J2EE
+     * components are meant to support it.
+     *
+     * @param manifest the manifest to be used in the EJB jar
+     */</comment>
+     <function><type><specifier>public</specifier> <name>void</name></type> <name>setManifest</name><parameter_list>(<param><decl><type><name>File</name></type> <name>manifest</name></decl></param>)</parameter_list> <block>{
+         <expr_stmt><expr><name><name>config</name>.<name>manifest</name></name> = <name>manifest</name></expr>;</expr_stmt>
+     }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the source directory, which is the directory that
+     * contains the classes that will be added to the EJB jar. Typically
+     * this will include the home and remote interfaces and the bean class.
+     *
+     * @param inDir the source directory.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setSrcdir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>inDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>config</name>.<name>srcDir</name></name> = <name>inDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the descriptor directory. The descriptor directory contains the
+     * EJB deployment descriptors. These are XML files that declare the
+     * properties of a bean in a particular deployment scenario. Such
+     * properties include, for example, the transactional nature of the bean
+     * and the security access control to the bean's methods.
+     *
+     * @param inDir the directory containing the deployment descriptors.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDescriptordir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>inDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>config</name>.<name>descriptorDir</name></name> = <name>inDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the analyzer to use when adding in dependencies to the JAR.
+     *
+     * @param analyzer the name of the dependency analyzer or a class.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDependency</name><parameter_list>(<param><decl><type><name>String</name></type> <name>analyzer</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>config</name>.<name>analyzer</name></name> = <name>analyzer</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the base name of the EJB JAR that is to be created if it is not
+     * to be determined from the name of the deployment descriptor files.
+     *
+     * @param inValue the basename that will be used when writing the jar
+     *      file containing the EJB
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBasejarname</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inValue</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>config</name>.<name>baseJarName</name></name> = <name>inValue</name></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name><name>config</name>.<name>namingScheme</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>config</name>.<name>namingScheme</name></name> = new <call><name>NamingScheme</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>config</name>.<name>namingScheme</name>.<name>setValue</name></name><argument_list>(<argument><expr><name><name>NamingScheme</name>.<name>BASEJARNAME</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>NamingScheme</name>.<name>BASEJARNAME</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The basejarname attribute is not "
+                + "compatible with the "
+                + <call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call> + " naming scheme"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the naming scheme used to determine the name of the generated jars
+     * from the deployment descriptor
+     *
+     * @param namingScheme the naming scheme to be used
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setNaming</name><parameter_list>(<param><decl><type><name>NamingScheme</name></type> <name>namingScheme</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>config</name>.<name>namingScheme</name></name> = <name>namingScheme</name></expr>;</expr_stmt>
+        <if>if <condition>(<expr>!<call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>NamingScheme</name>.<name>BASEJARNAME</name></name></expr></argument>)</argument_list></call>
+            &amp;&amp; <name><name>config</name>.<name>baseJarName</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The basejarname attribute is not "
+                + "compatible with the "
+                + <call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call> + " naming scheme"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the destination directory.
+     *
+     * @return destination directory
+     * @since ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>File</name></type> <name>getDestdir</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>destDir</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the destination directory. The EJB jar files will be written into
+     * this directory. The jar files that exist in this directory are also
+     * used when determining if the contents of the jar file have changed.
+     * Note that this parameter is only used if no deployment tools are
+     * specified. Typically each deployment tool will specify its own
+     * destination directory.
+     *
+     * @param inDir the destination directory in which to generate jars
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDestdir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>inDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>destDir</name></name> = <name>inDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the CMP version.
+     *
+     * @return CMP version
+     * @since ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getCmpversion</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name><name>this</name>.<name>cmpVersion</name></name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the CMP version.
+     *
+     * @param version CMP version.
+     * Must be either &lt;code&gt;1.0&lt;/code&gt; or &lt;code&gt;2.0&lt;/code&gt;.&lt;br/&gt;
+     * Default is &lt;code&gt;1.0&lt;/code&gt;.&lt;br/&gt;
+     * Initially, only the JBoss implementation does something specific for CMP 2.0.&lt;br/&gt;
+     * @since ant 1.6
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCmpversion</name><parameter_list>(<param><decl><type><name>CMPVersion</name></type> <name>version</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>cmpVersion</name></name> = <call><name><name>version</name>.<name>getValue</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath to use when resolving classes for inclusion in the jar.
+     *
+     * @param classpath the classpath to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClasspath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>config</name>.<name>classpath</name></name> = <name>classpath</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Controls whether the
+     * destination JARs are written out in the destination directory with
+     * the same hierarchical structure from which the deployment descriptors
+     * have been read. If this is set to true the generated EJB jars are
+     * written into the root of the destination directory, otherwise they
+     * are written out in the same relative position as the deployment
+     * descriptors in the descriptor directory.
+     *
+     * @param inValue the new value of the flatdestdir flag.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFlatdestdir</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>inValue</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>config</name>.<name>flatDestDir</name></name> = <name>inValue</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the suffix for the generated jar file. When generic jars are
+     * generated, they have a suffix which is appended to the the bean name
+     * to create the name of the jar file. Note that this suffix includes
+     * the extension fo te jar file and should therefore end with an
+     * appropriate extension such as .jar or .ear
+     *
+     * @param inString the string to use as the suffix.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setGenericjarsuffix</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inString</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>genericJarSuffix</name></name> = <name>inString</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The string which terminates the bean name.
+     * The convention used by this task is
+     * that bean descriptors are named as the BeanName with some suffix. The
+     * baseNameTerminator string separates the bean name and the suffix and
+     * is used to determine the bean name.
+     *
+     * @param inValue a string which marks the end of the basename.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setBasenameterminator</name><parameter_list>(<param><decl><type><name>String</name></type> <name>inValue</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>config</name>.<name>baseNameTerminator</name></name> = <name>inValue</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Validate the config that has been configured from the build file
+     *
+     * @throws BuildException if the config is not valid
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>validateConfig</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name><name>config</name>.<name>srcDir</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The srcDir attribute must be specified"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name><name>config</name>.<name>descriptorDir</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>config</name>.<name>descriptorDir</name></name> = <name><name>config</name>.<name>srcDir</name></name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name><name>config</name>.<name>namingScheme</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name><name>config</name>.<name>namingScheme</name></name> = new <call><name>NamingScheme</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>config</name>.<name>namingScheme</name>.<name>setValue</name></name><argument_list>(<argument><expr><name><name>NamingScheme</name>.<name>DESCRIPTOR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>config</name>.<name>namingScheme</name>.<name>getValue</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name><name>NamingScheme</name>.<name>BASEJARNAME</name></name></expr></argument>)</argument_list></call>
+                    &amp;&amp; <name><name>config</name>.<name>baseJarName</name></name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"The basejarname attribute must "
+                + "be specified with the basejarname naming scheme"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Invoked by Ant after the task is prepared, when it is ready to execute
+     * this task.
+     *
+     * This will configure all of the nested deployment tools to allow them to
+     * process the jar. If no deployment tools have been configured a generic
+     * tool is created to handle the jar.
+     *
+     * A parser is configured and then each descriptor found is passed to all
+     * the deployment tool elements for processing.
+     *
+     * @exception BuildException thrown whenever a problem is
+     *            encountered that cannot be recovered from, to signal to ant
+     *            that a major problem occurred within this task.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>validateConfig</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <if>if <condition>(<expr><call><name><name>deploymentTools</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>GenericDeploymentTool</name></type> <name>genericTool</name> =<init> <expr>new <call><name>GenericDeploymentTool</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>genericTool</name>.<name>setTask</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>genericTool</name>.<name>setDestdir</name></name><argument_list>(<argument><expr><name>destDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>genericTool</name>.<name>setGenericJarSuffix</name></name><argument_list>(<argument><expr><name>genericJarSuffix</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>deploymentTools</name>.<name>add</name></name><argument_list>(<argument><expr><name>genericTool</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name><name>deploymentTools</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>EJBDeploymentTool</name></type> <name>tool</name> =<init> <expr>(<name>EJBDeploymentTool</name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>tool</name>.<name>configure</name></name><argument_list>(<argument><expr><name>config</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>tool</name>.<name>validateConfigured</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <try>try <block>{
+            <comment type="line">// Create the parser using whatever parser the system dictates</comment>
+            <decl_stmt><decl><type><name>SAXParserFactory</name></type> <name>saxParserFactory</name> =<init> <expr><call><name><name>SAXParserFactory</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>saxParserFactory</name>.<name>setValidating</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>SAXParser</name></type> <name>saxParser</name> =<init> <expr><call><name><name>saxParserFactory</name>.<name>newSAXParser</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+
+            <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name>getDirectoryScanner</name><argument_list>(<argument><expr><name><name>config</name>.<name>descriptorDir</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>ds</name>.<name>scan</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>files</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name><name>files</name>.<name>length</name></name> + " deployment descriptors located."</expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// Loop through the files. Each file represents one deployment</comment>
+            <comment type="line">// descriptor, and hence one bean in our model.</comment>
+            <for>for (<init><decl><type><name>int</name></type> <name>index</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>index</name> &lt; <name><name>files</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>index</name></expr></incr>) <block>{
+                <comment type="line">// process the deployment descriptor in each tool</comment>
+                <for>for (<init><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name><name>deploymentTools</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                    <decl_stmt><decl><type><name>EJBDeploymentTool</name></type> <name>tool</name> =<init> <expr>(<name>EJBDeploymentTool</name>) <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>tool</name>.<name>processDescriptor</name></name><argument_list>(<argument><expr><name><name>files</name><index>[<expr><name>index</name></expr>]</index></name></expr></argument>, <argument><expr><name>saxParser</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+            }</block></for>
+        }</block> <catch>catch (<param><decl><type><name>SAXException</name></type> <name>se</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"SAXException while creating parser."
+                + "  Details: "
+                + <call><name><name>se</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>se</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <catch>catch (<param><decl><type><name>ParserConfigurationException</name></type> <name>pce</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"ParserConfigurationException while creating parser. "
+                       + "Details: " + <call><name><name>pce</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>, <argument><expr><name>pce</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function> <comment type="line">// end of execute()</comment>
+
+}</block></class>
+
+
+
+
+
+
+
+</unit>

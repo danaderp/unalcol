@@ -1,0 +1,1566 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\AntClassLoader.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>ByteArrayOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>lang</name>.<name>reflect</name>.<name>Constructor</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>MalformedURLException</name></name>;</import>
+<import>import <name><name>java</name>.<name>net</name>.<name>URL</name></name>;</import>
+<import>import <name><name>java</name>.<name>security</name>.<name>CodeSource</name></name>;</import>
+<import>import <name><name>java</name>.<name>security</name>.<name>ProtectionDomain</name></name>;</import>
+<import>import <name><name>java</name>.<name>security</name>.<name>cert</name>.<name>Certificate</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Collections</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>NoSuchElementException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>StringTokenizer</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>Attributes</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>Attributes</name>.<name>Name</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>JarEntry</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>JarFile</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>jar</name>.<name>Manifest</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Path</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>CollectionUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>JavaEnvUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>LoaderUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>ReflectUtil</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>VectorSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>launch</name>.<name>Locator</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Used to load classes within ant with a different classpath from
+ * that used to start ant. Note that it is possible to force a class
+ * into this loader even when that class is on the system classpath by
+ * using the forceLoadClass method. Any subsequent classes loaded by that
+ * class will then use this loader rather than the system class loader.
+ *
+ * &lt;p&gt;
+ * Note that this classloader has a feature to allow loading
+ * in reverse order and for "isolation".
+ * Due to the fact that a number of
+ * methods in java.lang.ClassLoader are final (at least
+ * in java 1.4 getResources) this means that the
+ * class has to fake the given parent.
+ * &lt;/p&gt;
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>AntClassLoader</name> <super><extends>extends <name>ClassLoader</name></extends> <implements>implements <name>SubBuildListener</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * An enumeration of all resources of a given name found within the
+     * classpath of this class loader. This enumeration is used by the
+     * ClassLoader.findResources method, which is in
+     * turn used by the ClassLoader.getResources method.
+     *
+     * @see AntClassLoader#findResources(String)
+     * @see java.lang.ClassLoader#getResources(String)
+     */</comment>
+    <class><specifier>private</specifier> class <name>ResourceEnumeration</name> <super><implements>implements <name><name>Enumeration</name><argument_list>&lt;<argument><name>URL</name></argument>&gt;</argument_list></name></implements></super> <block>{
+        <comment type="javadoc">/**
+         * The name of the resource being searched for.
+         */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>resourceName</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * The index of the next classpath element to search.
+         */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>pathElementsIndex</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * The URL of the next resource to return in the enumeration. If this
+         * field is &lt;code&gt;null&lt;/code&gt; then the enumeration has been completed,
+         * i.e., there are no more elements to return.
+         */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>URL</name></type> <name>nextResource</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Constructs a new enumeration of resources of the given name found
+         * within this class loader's classpath.
+         *
+         * @param name the name of the resource to search for.
+         */</comment>
+        <constructor><name>ResourceEnumeration</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>resourceName</name></name> = <name>name</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>this</name>.<name>pathElementsIndex</name></name> = 0</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>findNextResource</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Indicates whether there are more elements in the enumeration to
+         * return.
+         *
+         * @return &lt;code&gt;true&lt;/code&gt; if there are more elements in the
+         *         enumeration; &lt;code&gt;false&lt;/code&gt; otherwise.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>hasMoreElements</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>(<name><name>this</name>.<name>nextResource</name></name> != <name>null</name>)</expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Returns the next resource in the enumeration.
+         *
+         * @return the next resource in the enumeration
+         */</comment>
+        <function><type><specifier>public</specifier> <name>URL</name></type> <name>nextElement</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>URL</name></type> <name>ret</name> =<init> <expr><name><name>this</name>.<name>nextResource</name></name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>ret</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>NoSuchElementException</name><argument_list>()</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>findNextResource</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>ret</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Locates the next resource of the correct name in the classpath and
+         * sets &lt;code&gt;nextResource&lt;/code&gt; to the URL of that resource. If no
+         * more resources can be found, &lt;code&gt;nextResource&lt;/code&gt; is set to
+         * &lt;code&gt;null&lt;/code&gt;.
+         */</comment>
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>findNextResource</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>URL</name></type> <name>url</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr>(<name>pathElementsIndex</name> &lt; <call><name><name>pathComponents</name>.<name>size</name></name><argument_list>()</argument_list></call>) &amp;&amp; (<name>url</name> == <name>null</name>)</expr>)</condition> <block>{
+                <try>try <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>pathComponent</name> =<init> <expr>(<name>File</name>) <call><name><name>pathComponents</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>pathElementsIndex</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><name>url</name> = <call><name>getResourceURL</name><argument_list>(<argument><expr><name>pathComponent</name></expr></argument>, <argument><expr><name><name>this</name>.<name>resourceName</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>pathElementsIndex</name>++</expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+                    <comment type="line">// ignore path elements which are not valid relative to the</comment>
+                    <comment type="line">// project</comment>
+                }</block></catch></try>
+            }</block></while>
+            <expr_stmt><expr><name><name>this</name>.<name>nextResource</name></name> = <name>url</name></expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * The size of buffers to be used in this classloader.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>BUFFER_SIZE</name> =<init> <expr>8192</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Number of array elements in a test array of strings
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>NUMBER_OF_STRINGS</name> =<init> <expr>256</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The components of the classpath that the classloader searches
+     * for classes.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>File</name></argument>&gt;</argument_list></name></type> <name>pathComponents</name>  =<init> <expr>new <call><name><name>VectorSet</name><argument_list>&lt;<argument><name>File</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The project to which this class loader belongs.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Project</name></type> <name>project</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Indicates whether the parent class loader should be
+     * consulted before trying to load with this class loader.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>parentFirst</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * These are the package roots that are to be loaded by the parent class
+     * loader regardless of whether the parent class loader is being searched
+     * first or not.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>systemPackages</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * These are the package roots that are to be loaded by this class loader
+     * regardless of whether the parent class loader is being searched first
+     * or not.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>loaderPackages</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether or not this classloader will ignore the base
+     * classloader if it can't find a class.
+     *
+     * @see #setIsolated(boolean)
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>ignoreBase</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The parent class loader, if one is given or can be determined.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ClassLoader</name></type> <name>parent</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * A hashtable of zip files opened by the classloader (File to JarFile).
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Hashtable</name><argument_list>&lt;<argument><name>File</name></argument>, <argument><name>JarFile</name></argument>&gt;</argument_list></name></type> <name>jarFiles</name> =<init> <expr>new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>File</name></argument>, <argument><name>JarFile</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** Static map of jar file/time to manifest class-path entries */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name><name>Map</name><argument_list>&lt;<argument><name>String</name></argument>,<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>pathMap</name> =<init> <expr><call><name><name>Collections</name>.<name>synchronizedMap</name></name><argument_list>(<argument><expr>new <call><name><name>HashMap</name><argument_list>&lt;<argument><name>String</name></argument>, <argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The context loader saved when setting the thread's current
+     * context loader.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>ClassLoader</name></type> <name>savedContextLoader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Whether or not the context loader is currently saved.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>isContextLoaderSaved</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Create an Ant ClassLoader for a given project, with
+     * a parent classloader and an initial classpath.
+     * @since Ant 1.7.
+     * @param parent the parent for this classloader.
+     * @param project The project to which this classloader is to
+     *                belong.
+     * @param classpath The classpath to use to load classes.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>AntClassLoader</name><parameter_list>(<param><decl><type><name>ClassLoader</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setParent</name><argument_list>(<argument><expr><name>parent</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setClassPath</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setProject</name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Create an Ant Class Loader
+     */</comment>
+    <constructor><specifier>public</specifier> <name>AntClassLoader</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setParent</name><argument_list>(<argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates a classloader for the given project using the classpath given.
+     *
+     * @param project The project to which this classloader is to belong.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param classpath The classpath to use to load the classes.  This
+     *                is combined with the system classpath in a manner
+     *                determined by the value of ${build.sysclasspath}.
+     *                May be &lt;code&gt;null&lt;/code&gt;, in which case no path
+     *                elements are set up to start with.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>AntClassLoader</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setParent</name><argument_list>(<argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setProject</name><argument_list>(<argument><expr><name>project</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setClassPath</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates a classloader for the given project using the classpath given.
+     *
+     * @param parent The parent classloader to which unsatisfied loading
+     *               attempts are delegated. May be &lt;code&gt;null&lt;/code&gt;,
+     *               in which case the classloader which loaded this
+     *               class is used as the parent.
+     * @param project The project to which this classloader is to belong.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param classpath the classpath to use to load the classes.
+     *                  May be &lt;code&gt;null&lt;/code&gt;, in which case no path
+     *                  elements are set up to start with.
+     * @param parentFirst If &lt;code&gt;true&lt;/code&gt;, indicates that the parent
+     *                    classloader should be consulted  before trying to
+     *                    load the a class through this loader.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>AntClassLoader</name><parameter_list>(
+        <param><decl><type><name>ClassLoader</name></type> <name>parent</name></decl></param>, <param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>parentFirst</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>project</name></expr></argument>, <argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>parent</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>setParent</name><argument_list>(<argument><expr><name>parent</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>setParentFirst</name><argument_list>(<argument><expr><name>parentFirst</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>addJavaLibraries</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates a classloader for the given project using the classpath given.
+     *
+     * @param project The project to which this classloader is to belong.
+     *                Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param classpath The classpath to use to load the classes. May be
+     *                  &lt;code&gt;null&lt;/code&gt;, in which case no path
+     *                  elements are set up to start with.
+     * @param parentFirst If &lt;code&gt;true&lt;/code&gt;, indicates that the parent
+     *                    classloader should be consulted before trying to
+     *                    load the a class through this loader.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>AntClassLoader</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>, <param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>parentFirst</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>this</name><argument_list>(<argument><expr><name>null</name></expr></argument>, <argument><expr><name>project</name></expr></argument>, <argument><expr><name>classpath</name></expr></argument>, <argument><expr><name>parentFirst</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates an empty class loader. The classloader should be configured
+     * with path elements to specify where the loader is to look for
+     * classes.
+     *
+     * @param parent The parent classloader to which unsatisfied loading
+     *               attempts are delegated. May be &lt;code&gt;null&lt;/code&gt;,
+     *               in which case the classloader which loaded this
+     *               class is used as the parent.
+     * @param parentFirst If &lt;code&gt;true&lt;/code&gt;, indicates that the parent
+     *                    classloader should be consulted before trying to
+     *                    load the a class through this loader.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>AntClassLoader</name><parameter_list>(<param><decl><type><name>ClassLoader</name></type> <name>parent</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>parentFirst</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>setParent</name><argument_list>(<argument><expr><name>parent</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>project</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>parentFirst</name></name> = <name>parentFirst</name></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Set the project associated with this class loader
+     *
+     * @param project the project instance
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setProject</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>project</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>project</name></name> = <name>project</name></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>project</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>project</name>.<name>addBuildListener</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the classpath to search for classes to load. This should not be
+     * changed once the classloader starts to server classes
+     *
+     * @param classpath the search classpath consisting of directories and
+     *        jar/zip files.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setClassPath</name><parameter_list>(<param><decl><type><name>Path</name></type> <name>classpath</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>pathComponents</name>.<name>removeAllElements</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Path</name></type> <name>actualClasspath</name> =<init> <expr><call><name><name>classpath</name>.<name>concatSystemClasspath</name></name><argument_list>(<argument><expr>"ignore"</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>pathElements</name> =<init> <expr><call><name><name>actualClasspath</name>.<name>list</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>pathElements</name>.<name>length</name></name></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name>addPathElement</name><argument_list>(<argument><expr><name><name>pathElements</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+                    <comment type="line">// ignore path elements which are invalid</comment>
+                    <comment type="line">// relative to the project</comment>
+                }</block></catch></try>
+            }</block></for>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the parent for this class loader. This is the class loader to which
+     * this class loader will delegate to load classes
+     *
+     * @param parent the parent class loader.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setParent</name><parameter_list>(<param><decl><type><name>ClassLoader</name></type> <name>parent</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>parent</name></name> = <name>parent</name> == <name>null</name> ? <name><name>AntClassLoader</name>.<name><name/></name></name>class.<call><name>getClassLoader</name><argument_list>()</argument_list></call> : <name>parent</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Control whether class lookup is delegated to the parent loader first
+     * or after this loader. Use with extreme caution. Setting this to
+     * false violates the class loader hierarchy and can lead to Linkage errors
+     *
+     * @param parentFirst if true, delegate initial class search to the parent
+     *                    classloader.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setParentFirst</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>parentFirst</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>parentFirst</name></name> = <name>parentFirst</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Logs a message through the project object if one has been provided.
+     *
+     * @param message The message to log.
+     *                Should not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param priority The logging priority of the message.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>log</name><parameter_list>(<param><decl><type><name>String</name></type> <name>message</name></decl></param>, <param><decl><type><name>int</name></type> <name>priority</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>project</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>project</name>.<name>log</name></name><argument_list>(<argument><expr><name>message</name></expr></argument>, <argument><expr><name>priority</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the current thread's context loader to this classloader, storing
+     * the current loader value for later resetting.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setThreadContextLoader</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><name>isContextLoaderSaved</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Context loader has not been reset"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>LoaderUtils</name>.<name>isContextLoaderAvailable</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>savedContextLoader</name> = <call><name><name>LoaderUtils</name>.<name>getContextClassLoader</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>ClassLoader</name></type> <name>loader</name> =<init> <expr><name>this</name></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>project</name> != <name>null</name> &amp;&amp; "only".<call><name>equals</name><argument_list>(<argument><expr><call><name><name>project</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"build.sysclasspath"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>loader</name> = <call><name><name>this</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getClassLoader</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>LoaderUtils</name>.<name>setContextClassLoader</name></name><argument_list>(<argument><expr><name>loader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>isContextLoaderSaved</name> = true</expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Resets the current thread's context loader to its original value.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>resetThreadContextLoader</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>LoaderUtils</name>.<name>isContextLoaderAvailable</name></name><argument_list>()</argument_list></call> &amp;&amp; <name>isContextLoaderSaved</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>LoaderUtils</name>.<name>setContextClassLoader</name></name><argument_list>(<argument><expr><name>savedContextLoader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>savedContextLoader</name> = <name>null</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name>isContextLoaderSaved</name> = false</expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Adds an element to the classpath to be searched.
+     *
+     * @param pathElement The path element to add. Must not be
+     *                    &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @exception BuildException if the given path element cannot be resolved
+     *                           against the project.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addPathElement</name><parameter_list>(<param><decl><type><name>String</name></type> <name>pathElement</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>pathComponent</name> =<init> <expr><name>project</name> != <name>null</name> ? <call><name><name>project</name>.<name>resolveFile</name></name><argument_list>(<argument><expr><name>pathElement</name></expr></argument>)</argument_list></call> : new <call><name>File</name><argument_list>(
+                <argument><expr><name>pathElement</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><call><name>addPathFile</name><argument_list>(<argument><expr><name>pathComponent</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a path component.
+     * This simply adds the file, unlike addPathElement
+     * it does not open jar files and load files from
+     * their CLASSPATH entry in the manifest file.
+     * @param file the jar file or directory to add.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addPathComponent</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>pathComponents</name>.<name>contains</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>pathComponents</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a file to the path.
+     * Reads the manifest, if available, and adds any additional class path jars
+     * specified in the manifest.
+     *
+     * @param pathComponent the file which is to be added to the path for
+     *                      this class loader
+     *
+     * @throws IOException if data needed from the file cannot be read.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>addPathFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>pathComponent</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr>!<call><name><name>pathComponents</name>.<name>contains</name></name><argument_list>(<argument><expr><name>pathComponent</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>pathComponents</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>pathComponent</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>pathComponent</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>absPathPlusTimeAndLength</name> =<init> <expr><call><name><name>pathComponent</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>
+                + <call><name><name>pathComponent</name>.<name>lastModified</name></name><argument_list>()</argument_list></call> + "-" + <call><name><name>pathComponent</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>classpath</name> =<init> <expr>(<name>String</name>) <call><name><name>pathMap</name>.<name>get</name></name><argument_list>(<argument><expr><name>absPathPlusTimeAndLength</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>classpath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>JarFile</name></type> <name>jarFile</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>jarFile</name> = new <call><name>JarFile</name><argument_list>(<argument><expr><name>pathComponent</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>Manifest</name></type> <name>manifest</name> =<init> <expr><call><name><name>jarFile</name>.<name>getManifest</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>manifest</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <return>return;</return>
+                }</block></then></if>
+                <expr_stmt><expr><name>classpath</name> = <call><name><name>manifest</name>.<name>getMainAttributes</name></name><argument_list>()</argument_list></call>
+                    .<call><name>getValue</name><argument_list>(<argument><expr><name><name>Attributes</name>.<name>Name</name>.<name>CLASS_PATH</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <finally>finally <block>{
+                <if>if <condition>(<expr><name>jarFile</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>jarFile</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></finally></try>
+            <if>if <condition>(<expr><name>classpath</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>classpath</name> = ""</expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>pathMap</name>.<name>put</name></name><argument_list>(<argument><expr><name>absPathPlusTimeAndLength</name></expr></argument>, <argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr>!"".<call><name>equals</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>URL</name></type> <name>baseURL</name> =<init> <expr><call><name><name>FILE_UTILS</name>.<name>getFileURL</name></name><argument_list>(<argument><expr><name>pathComponent</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>StringTokenizer</name></type> <name>st</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>st</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>classpathElement</name> =<init> <expr><call><name><name>st</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>URL</name></type> <name>libraryURL</name> =<init> <expr>new <call><name>URL</name><argument_list>(<argument><expr><name>baseURL</name></expr></argument>, <argument><expr><name>classpathElement</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr>!<call><name><name>libraryURL</name>.<name>getProtocol</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr>"file"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Skipping jar library " + <name>classpathElement</name>
+                            + " since only relative URLs are supported by this" + " loader"</expr></argument>,
+                            <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <continue>continue;</continue>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>String</name></type> <name>decodedPath</name> =<init> <expr><call><name><name>Locator</name>.<name>decodeUri</name></name><argument_list>(<argument><expr><call><name><name>libraryURL</name>.<name>getFile</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>libraryFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>decodedPath</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>libraryFile</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; !<call><name>isInPath</name><argument_list>(<argument><expr><name>libraryFile</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>addPathFile</name><argument_list>(<argument><expr><name>libraryFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></while>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the classpath this classloader will consult.
+     *
+     * @return the classpath used for this classloader, with elements
+     *         separated by the path separator for the system.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getClasspath</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><specifier>final</specifier> <name>StringBuilder</name></type> <name>sb</name> =<init> <expr>new <call><name>StringBuilder</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type> <name>firstPass</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>File</name></argument>&gt;</argument_list></name></type> <name>componentEnum</name> =<init> <expr><call><name><name>pathComponents</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>componentEnum</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <if>if <condition>(<expr>!<name>firstPass</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>System</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"path.separator"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>firstPass</name> = false</expr>;</expr_stmt>
+            }</block></else></if>
+            <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>componentEnum</name>.<name>nextElement</name></name><argument_list>()</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets whether this classloader should run in isolated mode. In
+     * isolated mode, classes not found on the given classpath will
+     * not be referred to the parent class loader but will cause a
+     * ClassNotFoundException.
+     *
+     * @param isolated Whether or not this classloader should run in
+     *                 isolated mode.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setIsolated</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>isolated</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>ignoreBase</name> = <name>isolated</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Forces initialization of a class in a JDK 1.1 compatible, albeit hacky
+     * way.
+     *
+     * @param theClass The class to initialize.
+     *                 Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @deprecated since 1.6.x.
+     *             Use Class.forName with initialize=true instead.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>initializeClass</name><parameter_list>(<param><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>theClass</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// ***HACK*** We ask the VM to create an instance</comment>
+        <comment type="line">// by voluntarily providing illegal arguments to force</comment>
+        <comment type="line">// the VM to run the class' static initializer, while</comment>
+        <comment type="line">// at the same time not running a valid constructor.</comment>
+
+        <decl_stmt><decl><type><specifier>final</specifier> <name><name>Constructor</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name><index>[]</index></type> <name>cons</name> =<init> <expr><call><name><name>theClass</name>.<name>getDeclaredConstructors</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">//At least one constructor is guaranteed to be there, but check anyway.</comment>
+        <if>if <condition>(<expr><name>cons</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name><name>cons</name>.<name>length</name></name> &gt; 0 &amp;&amp; <name><name>cons</name><index>[<expr>0</expr>]</index></name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><specifier>final</specifier> <name>String</name><index>[]</index></type> <name>strs</name> =<init> <expr>new <name><name>String</name><index>[<expr><name>NUMBER_OF_STRINGS</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+                <try>try <block>{
+                    <expr_stmt><expr><name><name>cons</name><index>[<expr>0</expr>]</index></name>.<call><name>newInstance</name><argument_list>(<argument><expr>(<name><name>Object</name><index>[]</index></name>) <name>strs</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <comment type="line">// Expecting an exception to be thrown by this call:</comment>
+                    <comment type="line">// IllegalArgumentException: wrong number of Arguments</comment>
+                }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+                    <comment type="line">// Ignore - we are interested only in the side</comment>
+                    <comment type="line">// effect - that of getting the static initializers</comment>
+                    <comment type="line">// invoked.  As we do not want to call a valid</comment>
+                    <comment type="line">// constructor to get this side effect, an</comment>
+                    <comment type="line">// attempt is made to call a hopefully</comment>
+                    <comment type="line">// invalid constructor - come on, nobody</comment>
+                    <comment type="line">// would have a constructor that takes in</comment>
+                    <comment type="line">// 256 String arguments ;-)</comment>
+                    <comment type="line">// (In fact, they can't - according to JVM spec</comment>
+                    <comment type="line">// section 4.10, the number of method parameters is limited</comment>
+                    <comment type="line">// to 255 by the definition of a method descriptor.</comment>
+                    <comment type="line">// Constructors count as methods here.)</comment>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a package root to the list of packages which must be loaded on the
+     * parent loader.
+     *
+     * All subpackages are also included.
+     *
+     * @param packageRoot The root of all packages to be included.
+     *                    Should not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addSystemPackageRoot</name><parameter_list>(<param><decl><type><name>String</name></type> <name>packageRoot</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>systemPackages</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>packageRoot</name> + (<call><name><name>packageRoot</name>.<name>endsWith</name></name><argument_list>(<argument><expr>"."</expr></argument>)</argument_list></call> ? "" : ".")</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds a package root to the list of packages which must be loaded using
+     * this loader.
+     *
+     * All subpackages are also included.
+     *
+     * @param packageRoot The root of all packages to be included.
+     *                    Should not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addLoaderPackageRoot</name><parameter_list>(<param><decl><type><name>String</name></type> <name>packageRoot</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>loaderPackages</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>packageRoot</name> + (<call><name><name>packageRoot</name>.<name>endsWith</name></name><argument_list>(<argument><expr>"."</expr></argument>)</argument_list></call> ? "" : ".")</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Loads a class through this class loader even if that class is available
+     * on the parent classpath.
+     *
+     * This ensures that any classes which are loaded by the returned class
+     * will use this classloader.
+     *
+     * @param classname The name of the class to be loaded.
+     *                  Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return the required Class object
+     *
+     * @exception ClassNotFoundException if the requested class does not exist
+     *                                   on this loader's classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>forceLoadClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>ClassNotFoundException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"force loading " + <name>classname</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>theClass</name> =<init> <expr><call><name>findLoadedClass</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>theClass</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>theClass</name> = <call><name>findClass</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>theClass</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Loads a class through this class loader but defer to the parent class
+     * loader.
+     *
+     * This ensures that instances of the returned class will be compatible
+     * with instances which have already been loaded on the parent
+     * loader.
+     *
+     * @param classname The name of the class to be loaded.
+     *                  Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return the required Class object
+     *
+     * @exception ClassNotFoundException if the requested class does not exist
+     * on this loader's classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>forceLoadSystemClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>ClassNotFoundException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"force system loading " + <name>classname</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>theClass</name> =<init> <expr><call><name>findLoadedClass</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>theClass</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>theClass</name> = <call><name>findBaseClass</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>theClass</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a stream to read the requested resource name.
+     *
+     * @param name The name of the resource for which a stream is required.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return a stream to the required resource or &lt;code&gt;null&lt;/code&gt; if the
+     *         resource cannot be found on the loader's classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>InputStream</name></type> <name>getResourceAsStream</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>InputStream</name></type> <name>resourceStream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name>isParentFirst</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>resourceStream</name> = <call><name>loadBaseResource</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>resourceStream</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"ResourceStream for " + <name>name</name>
+                + " loaded from parent loader"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>resourceStream</name> = <call><name>loadResource</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>resourceStream</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"ResourceStream for " + <name>name</name>
+                    + " loaded from ant loader"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></else></if>
+        <if>if <condition>(<expr><name>resourceStream</name> == <name>null</name> &amp;&amp; !<call><name>isParentFirst</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>ignoreBase</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>resourceStream</name> = <call><name>getRootLoader</name><argument_list>()</argument_list></call> == <name>null</name> ? <name>null</name> : <call><name>getRootLoader</name><argument_list>()</argument_list></call>.<call><name>getResourceAsStream</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>resourceStream</name> = <call><name>loadBaseResource</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <if>if <condition>(<expr><name>resourceStream</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"ResourceStream for " + <name>name</name> + " loaded from parent loader"</expr></argument>,
+                    <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>resourceStream</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Couldn't load ResourceStream for " + <name>name</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>resourceStream</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a stream to read the requested resource name from this loader.
+     *
+     * @param name The name of the resource for which a stream is required.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return a stream to the required resource or &lt;code&gt;null&lt;/code&gt; if
+     *         the resource cannot be found on the loader's classpath.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>InputStream</name></type> <name>loadResource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// we need to search the components of the path to see if we can</comment>
+        <comment type="line">// find the class we want.</comment>
+        <decl_stmt><decl><type><name>InputStream</name></type> <name>stream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>File</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>pathComponents</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call> &amp;&amp; <name>stream</name> == <name>null</name></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>pathComponent</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>stream</name> = <call><name>getResourceStream</name><argument_list>(<argument><expr><name>pathComponent</name></expr></argument>, <argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><name>stream</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Finds a system resource (which should be loaded from the parent
+     * classloader).
+     *
+     * @param name The name of the system resource to load.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return a stream to the named resource, or &lt;code&gt;null&lt;/code&gt; if
+     *         the resource cannot be found.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>InputStream</name></type> <name>loadBaseResource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><name>parent</name> == <name>null</name> ? <call><name><name>super</name>.<name>getResourceAsStream</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> : <call><name><name>parent</name>.<name>getResourceAsStream</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns an inputstream to a given resource in the given file which may
+     * either be a directory or a zip file.
+     *
+     * @param file the file (directory or jar) in which to search for the
+     *             resource. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param resourceName The name of the resource for which a stream is
+     *                     required. Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return a stream to the required resource or &lt;code&gt;null&lt;/code&gt; if
+     *         the resource cannot be found in the given file.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>InputStream</name></type> <name>getResourceStream</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>, <param><decl><type><name>String</name></type> <name>resourceName</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>JarFile</name></type> <name>jarFile</name> =<init> <expr>(<name>JarFile</name>) <call><name><name>jarFiles</name>.<name>get</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>jarFile</name> == <name>null</name> &amp;&amp; <call><name><name>file</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>resource</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>resourceName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>resource</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <return>return <expr>new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>resource</name></expr></argument>)</argument_list></call></expr>;</return>
+                }</block></then></if>
+            }</block></then> <else>else <block>{
+                <if>if <condition>(<expr><name>jarFile</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr><call><name><name>file</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>jarFile</name> = new <call><name>JarFile</name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>jarFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>jarFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <return>return <expr><name>null</name></expr>;</return>
+                    }</block></else></if>
+                    <comment type="line">//to eliminate a race condition, retrieve the entry</comment>
+                    <comment type="line">//that is in the hash table under that filename</comment>
+                    <expr_stmt><expr><name>jarFile</name> = (<name>JarFile</name>) <call><name><name>jarFiles</name>.<name>get</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>JarEntry</name></type> <name>entry</name> =<init> <expr><call><name><name>jarFile</name>.<name>getJarEntry</name></name><argument_list>(<argument><expr><name>resourceName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>entry</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <return>return <expr><call><name><name>jarFile</name>.<name>getInputStream</name></name><argument_list>(<argument><expr><name>entry</name></expr></argument>)</argument_list></call></expr>;</return>
+                }</block></then></if>
+            }</block></else></if>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Ignoring Exception " + <call><name><name>e</name>.<name>getClass</name></name><argument_list>()</argument_list></call>.<call><name>getName</name><argument_list>()</argument_list></call> + ": " + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call>
+                    + " reading resource " + <name>resourceName</name> + " from " + <name>file</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Tests whether or not the parent classloader should be checked for a
+     * resource before this one. If the resource matches both the "use parent
+     * classloader first" and the "use this classloader first" lists, the latter
+     * takes priority.
+     *
+     * @param resourceName
+     *            The name of the resource to check. Must not be
+     *            &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return whether or not the parent classloader should be checked for a
+     *         resource before this one is.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isParentFirst</name><parameter_list>(<param><decl><type><name>String</name></type> <name>resourceName</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// default to the global setting and then see</comment>
+        <comment type="line">// if this class belongs to a package which has been</comment>
+        <comment type="line">// designated to use a specific loader first</comment>
+        <comment type="line">// (this one or the parent one)</comment>
+
+        <comment type="line">// TODO - shouldn't this always return false in isolated mode?</comment>
+
+        <decl_stmt><decl><type><name>boolean</name></type> <name>useParentFirst</name> =<init> <expr><name>parentFirst</name></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>systemPackages</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>packageName</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>resourceName</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>packageName</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>useParentFirst</name> = true</expr>;</expr_stmt>
+                <break>break;</break>
+            }</block></then></if>
+        }</block></for>
+        <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>loaderPackages</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>packageName</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><call><name><name>resourceName</name>.<name>startsWith</name></name><argument_list>(<argument><expr><name>packageName</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>useParentFirst</name> = false</expr>;</expr_stmt>
+                <break>break;</break>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr><name>useParentFirst</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Used for isolated resource seaching.
+     * @return the root classloader of AntClassLoader.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>ClassLoader</name></type> <name>getRootLoader</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>ClassLoader</name></type> <name>ret</name> =<init> <expr><call><name>getClass</name><argument_list>()</argument_list></call>.<call><name>getClassLoader</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><name>ret</name> != <name>null</name> &amp;&amp; <call><name><name>ret</name>.<name>getParent</name></name><argument_list>()</argument_list></call> != <name>null</name></expr>)</condition> <block>{
+            <expr_stmt><expr><name>ret</name> = <call><name><name>ret</name>.<name>getParent</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><name>ret</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Finds the resource with the given name. A resource is
+     * some data (images, audio, text, etc) that can be accessed by class
+     * code in a way that is independent of the location of the code.
+     *
+     * @param name The name of the resource for which a stream is required.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return a URL for reading the resource, or &lt;code&gt;null&lt;/code&gt; if the
+     *         resource could not be found or the caller doesn't have
+     *         adequate privileges to get the resource.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>URL</name></type> <name>getResource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// we need to search the components of the path to see if</comment>
+        <comment type="line">// we can find the class we want.</comment>
+        <decl_stmt><decl><type><name>URL</name></type> <name>url</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name>isParentFirst</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>url</name> = <name>parent</name> == <name>null</name> ? <call><name><name>super</name>.<name>getResource</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> : <call><name><name>parent</name>.<name>getResource</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>url</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Resource " + <name>name</name> + " loaded from parent loader"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <comment type="line">// try and load from this loader if the parent either didn't find</comment>
+            <comment type="line">// it or wasn't consulted.</comment>
+            <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>File</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>pathComponents</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call> &amp;&amp; <name>url</name> == <name>null</name></expr>)</condition> <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>pathComponent</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>url</name> = <call><name>getResourceURL</name><argument_list>(<argument><expr><name>pathComponent</name></expr></argument>, <argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>url</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Resource " + <name>name</name> + " loaded from ant loader"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></while>
+        }</block></else></if>
+        <if>if <condition>(<expr><name>url</name> == <name>null</name> &amp;&amp; !<call><name>isParentFirst</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// this loader was first but it didn't find it - try the parent</comment>
+            <if>if <condition>(<expr><name>ignoreBase</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>url</name> = <call><name>getRootLoader</name><argument_list>()</argument_list></call> == <name>null</name> ? <name>null</name> : <call><name>getRootLoader</name><argument_list>()</argument_list></call>.<call><name>getResource</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>url</name> = <name>parent</name> == <name>null</name> ? <call><name><name>super</name>.<name>getResource</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> : <call><name><name>parent</name>.<name>getResource</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <if>if <condition>(<expr><name>url</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Resource " + <name>name</name> + " loaded from parent loader"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>url</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Couldn't load Resource " + <name>name</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>url</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Finds all the resources with the given name. A resource is some
+     * data (images, audio, text, etc) that can be accessed by class
+     * code in a way that is independent of the location of the code.
+     *
+     * &lt;p&gt;Would override getResources if that wasn't final in Java
+     * 1.4.&lt;/p&gt;
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>URL</name></argument>&gt;</argument_list></name></type> <name>getNamedResources</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <return>return <expr><call><name>findResources</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns an enumeration of URLs representing all the resources with the
+     * given name by searching the class loader's classpath.
+     *
+     * @param name The resource name to search for.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @return an enumeration of URLs for the resources
+     * @exception IOException if I/O errors occurs (can't happen)
+     */</comment>
+    <function><type><specifier>protected</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>URL</name></argument>&gt;</argument_list></name></type> <name>findResources</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <return>return <expr><call><name>findResources</name><argument_list>(<argument><expr><name>name</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns an enumeration of URLs representing all the resources with the
+     * given name by searching the class loader's classpath.
+     *
+     * @param name The resource name to search for.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param parentHasBeenSearched whether ClassLoader.this.parent
+     * has been searched - will be true if the method is (indirectly)
+     * called from ClassLoader.getResources
+     * @return an enumeration of URLs for the resources
+     * @exception IOException if I/O errors occurs (can't happen)
+     */</comment>
+    <function><type><specifier>protected</specifier> <name><name>Enumeration</name><argument_list>&lt;<argument><name>URL</name></argument>&gt;</argument_list></name></type> <name>findResources</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>,
+                                                 <param><decl><type><name>boolean</name></type> <name>parentHasBeenSearched</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>URL</name></argument>&gt;</argument_list></name></type> <name>mine</name> =<init> <expr>new <call><name>ResourceEnumeration</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>URL</name></argument>&gt;</argument_list></name></type> <name>base</name></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>parent</name> != <name>null</name> &amp;&amp; (!<name>parentHasBeenSearched</name> || <name>parent</name> != <call><name>getParent</name><argument_list>()</argument_list></call>)</expr>)</condition><then> <block>{
+            <comment type="line">// Delegate to the parent:</comment>
+            <expr_stmt><expr><name>base</name> = <call><name><name>parent</name>.<name>getResources</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">// Note: could cause overlaps in case</comment>
+            <comment type="line">// ClassLoader.this.parent has matches and</comment>
+            <comment type="line">// parentHasBeenSearched is true</comment>
+        }</block></then> <else>else <block>{
+            <comment type="line">// ClassLoader.this.parent is already delegated to for example from</comment>
+            <comment type="line">// ClassLoader.getResources, no need:</comment>
+            <expr_stmt><expr><name>base</name> = new <call><name><name>CollectionUtils</name>.<name><name>EmptyEnumeration</name><argument_list>&lt;<argument><name>URL</name></argument>&gt;</argument_list></name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+        <if>if <condition>(<expr><call><name>isParentFirst</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">// Normal case.</comment>
+            <return>return <expr><call><name><name>CollectionUtils</name>.<name>append</name></name><argument_list>(<argument><expr><name>base</name></expr></argument>, <argument><expr><name>mine</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>ignoreBase</name></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRootLoader</name><argument_list>()</argument_list></call> == <name>null</name> ? <name>mine</name> : <call><name><name>CollectionUtils</name>.<name>append</name></name><argument_list>(<argument><expr><name>mine</name></expr></argument>, <argument><expr><call><name>getRootLoader</name><argument_list>()</argument_list></call>
+                    .<call><name>getResources</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <comment type="line">// parent last:</comment>
+        <return>return <expr><call><name><name>CollectionUtils</name>.<name>append</name></name><argument_list>(<argument><expr><name>mine</name></expr></argument>, <argument><expr><name>base</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the URL of a given resource in the given file which may
+     * either be a directory or a zip file.
+     *
+     * @param file The file (directory or jar) in which to search for
+     *             the resource. Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param resourceName The name of the resource for which a stream
+     *                     is required. Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return a stream to the required resource or &lt;code&gt;null&lt;/code&gt; if the
+     *         resource cannot be found in the given file object.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>URL</name></type> <name>getResourceURL</name><parameter_list>(<param><decl><type><name>File</name></type> <name>file</name></decl></param>, <param><decl><type><name>String</name></type> <name>resourceName</name></decl></param>)</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>JarFile</name></type> <name>jarFile</name> =<init> <expr>(<name>JarFile</name>) <call><name><name>jarFiles</name>.<name>get</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>jarFile</name> == <name>null</name> &amp;&amp; <call><name><name>file</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>resource</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>resourceName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><call><name><name>resource</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <try>try <block>{
+                        <return>return <expr><call><name><name>FILE_UTILS</name>.<name>getFileURL</name></name><argument_list>(<argument><expr><name>resource</name></expr></argument>)</argument_list></call></expr>;</return>
+                    }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>ex</name></decl></param>) <block>{
+                        <return>return <expr><name>null</name></expr>;</return>
+                    }</block></catch></try>
+                }</block></then></if>
+            }</block></then> <else>else <block>{
+                <if>if <condition>(<expr><name>jarFile</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr><call><name><name>file</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>jarFile</name> = new <call><name>JarFile</name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>jarFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>, <argument><expr><name>jarFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <return>return <expr><name>null</name></expr>;</return>
+                    }</block></else></if>
+                    <comment type="line">// potential race-condition</comment>
+                    <expr_stmt><expr><name>jarFile</name> = (<name>JarFile</name>) <call><name><name>jarFiles</name>.<name>get</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <decl_stmt><decl><type><name>JarEntry</name></type> <name>entry</name> =<init> <expr><call><name><name>jarFile</name>.<name>getJarEntry</name></name><argument_list>(<argument><expr><name>resourceName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>entry</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <try>try <block>{
+                        <return>return <expr>new <call><name>URL</name><argument_list>(<argument><expr>"jar:" + <call><name><name>FILE_UTILS</name>.<name>getFileURL</name></name><argument_list>(<argument><expr><name>file</name></expr></argument>)</argument_list></call> + "!/" + <name>entry</name></expr></argument>)</argument_list></call></expr>;</return>
+                    }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>ex</name></decl></param>) <block>{
+                        <return>return <expr><name>null</name></expr>;</return>
+                    }</block></catch></try>
+                }</block></then></if>
+            }</block></else></if>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>"Unable to obtain resource from " + <name>file</name> + ": "</expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name> + <name>e</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>System</name>.<name>err</name>.<name>println</name></name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>e</name>.<name>printStackTrace</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+        <return>return <expr><name>null</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Loads a class with this class loader.
+     *
+     * This class attempts to load the class in an order determined by whether
+     * or not the class matches the system/loader package lists, with the
+     * loader package list taking priority. If the classloader is in isolated
+     * mode, failure to load the class in this loader will result in a
+     * ClassNotFoundException.
+     *
+     * @param classname The name of the class to be loaded.
+     *                  Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param resolve &lt;code&gt;true&lt;/code&gt; if all classes upon which this class
+     *                depends are to be loaded.
+     *
+     * @return the required Class object
+     *
+     * @exception ClassNotFoundException if the requested class does not exist
+     * on the system classpath (when not in isolated mode) or this loader's
+     * classpath.
+     */</comment>
+    <function><type><specifier>protected</specifier> <specifier>synchronized</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>loadClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>resolve</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>ClassNotFoundException</name></expr></argument></throws> <block>{
+        <comment type="line">// 'sync' is needed - otherwise 2 threads can load the same class</comment>
+        <comment type="line">// twice, resulting in LinkageError: duplicated class definition.</comment>
+        <comment type="line">// findLoadedClass avoids that, but without sync it won't work.</comment>
+
+        <decl_stmt><decl><type><name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>theClass</name> =<init> <expr><call><name>findLoadedClass</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>theClass</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>theClass</name></expr>;</return>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>isParentFirst</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>theClass</name> = <call><name>findBaseClass</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Class " + <name>classname</name> + " loaded from parent loader " + "(parentFirst)"</expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>cnfe</name></decl></param>) <block>{
+                <expr_stmt><expr><name>theClass</name> = <call><name>findClass</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Class " + <name>classname</name> + " loaded from ant loader " + "(parentFirst)"</expr></argument>,
+                        <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></then> <else>else <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>theClass</name> = <call><name>findClass</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Class " + <name>classname</name> + " loaded from ant loader"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>cnfe</name></decl></param>) <block>{
+                <if>if <condition>(<expr><name>ignoreBase</name></expr>)</condition><then> <block>{
+                    <throw>throw <expr><name>cnfe</name></expr>;</throw>
+                }</block></then></if>
+                <expr_stmt><expr><name>theClass</name> = <call><name>findBaseClass</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Class " + <name>classname</name> + " loaded from parent loader"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch></try>
+        }</block></else></if>
+        <if>if <condition>(<expr><name>resolve</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>resolveClass</name><argument_list>(<argument><expr><name>theClass</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>theClass</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Converts the class dot notation to a filesystem equivalent for
+     * searching purposes.
+     *
+     * @param classname The class name in dot format (eg java.lang.Integer).
+     *                  Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return the classname in filesystem format (eg java/lang/Integer.class)
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name></type> <name>getClassFilename</name><parameter_list>(<param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>classname</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call> + ".class"</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Define a class given its bytes
+     *
+     * @param container the container from which the class data has been read
+     *                  may be a directory or a jar/zip file.
+     *
+     * @param classData the bytecode data for the class
+     * @param classname the name of the class
+     *
+     * @return the Class instance created from the given data
+     *
+     * @throws IOException if the class data cannot be read.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>defineClassFromData</name><parameter_list>(<param><decl><type><name>File</name></type> <name>container</name></decl></param>, <param><decl><type><name><name>byte</name><index>[]</index></name></type> <name>classData</name></decl></param>, <param><decl><type><name>String</name></type> <name>classname</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>definePackage</name><argument_list>(<argument><expr><name>container</name></expr></argument>, <argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>ProtectionDomain</name></type> <name>currentPd</name> =<init> <expr><name><name>Project</name>.<name><name/></name></name>class.<call><name>getProtectionDomain</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>classResource</name> =<init> <expr><call><name>getClassFilename</name><argument_list>(<argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>CodeSource</name></type> <name>src</name> =<init> <expr>new <call><name>CodeSource</name><argument_list>(<argument><expr><call><name><name>FILE_UTILS</name>.<name>getFileURL</name></name><argument_list>(<argument><expr><name>container</name></expr></argument>)</argument_list></call></expr></argument>,
+                                        <argument><expr><call><name>getCertificates</name><argument_list>(<argument><expr><name>container</name></expr></argument>,
+                                                        <argument><expr><name>classResource</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>ProtectionDomain</name></type> <name>classesPd</name> =<init>
+            <expr>new <call><name>ProtectionDomain</name><argument_list>(<argument><expr><name>src</name></expr></argument>, <argument><expr><call><name><name>currentPd</name>.<name>getPermissions</name></name><argument_list>()</argument_list></call></expr></argument>,
+                                 <argument><expr><name>this</name></expr></argument>,
+                                 <argument><expr><call><name><name>currentPd</name>.<name>getPrincipals</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name>defineClass</name><argument_list>(<argument><expr><name>classname</name></expr></argument>, <argument><expr><name>classData</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name><name>classData</name>.<name>length</name></name></expr></argument>,
+                           <argument><expr><name>classesPd</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Define the package information associated with a class.
+     *
+     * @param container the file containing the class definition.
+     * @param className the class name of for which the package information
+     *        is to be determined.
+     *
+     * @exception IOException if the package information cannot be read from the
+     *            container.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>definePackage</name><parameter_list>(<param><decl><type><name>File</name></type> <name>container</name></decl></param>, <param><decl><type><name>String</name></type> <name>className</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>int</name></type> <name>classIndex</name> =<init> <expr><call><name><name>className</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>'.'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>classIndex</name> == -1</expr>)</condition><then> <block>{
+            <return>return;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name></type> <name>packageName</name> =<init> <expr><call><name><name>className</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>classIndex</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><call><name>getPackage</name><argument_list>(<argument><expr><name>packageName</name></expr></argument>)</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">// already defined</comment>
+            <return>return;</return>
+        }</block></then></if>
+        <comment type="line">// define the package now</comment>
+        <decl_stmt><decl><type><name>Manifest</name></type> <name>manifest</name> =<init> <expr><call><name>getJarManifest</name><argument_list>(<argument><expr><name>container</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>manifest</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>definePackage</name><argument_list>(<argument><expr><name>packageName</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>null</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><call><name>definePackage</name><argument_list>(<argument><expr><name>container</name></expr></argument>, <argument><expr><name>packageName</name></expr></argument>, <argument><expr><name>manifest</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></else></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the manifest from the given jar, if it is indeed a jar and it has a
+     * manifest
+     *
+     * @param container the File from which a manifest is required.
+     *
+     * @return the jar's manifest or null is the container is not a jar or it
+     *         has no manifest.
+     *
+     * @exception IOException if the manifest cannot be read.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Manifest</name></type> <name>getJarManifest</name><parameter_list>(<param><decl><type><name>File</name></type> <name>container</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name><name>container</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>JarFile</name></type> <name>jarFile</name> =<init> <expr>(<name>JarFile</name>) <call><name><name>jarFiles</name>.<name>get</name></name><argument_list>(<argument><expr><name>container</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>jarFile</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <return>return <expr><call><name><name>jarFile</name>.<name>getManifest</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the certificates for a given jar entry, if it is indeed a jar.
+     *
+     * @param container the File from which to read the entry
+     * @param entry the entry of which the certificates are requested
+     *
+     * @return the entry's certificates or null is the container is
+     *         not a jar or it has no certificates.
+     *
+     * @exception IOException if the manifest cannot be read.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Certificate</name><index>[]</index></type> <name>getCertificates</name><parameter_list>(<param><decl><type><name>File</name></type> <name>container</name></decl></param>, <param><decl><type><name>String</name></type> <name>entry</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name><name>container</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>JarFile</name></type> <name>jarFile</name> =<init> <expr>(<name>JarFile</name>) <call><name><name>jarFiles</name>.<name>get</name></name><argument_list>(<argument><expr><name>container</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>jarFile</name> == <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>JarEntry</name></type> <name>ent</name> =<init> <expr><call><name><name>jarFile</name>.<name>getJarEntry</name></name><argument_list>(<argument><expr><name>entry</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><name>ent</name> == <name>null</name> ? <name>null</name> : <call><name><name>ent</name>.<name>getCertificates</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Define the package information when the class comes from a
+     * jar with a manifest
+     *
+     * @param container the jar file containing the manifest
+     * @param packageName the name of the package being defined.
+     * @param manifest the jar's manifest
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>definePackage</name><parameter_list>(<param><decl><type><name>File</name></type> <name>container</name></decl></param>, <param><decl><type><name>String</name></type> <name>packageName</name></decl></param>, <param><decl><type><name>Manifest</name></type> <name>manifest</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name></type> <name>sectionName</name> =<init> <expr><call><name><name>packageName</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr>'/'</expr></argument>)</argument_list></call> + "/"</expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>String</name></type> <name>specificationTitle</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>specificationVendor</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>specificationVersion</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>implementationTitle</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>implementationVendor</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>implementationVersion</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>sealedString</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>URL</name></type> <name>sealBase</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>Attributes</name></type> <name>sectionAttributes</name> =<init> <expr><call><name><name>manifest</name>.<name>getAttributes</name></name><argument_list>(<argument><expr><name>sectionName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>sectionAttributes</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>specificationTitle</name> = <call><name><name>sectionAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>SPECIFICATION_TITLE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>specificationVendor</name> = <call><name><name>sectionAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>SPECIFICATION_VENDOR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>specificationVersion</name> = <call><name><name>sectionAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>SPECIFICATION_VERSION</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>implementationTitle</name> = <call><name><name>sectionAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>IMPLEMENTATION_TITLE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>implementationVendor</name> = <call><name><name>sectionAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>IMPLEMENTATION_VENDOR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>implementationVersion</name> = <call><name><name>sectionAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>IMPLEMENTATION_VERSION</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>sealedString</name> = <call><name><name>sectionAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>SEALED</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Attributes</name></type> <name>mainAttributes</name> =<init> <expr><call><name><name>manifest</name>.<name>getMainAttributes</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>mainAttributes</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>specificationTitle</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>specificationTitle</name> = <call><name><name>mainAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>SPECIFICATION_TITLE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>specificationVendor</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>specificationVendor</name> = <call><name><name>mainAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>SPECIFICATION_VENDOR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>specificationVersion</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>specificationVersion</name> = <call><name><name>mainAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>SPECIFICATION_VERSION</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>implementationTitle</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>implementationTitle</name> = <call><name><name>mainAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>IMPLEMENTATION_TITLE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>implementationVendor</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>implementationVendor</name> = <call><name><name>mainAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>IMPLEMENTATION_VENDOR</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>implementationVersion</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>implementationVersion</name> = <call><name><name>mainAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>IMPLEMENTATION_VERSION</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>sealedString</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>sealedString</name> = <call><name><name>mainAttributes</name>.<name>getValue</name></name><argument_list>(<argument><expr><name><name>Name</name>.<name>SEALED</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>sealedString</name> != <name>null</name> &amp;&amp; <call><name><name>sealedString</name>.<name>equalsIgnoreCase</name></name><argument_list>(<argument><expr>"true"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>sealBase</name> = new <call><name>URL</name><argument_list>(<argument><expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call>.<call><name>toURI</name><argument_list>(<argument><expr><call><name><name>container</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>MalformedURLException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">// ignore</comment>
+            }</block></catch></try>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>definePackage</name><argument_list>(<argument><expr><name>packageName</name></expr></argument>, <argument><expr><name>specificationTitle</name></expr></argument>, <argument><expr><name>specificationVersion</name></expr></argument>, <argument><expr><name>specificationVendor</name></expr></argument>,
+                <argument><expr><name>implementationTitle</name></expr></argument>, <argument><expr><name>implementationVersion</name></expr></argument>, <argument><expr><name>implementationVendor</name></expr></argument>, <argument><expr><name>sealBase</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Reads a class definition from a stream.
+     *
+     * @param stream The stream from which the class is to be read.
+     *               Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param classname The name of the class in the stream.
+     *                  Must not be &lt;code&gt;null&lt;/code&gt;.
+     * @param container the file or directory containing the class.
+     *
+     * @return the Class object read from the stream.
+     *
+     * @exception IOException if there is a problem reading the class from the
+     * stream.
+     * @exception SecurityException if there is a security problem while
+     * reading the class from the stream.
+     */</comment>
+    <function><type><specifier>private</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>getClassFromStream</name><parameter_list>(<param><decl><type><name>InputStream</name></type> <name>stream</name></decl></param>, <param><decl><type><name>String</name></type> <name>classname</name></decl></param>, <param><decl><type><name>File</name></type> <name>container</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>SecurityException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>ByteArrayOutputStream</name></type> <name>baos</name> =<init> <expr>new <call><name>ByteArrayOutputStream</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>bytesRead</name> =<init> <expr>-1</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>buffer</name> =<init> <expr>new <name><name>byte</name><index>[<expr><name>BUFFER_SIZE</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+        <while>while <condition>(<expr>(<name>bytesRead</name> = <call><name><name>stream</name>.<name>read</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>BUFFER_SIZE</name></expr></argument>)</argument_list></call>) != -1</expr>)</condition> <block>{
+            <expr_stmt><expr><call><name><name>baos</name>.<name>write</name></name><argument_list>(<argument><expr><name>buffer</name></expr></argument>, <argument><expr>0</expr></argument>, <argument><expr><name>bytesRead</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <decl_stmt><decl><type><name>byte</name><index>[]</index></type> <name>classData</name> =<init> <expr><call><name><name>baos</name>.<name>toByteArray</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr><call><name>defineClassFromData</name><argument_list>(<argument><expr><name>container</name></expr></argument>, <argument><expr><name>classData</name></expr></argument>, <argument><expr><name>classname</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Searches for and load a class on the classpath of this class loader.
+     *
+     * @param name The name of the class to be loaded. Must not be
+     *             &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return the required Class object
+     *
+     * @exception ClassNotFoundException if the requested class does not exist
+     *                                   on this loader's classpath.
+     */</comment>
+    <function><type><specifier>public</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>findClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>ClassNotFoundException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Finding class " + <name>name</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name>findClassInComponents</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Indicate if the given file is in this loader's path
+     *
+     * @param component the file which is to be checked
+     *
+     * @return true if the file is in the class path
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>boolean</name></type> <name>isInPath</name><parameter_list>(<param><decl><type><name>File</name></type> <name>component</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>pathComponents</name>.<name>contains</name></name><argument_list>(<argument><expr><name>component</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Finds a class on the given classpath.
+     *
+     * @param name The name of the class to be loaded. Must not be
+     *             &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return the required Class object
+     *
+     * @exception ClassNotFoundException if the requested class does not exist
+     * on this loader's classpath.
+     */</comment>
+    <function><type><specifier>private</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>findClassInComponents</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>ClassNotFoundException</name></expr></argument></throws> <block>{
+        <comment type="line">// we need to search the components of the path to see if</comment>
+        <comment type="line">// we can find the class we want.</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>classFilename</name> =<init> <expr><call><name>getClassFilename</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>File</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>pathComponents</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>File</name></type> <name>pathComponent</name> =<init> <expr>(<name>File</name>) <call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>InputStream</name></type> <name>stream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><name>stream</name> = <call><name>getResourceStream</name><argument_list>(<argument><expr><name>pathComponent</name></expr></argument>, <argument><expr><name>classFilename</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>stream</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Loaded from " + <name>pathComponent</name> + " "
+                        + <name>classFilename</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_DEBUG</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <return>return <expr><call><name>getClassFromStream</name><argument_list>(<argument><expr><name>stream</name></expr></argument>, <argument><expr><name>name</name></expr></argument>, <argument><expr><name>pathComponent</name></expr></argument>)</argument_list></call></expr>;</return>
+                }</block></then></if>
+            }</block> <catch>catch (<param><decl><type><name>SecurityException</name></type> <name>se</name></decl></param>) <block>{
+                <throw>throw <expr><name>se</name></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                <comment type="line">// ioe.printStackTrace();</comment>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Exception reading component " + <name>pathComponent</name> + " (reason: "
+                        + <call><name><name>ioe</name>.<name>getMessage</name></name><argument_list>()</argument_list></call> + ")"</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></catch> <finally>finally <block>{
+                <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>stream</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></finally></try>
+        }</block></while>
+        <throw>throw <expr>new <call><name>ClassNotFoundException</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</throw>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Finds a system class (which should be loaded from the same classloader
+     * as the Ant core).
+     *
+     * For JDK 1.1 compatibility, this uses the findSystemClass method if
+     * no parent classloader has been specified.
+     *
+     * @param name The name of the class to be loaded.
+     *             Must not be &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @return the required Class object
+     *
+     * @exception ClassNotFoundException if the requested class does not exist
+     * on this loader's classpath.
+     */</comment>
+    <function><type><specifier>private</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>findBaseClass</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>ClassNotFoundException</name></expr></argument></throws> <block>{
+        <return>return <expr><name>parent</name> == <name>null</name> ? <call><name>findSystemClass</name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call> : <call><name><name>parent</name>.<name>loadClass</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Cleans up any resources held by this classloader. Any open archive
+     * files are closed.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>cleanup</name><parameter_list>()</parameter_list> <block>{
+        <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>JarFile</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>jarFiles</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+            <decl_stmt><decl><type><name>JarFile</name></type> <name>jarFile</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>jarFile</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                <comment type="line">// ignore</comment>
+            }</block></catch></try>
+        }</block></for>
+        <expr_stmt><expr><name>jarFiles</name> = new <call><name><name>Hashtable</name><argument_list>&lt;<argument><name>File</name></argument>, <argument><name>JarFile</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>project</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>project</name>.<name>removeBuildListener</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><name>project</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Gets the parent as has been specified in the constructor or via
+     * setParent.
+     *
+     * @since Ant 1.8.0
+     */</comment>
+    <function><type><specifier>public</specifier> <name>ClassLoader</name></type> <name>getConfiguredParent</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>parent</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation to satisfy the BuildListener interface.
+     *
+     * @param event the buildStarted event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Not significant for the class loader.</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Cleans up any resources held by this classloader at the end
+     * of a build.
+     *
+     * @param event the buildFinished event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>buildFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>cleanup</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Cleans up any resources held by this classloader at the end of
+     * a subbuild if it has been created for the subbuild's project
+     * instance.
+     *
+     * @param event the buildFinished event
+     *
+     * @since Ant 1.6.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>subBuildFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>event</name>.<name>getProject</name></name><argument_list>()</argument_list></call> == <name>project</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>cleanup</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation to satisfy the BuildListener interface.
+     *
+     * @param event the buildStarted event
+     *
+     * @since Ant 1.6.2
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>subBuildStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Not significant for the class loader.</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation to satisfy the BuildListener interface.
+     *
+     * @param event the targetStarted event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Not significant for the class loader.</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation to satisfy the BuildListener interface.
+     *
+     * @param event the targetFinished event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>targetFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Not significant for the class loader.</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation to satisfy the BuildListener interface.
+     *
+     * @param event the taskStarted event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskStarted</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Not significant for the class loader.</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation to satisfy the BuildListener interface.
+     *
+     * @param event the taskFinished event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>taskFinished</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Not significant for the class loader.</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Empty implementation to satisfy the BuildListener interface.
+     *
+     * @param event the messageLogged event
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>messageLogged</name><parameter_list>(<param><decl><type><name>BuildEvent</name></type> <name>event</name></decl></param>)</parameter_list> <block>{
+        <comment type="line">// Not significant for the class loader.</comment>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add any libraries that come with different java versions
+     * here
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addJavaLibraries</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name><name>Vector</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>packages</name> =<init> <expr><call><name><name>JavaEnvUtils</name>.<name>getJrePackages</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>packages</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>packageName</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name>addSystemPackageRoot</name><argument_list>(<argument><expr><name>packageName</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a &lt;code&gt;String&lt;/code&gt; representing this loader.
+     * @return the path that this classloader has.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>"AntClassLoader[" + <call><name>getClasspath</name><argument_list>()</argument_list></call> + "]"</expr>;</return>
+    }</block></function>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name></type> <name>subClassToLoad</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name><name>Class</name><argument_list>&lt;<argument><name>?</name></argument>&gt;</argument_list></name><index>[]</index></type> <name>CONSTRUCTOR_ARGS</name> =<init> <expr>new <name><name>Class</name><index>[]</index></name> <block>{
+        <expr><name><name>ClassLoader</name>.<name><name/></name></name>class</expr>, <expr><name><name>Project</name>.<name><name/></name></name>class</expr>, <expr><name><name>Path</name>.<name><name/></name></name>class</expr>, <expr><name><name>Boolean</name>.<name>TYPE</name></name></expr>
+    }</block></expr></init></decl>;</decl_stmt>
+
+    static <block>{
+        <if>if <condition>(<expr><call><name><name>JavaEnvUtils</name>.<name>isAtLeastJavaVersion</name></name><argument_list>(<argument><expr><name><name>JavaEnvUtils</name>.<name>JAVA_1_5</name></name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <try>try <block>{
+                <expr_stmt><expr><name>subClassToLoad</name> =
+                    <call><name><name>Class</name>.<name>forName</name></name><argument_list>(<argument><expr>"org.apache.tools.ant.loader.AntClassLoader5"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>ClassNotFoundException</name></type> <name>e</name></decl></param>) <block>{
+                <comment type="line">// this is Java5 but the installation is lacking our subclass</comment>
+            }</block></catch></try>
+        }</block></then></if>
+    }</block>
+
+    <comment type="javadoc">/**
+     * Factory method
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>AntClassLoader</name></type> <name>newAntClassLoader</name><parameter_list>(<param><decl><type><name>ClassLoader</name></type> <name>parent</name></decl></param>,
+                                                   <param><decl><type><name>Project</name></type> <name>project</name></decl></param>,
+                                                   <param><decl><type><name>Path</name></type> <name>path</name></decl></param>,
+                                                   <param><decl><type><name>boolean</name></type> <name>parentFirst</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>subClassToLoad</name> != <name>null</name></expr>)</condition><then> <block>{
+            <return>return <expr>(<name>AntClassLoader</name>)
+                <call><name><name>ReflectUtil</name>.<name>newInstance</name></name><argument_list>(<argument><expr><name>subClassToLoad</name></expr></argument>,
+                                        <argument><expr><name>CONSTRUCTOR_ARGS</name></expr></argument>,
+                                        <argument><expr>new <name><name>Object</name><index>[]</index></name> <block>{
+                                            <expr><name>parent</name></expr>, <expr><name>project</name></expr>, <expr><name>path</name></expr>,
+                                            <expr><call><name><name>Boolean</name>.<name>valueOf</name></name><argument_list>(<argument><expr><name>parentFirst</name></expr></argument>)</argument_list></call></expr>
+                                        }</block></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <return>return <expr>new <call><name>AntClassLoader</name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>project</name></expr></argument>, <argument><expr><name>path</name></expr></argument>, <argument><expr><name>parentFirst</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+}</block></class>
+</unit>

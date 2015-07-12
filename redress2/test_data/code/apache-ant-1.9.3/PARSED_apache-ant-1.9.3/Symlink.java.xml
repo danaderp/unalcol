@@ -1,0 +1,598 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\unix\Symlink.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<comment type="block">/*
+ * Since the initial version of this file was developed on the clock on
+ * an NSF grant I should say the following boilerplate:
+ *
+ * This material is based upon work supported by the National Science
+ * Foundaton under Grant No. EIA-0196404. Any opinions, findings, and
+ * conclusions or recommendations expressed in this material are those
+ * of the author and do not necessarily reflect the views of the
+ * National Science Foundation.
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>unix</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileNotFoundException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileOutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>PrintStream</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>util</name>.<name>HashSet</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Properties</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>dispatch</name>.<name>DispatchTask</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>dispatch</name>.<name>DispatchUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Execute</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>LogOutputStream</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>FileSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>SymbolicLinkUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Creates, Deletes, Records and Restores Symlinks.
+ *
+ * &lt;p&gt; This task performs several related operations. In the most trivial
+ * and default usage, it creates a link specified in the link attribute to
+ * a resource specified in the resource attribute. The second usage of this
+ * task is to traverse a directory structure specified by a fileset,
+ * and write a properties file in each included directory describing the
+ * links found in that directory. The third usage is to traverse a
+ * directory structure specified by a fileset, looking for properties files
+ * (also specified as included in the fileset) and recreate the links
+ * that have been previously recorded for each directory. Finally, it can be
+ * used to remove a symlink without deleting the associated resource.
+ *
+ * &lt;p&gt; Usage examples:
+ *
+ * &lt;p&gt; Make a link named &amp;quot;foo&amp;quot; to a resource named
+ * &amp;quot;bar.foo&amp;quot; in subdir:
+ * &lt;pre&gt;
+ * &amp;lt;symlink link=&amp;quot;${dir.top}/foo&amp;quot; resource=&amp;quot;${dir.top}/subdir/bar.foo&amp;quot;/&amp;gt;
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt; Record all links in subdir and its descendants in files named
+ * &amp;quot;dir.links&amp;quot;:
+ * &lt;pre&gt;
+ * &amp;lt;symlink action=&amp;quot;record&amp;quot; linkfilename=&amp;quot;dir.links&amp;quot;&amp;gt;
+ *    &amp;lt;fileset dir=&amp;quot;${dir.top}&amp;quot; includes=&amp;quot;subdir&amp;#47;**&amp;quot; /&amp;gt;
+ * &amp;lt;/symlink&amp;gt;
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt; Recreate the links recorded in the previous example:
+ * &lt;pre&gt;
+ * &amp;lt;symlink action=&amp;quot;recreate&amp;quot;&amp;gt;
+ *    &amp;lt;fileset dir=&amp;quot;${dir.top}&amp;quot; includes=&amp;quot;subdir&amp;#47;**&amp;#47;dir.links&amp;quot; /&amp;gt;
+ * &amp;lt;/symlink&amp;gt;
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt; Delete a link named &amp;quot;foo&amp;quot; to a resource named
+ * &amp;quot;bar.foo&amp;quot; in subdir:
+ * &lt;pre&gt;
+ * &amp;lt;symlink action=&amp;quot;delete&amp;quot; link=&amp;quot;${dir.top}/foo&amp;quot;/&amp;gt;
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt;&lt;strong&gt;LIMITATIONS:&lt;/strong&gt; Because Java has no direct support for
+ * handling symlinks this task divines them by comparing canonical and
+ * absolute paths. On non-unix systems this may cause false positives.
+ * Furthermore, any operating system on which the command
+ * &lt;code&gt;ln -s link resource&lt;/code&gt; is not a valid command on the command line
+ * will not be able to use action=&amp;quot;delete&amp;quot;, action=&amp;quot;single&amp;quot;
+ * or action=&amp;quot;recreate&amp;quot;, but action=&amp;quot;record&amp;quot; should still
+ * work. Finally, the lack of support for symlinks in Java means that all links
+ * are recorded as links to the &lt;strong&gt;canonical&lt;/strong&gt; resource name.
+ * Therefore the link: &lt;code&gt;link --&gt; subdir/dir/../foo.bar&lt;/code&gt; will be
+ * recorded as &lt;code&gt;link=subdir/foo.bar&lt;/code&gt; and restored as
+ * &lt;code&gt;link --&gt; subdir/foo.bar&lt;/code&gt;.
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>Symlink</name> <super><extends>extends <name>DispatchTask</name></extends></super> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>FileUtils</name></type> <name>FILE_UTILS</name> =<init> <expr><call><name><name>FileUtils</name>.<name>getFileUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>SymbolicLinkUtils</name></type> <name>SYMLINK_UTILS</name> =<init>
+        <expr><call><name><name>SymbolicLinkUtils</name>.<name>getSymbolicLinkUtils</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>resource</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>link</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>fileSets</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>linkFileName</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>overwrite</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>failonerror</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>executing</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Initialize the task.
+     * @throws BuildException on error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>init</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>super</name>.<name>init</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setDefaults</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * The standard method for executing any task.
+     * @throws BuildException on error.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>executing</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                <argument><expr>"Infinite recursion detected in Symlink.execute()"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <try>try <block>{
+            <expr_stmt><expr><name>executing</name> = true</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>DispatchUtils</name>.<name>execute</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><name>executing</name> = false</expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a symlink.
+     * @throws BuildException on error.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>single</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <if>if <condition>(<expr><name>resource</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr>"Must define the resource to symlink to!"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>link</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr>"Must define the link name for symlink!"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>doLink</name><argument_list>(<argument><expr><name>resource</name></expr></argument>, <argument><expr><name>link</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name>setDefaults</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Delete a symlink.
+     * @throws BuildException on error.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>delete</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <if>if <condition>(<expr><name>link</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr>"Must define the link name for symlink!"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Removing symlink: " + <name>link</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>SYMLINK_UTILS</name>.<name>deleteSymbolicLink</name></name><argument_list>(<argument><expr><call><name><name>FILE_UTILS</name>
+                                             .<name>resolveFile</name></name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr>"."</expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>link</name></expr></argument>)</argument_list></call></expr></argument>,
+                                             <argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>FileNotFoundException</name></type> <name>fnfe</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr><call><name><name>fnfe</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr><call><name><name>ioe</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name>setDefaults</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Restore symlinks.
+     * @throws BuildException on error.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>recreate</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <if>if <condition>(<expr><call><name><name>fileSets</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr>"File set identifying link file(s) "
+                            + "required for action recreate"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>Properties</name></type> <name>links</name> =<init> <expr><call><name>loadLinks</name><argument_list>(<argument><expr><name>fileSets</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>kitr</name> =<init> <expr><call><name><name>links</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>kitr</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>lnk</name> =<init> <expr>(<name>String</name>) <call><name><name>kitr</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>res</name> =<init> <expr><call><name><name>links</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>lnk</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <comment type="line">// handle the case where lnk points to a directory (bug 25181)</comment>
+                <try>try <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>test</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>lnk</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr>!<call><name><name>SYMLINK_UTILS</name>.<name>isSymbolicLink</name></name><argument_list>(<argument><expr><name>lnk</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>doLink</name><argument_list>(<argument><expr><name>res</name></expr></argument>, <argument><expr><name>lnk</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>test</name>.<name>getCanonicalPath</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(
+                        <argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>res</name></expr></argument>)</argument_list></call>.<call><name>getCanonicalPath</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name><name>SYMLINK_UTILS</name>.<name>deleteSymbolicLink</name></name><argument_list>(<argument><expr><name>test</name></expr></argument>, <argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name>doLink</name><argument_list>(<argument><expr><name>res</name></expr></argument>, <argument><expr><name>lnk</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if></else></if> <comment type="line">// else lnk exists, do nothing</comment>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                    <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr>"IO exception while creating link"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></catch></try>
+            }</block></for>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name>setDefaults</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Record symlinks.
+     * @throws BuildException on error.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>record</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <try>try <block>{
+            <if>if <condition>(<expr><call><name><name>fileSets</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr>"Fileset identifying links to record required"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>linkFileName</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr>"Name of file to record links in required"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+            <comment type="line">// create a hashtable to group them by parent directory:</comment>
+            <decl_stmt><decl><type><name>Hashtable</name></type> <name>byDir</name> =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// get an Iterator of file objects representing links (canonical):</comment>
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>litr</name> =<init> <expr><call><name>findLinks</name><argument_list>(<argument><expr><name>fileSets</name></expr></argument>)</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init>
+                <condition><expr><call><name><name>litr</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>thisLink</name> =<init> <expr>(<name>File</name>) <call><name><name>litr</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>parent</name> =<init> <expr><call><name><name>thisLink</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Vector</name></type> <name>v</name> =<init> <expr>(<name>Vector</name>) <call><name><name>byDir</name>.<name>get</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>v</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>v</name> = new <call><name>Vector</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>byDir</name>.<name>put</name></name><argument_list>(<argument><expr><name>parent</name></expr></argument>, <argument><expr><name>v</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>v</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>thisLink</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <comment type="line">// write a Properties file in each directory:</comment>
+            <for>for (<init><decl><type><name>Iterator</name></type> <name>dirs</name> =<init> <expr><call><name><name>byDir</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>dirs</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>dir</name> =<init> <expr>(<name>File</name>) <call><name><name>dirs</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Vector</name></type> <name>linksInDir</name> =<init> <expr>(<name>Vector</name>) <call><name><name>byDir</name>.<name>get</name></name><argument_list>(<argument><expr><name>dir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Properties</name></type> <name>linksToStore</name> =<init> <expr>new <call><name>Properties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="line">// fill up a Properties object with link and resource names:</comment>
+                <for>for (<init><decl><type><name>Iterator</name></type> <name>dlnk</name> =<init> <expr><call><name><name>linksInDir</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>dlnk</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>lnk</name> =<init> <expr>(<name>File</name>) <call><name><name>dlnk</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <try>try <block>{
+                        <expr_stmt><expr><call><name><name>linksToStore</name>.<name>put</name></name><argument_list>(<argument><expr><call><name><name>lnk</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><call><name><name>lnk</name>.<name>getCanonicalPath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                        <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr>"Couldn't get canonical name of parent link"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></catch></try>
+                }</block></for>
+                <expr_stmt><expr><call><name>writePropertyFile</name><argument_list>(<argument><expr><name>linksToStore</name></expr></argument>, <argument><expr><name>dir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block> <finally>finally <block>{
+            <expr_stmt><expr><call><name>setDefaults</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Return all variables to their default state for the next invocation.
+     * @since Ant 1.7
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>setDefaults</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>resource</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>link</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>linkFileName</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>failonerror</name> = true</expr>;</expr_stmt>   <comment type="line">// default behavior is to fail on an error</comment>
+        <expr_stmt><expr><name>overwrite</name> = false</expr>;</expr_stmt>    <comment type="line">// default behavior is to not overwrite</comment>
+        <expr_stmt><expr><call><name>setAction</name><argument_list>(<argument><expr>"single"</expr></argument>)</argument_list></call></expr>;</expr_stmt>      <comment type="line">// default behavior is make a single link</comment>
+        <expr_stmt><expr><call><name><name>fileSets</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set overwrite mode. If set to false (default)
+     * the task will not overwrite existing links, and may stop the build
+     * if a link already exists depending on the setting of failonerror.
+     *
+     * @param owrite If true overwrite existing links.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setOverwrite</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>owrite</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>overwrite</name></name> = <name>owrite</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set failonerror mode. If set to true (default) the entire build fails
+     * upon error; otherwise the error is logged and the build will continue.
+     *
+     * @param foe    If true throw BuildException on error, else log it.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFailOnError</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>foe</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>failonerror</name></name> = <name>foe</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the action to be performed.  May be &amp;quot;single&amp;quot;,
+     * &amp;quot;delete&amp;quot;, &amp;quot;recreate&amp;quot; or &amp;quot;record&amp;quot;.
+     *
+     * @param action    The action to perform.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setAction</name><parameter_list>(<param><decl><type><name>String</name></type> <name>action</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>super</name>.<name>setAction</name></name><argument_list>(<argument><expr><name>action</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of the link. Used when action = &amp;quot;single&amp;quot;.
+     *
+     * @param lnk     The name for the link.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLink</name><parameter_list>(<param><decl><type><name>String</name></type> <name>lnk</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>link</name></name> = <name>lnk</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of the resource to which a link should be created.
+     * Used when action = &amp;quot;single&amp;quot;.
+     *
+     * @param src      The resource to be linked.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setResource</name><parameter_list>(<param><decl><type><name>String</name></type> <name>src</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>resource</name></name> = <name>src</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the name of the file to which links will be written.
+     * Used when action = &amp;quot;record&amp;quot;.
+     *
+     * @param lf      The name of the file to write links to.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setLinkfilename</name><parameter_list>(<param><decl><type><name>String</name></type> <name>lf</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>linkFileName</name></name> = <name>lf</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a fileset to this task.
+     *
+     * @param set      The fileset to add.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileset</name><parameter_list>(<param><decl><type><name>FileSet</name></type> <name>set</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>fileSets</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>set</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Delete a symlink (without deleting the associated resource).
+     *
+     * &lt;p&gt;This is a convenience method that simply invokes
+     * &lt;code&gt;deleteSymlink(java.io.File)&lt;/code&gt;.
+     *
+     * @param path    A string containing the path of the symlink to delete.
+     *
+     * @throws FileNotFoundException   When the path results in a
+     *                                   &lt;code&gt;File&lt;/code&gt; that doesn't exist.
+     * @throws IOException             If calls to &lt;code&gt;File.rename&lt;/code&gt;
+     *                                   or &lt;code&gt;File.delete&lt;/code&gt; fail.
+     * @deprecated use
+     * org.apache.tools.ant.util.SymbolicLinkUtils#deleteSymbolicLink
+     * instead
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>deleteSymlink</name><parameter_list>(<param><decl><type><name>String</name></type> <name>path</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>FileNotFoundException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>SYMLINK_UTILS</name>.<name>deleteSymbolicLink</name></name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>path</name></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Delete a symlink (without deleting the associated resource).
+     *
+     * &lt;p&gt;This is a utility method that removes a unix symlink without removing
+     * the resource that the symlink points to. If it is accidentally invoked
+     * on a real file, the real file will not be harmed.&lt;/p&gt;
+     *
+     * &lt;p&gt;This method works by
+     * getting the canonical path of the link, using the canonical path to
+     * rename the resource (breaking the link) and then deleting the link.
+     * The resource is then returned to its original name inside a finally
+     * block to ensure that the resource is unharmed even in the event of
+     * an exception.&lt;/p&gt;
+     *
+     * &lt;p&gt;Since Ant 1.8.0 this method will try to delete the File object if
+     * it reports it wouldn't exist (as symlinks pointing nowhere usually do). 
+     * Prior version would throw a FileNotFoundException in that case.&lt;/p&gt;
+     *
+     * @param linkfil    A &lt;code&gt;File&lt;/code&gt; object of the symlink to delete.
+     *
+     * @throws IOException             If calls to &lt;code&gt;File.rename&lt;/code&gt;,
+     *                                   &lt;code&gt;File.delete&lt;/code&gt; or
+     *                                   &lt;code&gt;File.getCanonicalPath&lt;/code&gt;
+     *                                   fail.
+     * @deprecated use
+     * org.apache.tools.ant.util.SymbolicLinkUtils#deleteSymbolicLink
+     * instead
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>deleteSymlink</name><parameter_list>(<param><decl><type><name>File</name></type> <name>linkfil</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name><name>SYMLINK_UTILS</name>.<name>deleteSymbolicLink</name></name><argument_list>(<argument><expr><name>linkfil</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Write a properties file. This method uses &lt;code&gt;Properties.store&lt;/code&gt;
+     * and thus may throw exceptions that occur while writing the file.
+     *
+     * @param properties     The properties object to be written.
+     * @param dir            The directory for which we are writing the links.
+     * @throws BuildException if the property file could not be written
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>writePropertyFile</name><parameter_list>(<param><decl><type><name>Properties</name></type> <name>properties</name></decl></param>, <param><decl><type><name>File</name></type> <name>dir</name></decl></param>)</parameter_list>
+        <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>BufferedOutputStream</name></type> <name>bos</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>bos</name> = new <call><name>BufferedOutputStream</name><argument_list>(
+                <argument><expr>new <call><name>FileOutputStream</name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>dir</name></expr></argument>, <argument><expr><name>linkFileName</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>properties</name>.<name>store</name></name><argument_list>(<argument><expr><name>bos</name></expr></argument>, <argument><expr>"Symlinks from " + <name>dir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>ioe</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>bos</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Handle errors based on the setting of failonerror.
+     *
+     * @param msg    The message to log, or include in the
+     *                  &lt;code&gt;BuildException&lt;/code&gt;.
+     * @throws BuildException with the message if failonerror=true
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>handleError</name><parameter_list>(<param><decl><type><name>String</name></type> <name>msg</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>failonerror</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Conduct the actual construction of a link.
+     *
+     * &lt;p&gt; The link is constructed by calling &lt;code&gt;Execute.runCommand&lt;/code&gt;.
+     *
+     * @param res   The path of the resource we are linking to.
+     * @param lnk       The name of the link we wish to make.
+     * @throws BuildException when things go wrong
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>doLink</name><parameter_list>(<param><decl><type><name>String</name></type> <name>res</name></decl></param>, <param><decl><type><name>String</name></type> <name>lnk</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>File</name></type> <name>linkfil</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>lnk</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type> <name>options</name> =<init> <expr>"-s"</expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>overwrite</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>options</name> += "f"</expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>linkfil</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>SYMLINK_UTILS</name>.<name>deleteSymbolicLink</name></name><argument_list>(<argument><expr><name>linkfil</name></expr></argument>, <argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>FileNotFoundException</name></type> <name>fnfe</name></decl></param>) <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Symlink disappeared before it was deleted: " + <name>lnk</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Unable to overwrite preexisting link or file: " + <name>lnk</name></expr></argument>,
+                        <argument><expr><name>ioe</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>cmd</name> =<init> <expr>new <name><name>String</name><index>[]</index></name> <block>{<expr>"ln"</expr>, <expr><name>options</name></expr>, <expr><name>res</name></expr>, <expr><name>lnk</name></expr>}</block></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>Execute</name>.<name>runCommand</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>, <argument><expr><name>cmd</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>failedToExecute</name></decl></param>) <block>{
+            <if>if <condition>(<expr><name>failonerror</name></expr>)</condition><then> <block>{
+                <throw>throw <expr><name>failedToExecute</name></expr>;</throw>
+            }</block></then> <else>else <block>{
+                <comment type="line">//log at the info level, and keep going.</comment>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>failedToExecute</name>.<name>getMessage</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>failedToExecute</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find all the links in all supplied filesets.
+     *
+     * &lt;p&gt; This method is invoked when the action attribute is
+     * &amp;quot;record&amp;quot;. This means that filesets are interpreted
+     * as the directories in which links may be found.
+     *
+     * @param v   The filesets specified by the user.
+     * @return A HashSet of &lt;code&gt;File&lt;/code&gt; objects containing the
+     *         links (with canonical parent directories).
+     */</comment>
+    <function><type><specifier>private</specifier> <name>HashSet</name></type> <name>findLinks</name><parameter_list>(<param><decl><type><name>Vector</name></type> <name>v</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>HashSet</name></type> <name>result</name> =<init> <expr>new <call><name>HashSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>v</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>FileSet</name></type> <name>fs</name> =<init> <expr>(<name>FileSet</name>) <call><name><name>v</name>.<name>get</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><call><name><name>fs</name>.<name>getDirectoryScanner</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index><index>[]</index></type> <name>fnd</name> =<init> <expr>new <name><name>String</name><index>[]</index><index>[]</index></name>
+                <block>{<expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr>, <expr><call><name><name>ds</name>.<name>getIncludedDirectories</name></name><argument_list>()</argument_list></call></expr>}</block></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>dir</name> =<init> <expr><call><name><name>fs</name>.<name>getDir</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>fnd</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                <for>for (<init><decl><type><name>int</name></type> <name>k</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>k</name> &lt; <name><name>fnd</name><index>[<expr><name>j</name></expr>]</index></name>.<name>length</name></expr>;</condition> <incr><expr><name>k</name>++</expr></incr>) <block>{
+                    <try>try <block>{
+                        <decl_stmt><decl><type><name>File</name></type> <name>f</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>dir</name></expr></argument>, <argument><expr><name><name>fnd</name><index>[<expr><name>j</name></expr>]</index><index>[<expr><name>k</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <decl_stmt><decl><type><name>File</name></type> <name>pf</name> =<init> <expr><call><name><name>f</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <decl_stmt><decl><type><name>String</name></type> <name>name</name> =<init> <expr><call><name><name>f</name>.<name>getName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr><call><name><name>SYMLINK_UTILS</name>.<name>isSymbolicLink</name></name><argument_list>(<argument><expr><name>pf</name></expr></argument>, <argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                            <expr_stmt><expr><call><name><name>result</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><call><name><name>pf</name>.<name>getCanonicalFile</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name>name</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                        <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr>"IOException: " + <name><name>fnd</name><index>[<expr><name>j</name></expr>]</index><index>[<expr><name>k</name></expr>]</index></name> + " omitted"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></catch></try>
+                }</block></for>
+            }</block></for>
+        }</block></for>
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Load links from properties files included in one or more FileSets.
+     *
+     * &lt;p&gt; This method is only invoked when the action attribute is set to
+     * &amp;quot;recreate&amp;quot;. The filesets passed in are assumed to specify the
+     * names of the property files with the link information and the
+     * subdirectories in which to look for them.
+     *
+     * @param v    The &lt;code&gt;FileSet&lt;/code&gt;s for this task.
+     * @return            The links to be made.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Properties</name></type> <name>loadLinks</name><parameter_list>(<param><decl><type><name>Vector</name></type> <name>v</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Properties</name></type> <name>finalList</name> =<init> <expr>new <call><name>Properties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">// loop through the supplied file sets:</comment>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>size</name> =<init> <expr><call><name><name>v</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>size</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>FileSet</name></type> <name>fs</name> =<init> <expr>(<name>FileSet</name>) <call><name><name>v</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr>new <call><name>DirectoryScanner</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>fs</name>.<name>setupDirectoryScanner</name></name><argument_list>(<argument><expr><name>ds</name></expr></argument>, <argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ds</name>.<name>setFollowSymlinks</name></name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ds</name>.<name>scan</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>incs</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>File</name></type> <name>dir</name> =<init> <expr><call><name><name>fs</name>.<name>getDir</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <comment type="line">// load included files as properties files:</comment>
+            <for>for (<init><decl><type><name>int</name></type> <name>j</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>j</name> &lt; <name><name>incs</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>j</name>++</expr></incr>) <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>inc</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>dir</name></expr></argument>, <argument><expr><name><name>incs</name><index>[<expr><name>j</name></expr>]</index></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>pf</name> =<init> <expr><call><name><name>inc</name>.<name>getParentFile</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>Properties</name></type> <name>lnks</name> =<init> <expr>new <call><name>Properties</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>InputStream</name></type> <name>is</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+                <try>try <block>{
+                    <expr_stmt><expr><name>is</name> = new <call><name>BufferedInputStream</name><argument_list>(<argument><expr>new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>inc</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>lnks</name>.<name>load</name></name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>pf</name> = <call><name><name>pf</name>.<name>getCanonicalFile</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>FileNotFoundException</name></type> <name>fnfe</name></decl></param>) <block>{
+                    <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr>"Unable to find " + <name><name>incs</name><index>[<expr><name>j</name></expr>]</index></name> + "; skipping it."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <continue>continue;</continue>
+                }</block></catch> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>) <block>{
+                    <expr_stmt><expr><call><name>handleError</name><argument_list>(<argument><expr>"Unable to open " + <name><name>incs</name><index>[<expr><name>j</name></expr>]</index></name>
+                                + " or its parent dir; skipping it."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <continue>continue;</continue>
+                }</block></catch> <finally>finally <block>{
+                    <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>is</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></finally></try>
+                <expr_stmt><expr><call><name><name>lnks</name>.<name>list</name></name><argument_list>(<argument><expr>new <call><name>PrintStream</name><argument_list>(
+                    <argument><expr>new <call><name>LogOutputStream</name><argument_list>(<argument><expr><name>this</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <comment type="line">// Write the contents to our master list of links</comment>
+                <comment type="line">// This method assumes that all links are defined in</comment>
+                <comment type="line">// terms of absolute paths, or paths relative to the</comment>
+                <comment type="line">// working directory:</comment>
+                <for>for (<init><decl><type><name>Iterator</name></type> <name>kitr</name> =<init> <expr><call><name><name>lnks</name>.<name>keySet</name></name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>kitr</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                    <decl_stmt><decl><type><name>String</name></type> <name>key</name> =<init> <expr>(<name>String</name>) <call><name><name>kitr</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>finalList</name>.<name>put</name></name><argument_list>(<argument><expr>new <call><name>File</name><argument_list>(<argument><expr><name>pf</name></expr></argument>, <argument><expr><name>key</name></expr></argument>)</argument_list></call>.<call><name>getAbsolutePath</name><argument_list>()</argument_list></call></expr></argument>,
+                        <argument><expr><call><name><name>lnks</name>.<name>getProperty</name></name><argument_list>(<argument><expr><name>key</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></for>
+            }</block></for>
+        }</block></for>
+        <return>return <expr><name>finalList</name></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

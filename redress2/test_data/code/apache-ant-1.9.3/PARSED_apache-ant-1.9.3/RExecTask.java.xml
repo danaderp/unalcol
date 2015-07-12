@@ -1,0 +1,481 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\net\RExecTask.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>net</name></name>;</package>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>commons</name>.<name>net</name>.<name>bsd</name>.<name>RExecClient</name></name>;</import>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>OutputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Calendar</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Automates the rexec protocol.
+ *
+ * @since Ant 1.6
+ */</comment>
+
+<class><specifier>public</specifier> class <name>RExecTask</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>PAUSE_TIME</name> =<init> <expr>250</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  The userid to login with, if automated login is used
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>userid</name>  =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  The password to login with, if automated login is used
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>password</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  The command to execute
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>command</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  The server to connect to.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>server</name>  =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  The tcp port to connect to.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type> <name>port</name> =<init> <expr><name><name>RExecClient</name>.<name>DEFAULT_PORT</name></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  The list of read/write commands for this session
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Vector</name></type> <name>rexecTasks</name> =<init> <expr>new <call><name>Vector</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  If true, adds a CR to beginning of login script
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>addCarriageReturn</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  Default time allowed for waiting for a valid response
+     *  for all child reads.  A value of 0 means no limit.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Integer</name></type> <name>defaultTimeout</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     *  This class is the parent of the Read and Write tasks.
+     *  It handles the common attributes for both.
+     */</comment>
+    <class><specifier>public</specifier> class <name>RExecSubTask</name> <block>{
+        <comment type="line">// CheckStyle:VisibilityModifier OFF - bc</comment>
+        <decl_stmt><decl><type><specifier>protected</specifier> <name>String</name></type> <name>taskString</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+        <comment type="line">// CheckStyle:VisibilityModifier ON</comment>
+
+        <comment type="javadoc">/**
+         * Execute the subtask.
+         * @param rexec the client
+         * @throws BuildException always as it is not allowed to instantiate this object
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>(<param><decl><type><name>AntRExecClient</name></type> <name>rexec</name></decl></param>)</parameter_list>
+                <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Shouldn't be able instantiate a SubTask directly"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         *  the message as nested text
+         * @param s the nested text
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>addText</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>setString</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>replaceProperties</name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * the message as an attribute
+         * @param s a &lt;code&gt;String&lt;/code&gt; value
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setString</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+           <expr_stmt><expr><name>taskString</name> += <name>s</name></expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     *  Sends text to the connected server
+     */</comment>
+    <class><specifier>public</specifier> class <name>RExecWrite</name> <super><extends>extends <name>RExecSubTask</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>echoString</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+        <comment type="javadoc">/**
+         * Execute the write exec task.
+         * @param rexec the task to use
+         * @throws BuildException on error
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>(<param><decl><type><name>AntRExecClient</name></type> <name>rexec</name></decl></param>)</parameter_list>
+               <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+           <expr_stmt><expr><call><name><name>rexec</name>.<name>sendString</name></name><argument_list>(<argument><expr><name>taskString</name></expr></argument>, <argument><expr><name>echoString</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Whether or not the message should be echoed to the log.
+         * Defaults to &lt;code&gt;true&lt;/code&gt;.
+         * @param b a &lt;code&gt;boolean&lt;/code&gt; value
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setEcho</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+           <expr_stmt><expr><name>echoString</name> = <name>b</name></expr>;</expr_stmt>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     *  Reads the output from the connected server
+     *  until the required string is found or we time out.
+     */</comment>
+    <class><specifier>public</specifier> class <name>RExecRead</name> <super><extends>extends <name>RExecSubTask</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Integer</name></type> <name>timeout</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <comment type="javadoc">/**
+         * Execute the read exec task.
+         * @param rexec the task to use
+         * @throws BuildException on error
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>(<param><decl><type><name>AntRExecClient</name></type> <name>rexec</name></decl></param>)</parameter_list>
+               <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+            <expr_stmt><expr><call><name><name>rexec</name>.<name>waitForString</name></name><argument_list>(<argument><expr><name>taskString</name></expr></argument>, <argument><expr><name>timeout</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+        <comment type="javadoc">/**
+         *  a timeout value that overrides any task wide timeout.
+         * @param i an &lt;code&gt;Integer&lt;/code&gt; value
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setTimeout</name><parameter_list>(<param><decl><type><name>Integer</name></type> <name>i</name></decl></param>)</parameter_list> <block>{
+           <expr_stmt><expr><name><name>this</name>.<name>timeout</name></name> = <name>i</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Sets the default timeout if none has been set already
+         * @param defaultTimeout an &lt;code&gt;Integer&lt;/code&gt; value
+         * @ant.attribute ignore="true"
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setDefaultTimeout</name><parameter_list>(<param><decl><type><name>Integer</name></type> <name>defaultTimeout</name></decl></param>)</parameter_list> <block>{
+           <if>if <condition>(<expr><name>timeout</name> == <name>null</name></expr>)</condition><then> <block>{
+              <expr_stmt><expr><name>timeout</name> = <name>defaultTimeout</name></expr>;</expr_stmt>
+           }</block></then></if>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     *  This class handles the abstraction of the rexec protocol.
+     *  Currently it is a wrapper around &lt;a
+     *  href="http://jakarta.apache.org/commons/net/index.html"&gt;Jakarta
+     *  Commons Net&lt;/a&gt;.
+     */</comment>
+    <class><specifier>public</specifier> class <name>AntRExecClient</name> <super><extends>extends <name>RExecClient</name></extends></super> <block>{
+        <comment type="javadoc">/**
+         * Read from the rexec session until the string we are
+         * waiting for is found
+         * @param s The string to wait on
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>waitForString</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>waitForString</name><argument_list>(<argument><expr><name>s</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Read from the rexec session until the string we are
+         * waiting for is found or the timeout has been reached
+         * @param s The string to wait on
+         * @param timeout The maximum number of seconds to wait
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>waitForString</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>, <param><decl><type><name>Integer</name></type> <name>timeout</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>InputStream</name></type> <name>is</name> =<init> <expr><call><name><name>this</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <decl_stmt><decl><type><name>StringBuffer</name></type> <name>sb</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>windowStart</name> =<init> <expr>-<call><name><name>s</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>timeout</name> == <name>null</name> || <call><name><name>timeout</name>.<name>intValue</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                    <while>while <condition>(<expr><name>windowStart</name> &lt; 0
+                           || !<call><name><name>sb</name>.<name>substring</name></name><argument_list>(<argument><expr><name>windowStart</name></expr></argument>)</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr>)</condition> <block>{
+                        <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>(<name>char</name>) <call><name><name>is</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>windowStart</name>++</expr>;</expr_stmt>
+                    }</block></while>
+                }</block></then> <else>else <block>{
+                    <decl_stmt><decl><type><name>Calendar</name></type> <name>endTime</name> =<init> <expr><call><name><name>Calendar</name>.<name>getInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>endTime</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>Calendar</name>.<name>SECOND</name></name></expr></argument>, <argument><expr><call><name><name>timeout</name>.<name>intValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <while>while <condition>(<expr><name>windowStart</name> &lt; 0
+                           || !<call><name><name>sb</name>.<name>substring</name></name><argument_list>(<argument><expr><name>windowStart</name></expr></argument>)</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name>s</name></expr></argument>)</argument_list></call></expr>)</condition> <block>{
+                        <while>while <condition>(<expr><call><name><name>Calendar</name>.<name>getInstance</name></name><argument_list>()</argument_list></call>.<call><name>before</name><argument_list>(<argument><expr><name>endTime</name></expr></argument>)</argument_list></call>
+                            &amp;&amp; <call><name><name>is</name>.<name>available</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition> <block>{
+                            <expr_stmt><expr><call><name><name>Thread</name>.<name>sleep</name></name><argument_list>(<argument><expr><name>PAUSE_TIME</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></while>
+                        <if>if <condition>(<expr><call><name><name>is</name>.<name>available</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                                <argument><expr>"Response timed-out waiting for \"" + <name>s</name> + '\"'</expr></argument>,
+                                <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                        }</block></then></if>
+                        <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr>(<name>char</name>) <call><name><name>is</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><name>windowStart</name>++</expr>;</expr_stmt>
+                    }</block></while>
+                }</block></else></if>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>be</name></decl></param>) <block>{
+                <throw>throw <expr><name>be</name></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Write this string to the rexec session.
+         * @param s          the string to write
+         * @param echoString if true log the string sent
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>sendString</name><parameter_list>(<param><decl><type><name>String</name></type> <name>s</name></decl></param>, <param><decl><type><name>boolean</name></type> <name>echoString</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>OutputStream</name></type> <name>os</name> =<init> <expr><call><name><name>this</name>.<name>getOutputStream</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>os</name>.<name>write</name></name><argument_list>(<argument><expr>(<name>s</name> + "\n").<call><name>getBytes</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>echoString</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>s</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><call><name><name>os</name>.<name>flush</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></function>
+        <comment type="javadoc">/**
+         * Read from the rexec session until the EOF is found or
+         * the timeout has been reached
+         * @param timeout The maximum number of seconds to wait
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>waitForEOF</name><parameter_list>(<param><decl><type><name>Integer</name></type> <name>timeout</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>InputStream</name></type> <name>is</name> =<init> <expr><call><name><name>this</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <try>try <block>{
+                <decl_stmt><decl><type><name>StringBuffer</name></type> <name>sb</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>timeout</name> == <name>null</name> || <call><name><name>timeout</name>.<name>intValue</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>int</name></type> <name>read</name></decl>;</decl_stmt>
+                    <while>while <condition>(<expr>(<name>read</name> = <call><name><name>is</name>.<name>read</name></name><argument_list>()</argument_list></call>) != -1</expr>)</condition> <block>{
+                        <decl_stmt><decl><type><name>char</name></type> <name>c</name> =<init> <expr>(<name>char</name>) <name>read</name></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <if>if <condition>(<expr><name>c</name> == '\n'</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <expr_stmt><expr><call><name><name>sb</name>.<name>delete</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>sb</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                    }</block></while>
+                }</block></then> <else>else <block>{
+                    <decl_stmt><decl><type><name>Calendar</name></type> <name>endTime</name> =<init> <expr><call><name><name>Calendar</name>.<name>getInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>endTime</name>.<name>add</name></name><argument_list>(<argument><expr><name><name>Calendar</name>.<name>SECOND</name></name></expr></argument>, <argument><expr><call><name><name>timeout</name>.<name>intValue</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>int</name></type> <name>read</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+                    <while>while <condition>(<expr><name>read</name> != -1</expr>)</condition> <block>{
+                        <while>while <condition>(<expr><call><name><name>Calendar</name>.<name>getInstance</name></name><argument_list>()</argument_list></call>.<call><name>before</name><argument_list>(<argument><expr><name>endTime</name></expr></argument>)</argument_list></call> &amp;&amp; <call><name><name>is</name>.<name>available</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition> <block>{
+                            <expr_stmt><expr><call><name><name>Thread</name>.<name>sleep</name></name><argument_list>(<argument><expr><name>PAUSE_TIME</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></while>
+                        <if>if <condition>(<expr><call><name><name>is</name>.<name>available</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                                                     <argument><expr>"Response timed-out waiting for EOF"</expr></argument>,
+                                                     <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+                        }</block></then></if>
+                        <expr_stmt><expr><name>read</name> =  <call><name><name>is</name>.<name>read</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                        <if>if <condition>(<expr><name>read</name> != -1</expr>)</condition><then> <block>{
+                        <decl_stmt><decl><type><name>char</name></type> <name>c</name> =<init> <expr>(<name>char</name>) <name>read</name></expr></init></decl>;</decl_stmt>
+                        <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name>c</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        <if>if <condition>(<expr><name>c</name> == '\n'</expr>)</condition><then> <block>{
+                                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                                <expr_stmt><expr><call><name><name>sb</name>.<name>delete</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><call><name><name>sb</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                        }</block></then></if>
+                        }</block></then></if>
+                    }</block></while>
+                }</block></else></if>
+                <if>if <condition>(<expr><call><name><name>sb</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>be</name></decl></param>) <block>{
+                <throw>throw <expr><name>be</name></expr>;</throw>
+            }</block></catch> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>, <argument><expr><call><name>getLocation</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+        }</block></function>
+
+    }</block></class>
+    <comment type="javadoc">/**
+     *  A string to wait for from the server.
+     *  A subTask &amp;lt;read&amp;gt; tag was found.  Create the object,
+     *  Save it in our list, and return it.
+     * @return a read sub task
+     */</comment>
+
+    <function><type><specifier>public</specifier> <name>RExecSubTask</name></type> <name>createRead</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>RExecSubTask</name></type> <name>task</name> =<init> <expr>(<name>RExecSubTask</name>) new <call><name>RExecRead</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>rexecTasks</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>task</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>task</name></expr>;</return>
+    }</block></function>
+    <comment type="javadoc">/**
+     *  Add text to send to the server
+     *  A subTask &amp;lt;write&amp;gt; tag was found.  Create the object,
+     *  Save it in our list, and return it.
+     * @return a write sub task
+     */</comment>
+    <function><type><specifier>public</specifier> <name>RExecSubTask</name></type> <name>createWrite</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>RExecSubTask</name></type> <name>task</name> =<init> <expr>(<name>RExecSubTask</name>) new <call><name>RExecWrite</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>rexecTasks</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>task</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>task</name></expr>;</return>
+    }</block></function>
+    <comment type="javadoc">/**
+     *  Verify that all parameters are included.
+     *  Connect and possibly login.
+     *  Iterate through the list of Reads and writes.
+     * @throws BuildException on error
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <comment type="javadoc">/**  A server name is required to continue */</comment>
+        <if>if <condition>(<expr><name>server</name> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"No Server Specified"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <comment type="javadoc">/**  A userid and password must appear together
+         *   if they appear.  They are not required.
+         */</comment>
+        <if>if <condition>(<expr><name>userid</name> == <name>null</name> &amp;&amp; <name>password</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"No Userid Specified"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>password</name> == <name>null</name> &amp;&amp; <name>userid</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"No Password Specified"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+
+        <comment type="javadoc">/**  Create the telnet client object */</comment>
+        <decl_stmt><decl><type><name>AntRExecClient</name></type> <name>rexec</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>rexec</name> = new <call><name>AntRExecClient</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <try>try <block>{
+                <expr_stmt><expr><call><name><name>rexec</name>.<name>connect</name></name><argument_list>(<argument><expr><name>server</name></expr></argument>, <argument><expr><name>port</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Can't connect to " + <name>server</name></expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></catch></try>
+            <if>if <condition>(<expr><name>userid</name> != <name>null</name> &amp;&amp; <name>password</name> != <name>null</name> &amp;&amp; <name>command</name> != <name>null</name>
+                &amp;&amp; <call><name><name>rexecTasks</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                <comment type="line">// simple one-shot execution</comment>
+                <expr_stmt><expr><call><name><name>rexec</name>.<name>rexec</name></name><argument_list>(<argument><expr><name>userid</name></expr></argument>, <argument><expr><name>password</name></expr></argument>, <argument><expr><name>command</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">// need nested read/write elements</comment>
+                <expr_stmt><expr><call><name>handleMultipleTasks</name><argument_list>(<argument><expr><name>rexec</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <comment type="javadoc">/** Keep reading input stream until end of it or time-out */</comment>
+            <expr_stmt><expr><call><name><name>rexec</name>.<name>waitForEOF</name></name><argument_list>(<argument><expr><name>defaultTimeout</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Error r-executing command"</expr></argument>, <argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <if>if <condition>(<expr><name>rexec</name> != <name>null</name> &amp;&amp; <call><name><name>rexec</name>.<name>isConnected</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>rexec</name>.<name>disconnect</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                    <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Error disconnecting from "
+                                             + <name>server</name></expr></argument>)</argument_list></call></expr>;</throw>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></finally></try>
+    }</block></function>
+    <comment type="javadoc">/**
+     *  Process a 'typical' login.  If it differs, use the read
+     *  and write tasks explicitely
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>login</name><parameter_list>(<param><decl><type><name>AntRExecClient</name></type> <name>rexec</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>addCarriageReturn</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>rexec</name>.<name>sendString</name></name><argument_list>(<argument><expr>"\n"</expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>rexec</name>.<name>waitForString</name></name><argument_list>(<argument><expr>"ogin:"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>rexec</name>.<name>sendString</name></name><argument_list>(<argument><expr><name>userid</name></expr></argument>, <argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>rexec</name>.<name>waitForString</name></name><argument_list>(<argument><expr>"assword:"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>rexec</name>.<name>sendString</name></name><argument_list>(<argument><expr><name>password</name></expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+    <comment type="javadoc">/**
+     * Set the the command to execute on the server;
+     * @param c a &lt;code&gt;String&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setCommand</name><parameter_list>(<param><decl><type><name>String</name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>command</name></name> = <name>c</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     *  send a carriage return after connecting; optional, defaults to false.
+     * @param b a &lt;code&gt;boolean&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setInitialCR</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>b</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>addCarriageReturn</name></name> = <name>b</name></expr>;</expr_stmt>
+    }</block></function>
+    <comment type="javadoc">/**
+     *  Set the the login password to use
+     * required if &lt;tt&gt;userid&lt;/tt&gt; is set.
+     * @param p a &lt;code&gt;String&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPassword</name><parameter_list>(<param><decl><type><name>String</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>password</name></name> = <name>p</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     *  Set the tcp port to connect to; default is 23.
+     * @param p an &lt;code&gt;int&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setPort</name><parameter_list>(<param><decl><type><name>int</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>port</name></name> = <name>p</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     *  Set the hostname or address of the remote server.
+     * @param m a &lt;code&gt;String&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setServer</name><parameter_list>(<param><decl><type><name>String</name></type> <name>m</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>server</name></name> = <name>m</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * set a default timeout in seconds to wait for a response,
+     * zero means forever (the default)
+     * @param i an &lt;code&gt;Integer&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTimeout</name><parameter_list>(<param><decl><type><name>Integer</name></type> <name>i</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>defaultTimeout</name></name> = <name>i</name></expr>;</expr_stmt>
+    }</block></function>
+    <comment type="javadoc">/**
+     * Set the the login id to use on the server;
+     * required if &lt;tt&gt;password&lt;/tt&gt; is set.
+     * @param u a &lt;code&gt;String&lt;/code&gt; value
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setUserid</name><parameter_list>(<param><decl><type><name>String</name></type> <name>u</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>userid</name></name> = <name>u</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Deals with multiple read/write calls.
+     *
+     * @since Ant 1.6.3
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>handleMultipleTasks</name><parameter_list>(<param><decl><type><name>AntRExecClient</name></type> <name>rexec</name></decl></param>)</parameter_list> <block>{
+
+        <comment type="javadoc">/**  Login if userid and password were specified */</comment>
+        <if>if <condition>(<expr><name>userid</name> != <name>null</name> &amp;&amp; <name>password</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>login</name><argument_list>(<argument><expr><name>rexec</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="javadoc">/**  Process each sub command */</comment>
+        <decl_stmt><decl><type><name>Enumeration</name></type> <name>tasksToRun</name> =<init> <expr><call><name><name>rexecTasks</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><name>tasksToRun</name> != <name>null</name> &amp;&amp; <call><name><name>tasksToRun</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <decl_stmt><decl><type><name>RExecSubTask</name></type> <name>task</name> =<init> <expr>(<name>RExecSubTask</name>) <call><name><name>tasksToRun</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>task</name> <name>instanceof</name> <name>RExecRead</name> &amp;&amp; <name>defaultTimeout</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr>((<name>RExecRead</name>) <name>task</name>).<call><name>setDefaultTimeout</name><argument_list>(<argument><expr><name>defaultTimeout</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>task</name>.<name>execute</name></name><argument_list>(<argument><expr><name>rexec</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+    }</block></function>
+}</block></class>
+</unit>

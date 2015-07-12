@@ -1,0 +1,1495 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\ejb\IPlanetEjbc.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>ejb</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileInputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStream</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>InputStreamReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Date</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>HashMap</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Hashtable</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Map</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Properties</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>StringTokenizer</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>SAXParser</name></name>;</import>
+<import>import <name><name>javax</name>.<name>xml</name>.<name>parsers</name>.<name>SAXParserFactory</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>AttributeList</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>HandlerBase</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>InputSource</name></name>;</import>
+<import>import <name><name>org</name>.<name>xml</name>.<name>sax</name>.<name>SAXException</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Compiles EJB stubs and skeletons for the iPlanet Application
+ * Server (iAS).  The class will read a standard EJB descriptor (as well as an
+ * EJB descriptor specific to iPlanet Application Server) to identify one or
+ * more EJBs to process.  It will search for EJB "source" classes (the remote
+; * interface, home interface, and EJB implementation class) and the EJB stubs
+ * and skeletons in the specified destination directory.  Only if the stubs and
+ * skeletons cannot be found or if they're out of date will the iPlanet
+ * Application Server ejbc utility be run.
+ * &lt;p&gt;
+ * Because this class (and it's assorted inner classes) may be bundled into the
+ * iPlanet Application Server distribution at some point (and removed from the
+ * Ant distribution), the class has been written to be independent of all
+ * Ant-specific classes.  It is also for this reason (and to avoid cluttering
+ * the Apache Ant source files) that this utility has been packaged into a
+ * single source file.
+ * &lt;p&gt;
+ * For more information on Ant Tasks for iPlanet Application Server, see the
+ * &lt;code&gt;IPlanetDeploymentTool&lt;/code&gt; and &lt;code&gt;IPlanetEjbcTask&lt;/code&gt; classes.
+ *
+ * @see    IPlanetDeploymentTool
+ * @see    IPlanetEjbcTask
+ * @ant.task ignore="true"
+ */</comment>
+<class><specifier>public</specifier> class <name>IPlanetEjbc</name> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MIN_NUM_ARGS</name> =<init> <expr>2</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>MAX_NUM_ARGS</name> =<init> <expr>8</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>NUM_CLASSES_WITH_IIOP</name> =<init> <expr>15</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>int</name></type> <name>NUM_CLASSES_WITHOUT_IIOP</name> =<init> <expr>9</expr></init></decl>;</decl_stmt>
+
+    <comment type="block">/* Constants used for the "beantype" attribute */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>ENTITY_BEAN</name>       =<init> <expr>"entity"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>STATELESS_SESSION</name> =<init> <expr>"stateless"</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>STATEFUL_SESSION</name>  =<init> <expr>"stateful"</expr></init></decl>;</decl_stmt>
+
+    <comment type="block">/* Filenames of the standard EJB descriptor and the iAS-specific descriptor */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type>        <name>stdDescriptor</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type>        <name>iasDescriptor</name></decl>;</decl_stmt>
+
+    <comment type="block">/*
+     * Directory where "source" EJB files are stored and where stubs and
+     * skeletons will also be written.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type>        <name>destDirectory</name></decl>;</decl_stmt>
+
+    <comment type="block">/* Classpath used when the iAS ejbc is called */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>      <name>classpath</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name><index>[]</index></type>    <name>classpathElements</name></decl>;</decl_stmt>
+
+    <comment type="block">/* Options passed to the iAS ejbc */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type>     <name>retainSource</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type>     <name>debugOutput</name>  =<init> <expr>false</expr></init></decl>;</decl_stmt>
+
+    <comment type="block">/* iAS installation directory (used if ejbc isn't on user's PATH) */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>File</name></type>        <name>iasHomeDir</name></decl>;</decl_stmt>
+
+    <comment type="block">/* Parser and handler used to process both EJB descriptor files */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>SAXParser</name></type>   <name>parser</name></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>EjbcHandler</name></type> <name>handler</name> =<init> <expr>new <call><name>EjbcHandler</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="block">/*
+     * This Hashtable maintains a list of EJB class files processed by the ejbc
+     * utility (both "source" class files as well as stubs and skeletons). The
+     * key for the Hashtable is a String representing the path to the class file
+     * (relative to the destination directory).  The value for the Hashtable is
+     * a File object which reference the actual class file.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Hashtable</name></type>   <name>ejbFiles</name>     =<init> <expr>new <call><name>Hashtable</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="block">/* Value of the display-name element read from the standard EJB descriptor */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>      <name>displayName</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Constructs an instance which may be used to process EJB descriptors and
+     * generate EJB stubs and skeletons, if needed.
+     *
+     * @param stdDescriptor File referencing a standard EJB descriptor.
+     * @param iasDescriptor File referencing an iAS-specific EJB descriptor.
+     * @param destDirectory File referencing the base directory where both
+     *                      EJB "source" files are found and where stubs and
+     *                      skeletons will be written.
+     * @param classpath     String representation of the classpath to be used
+     *                      by the iAS ejbc utility.
+     * @param parser        SAXParser to be used to process both of the EJB
+     *                      descriptors.
+     * @todo classpathElements is not needed here, its never used
+     *       (at least IDEA tells me so! :)
+     */</comment>
+    <constructor><specifier>public</specifier> <name>IPlanetEjbc</name><parameter_list>(<param><decl><type><name>File</name></type> <name>stdDescriptor</name></decl></param>,
+                       <param><decl><type><name>File</name></type> <name>iasDescriptor</name></decl></param>,
+                       <param><decl><type><name>File</name></type> <name>destDirectory</name></decl></param>,
+                       <param><decl><type><name>String</name></type> <name>classpath</name></decl></param>,
+                       <param><decl><type><name>SAXParser</name></type> <name>parser</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>stdDescriptor</name></name> = <name>stdDescriptor</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>iasDescriptor</name></name>      = <name>iasDescriptor</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>destDirectory</name></name>      = <name>destDirectory</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>classpath</name></name>          = <name>classpath</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>parser</name></name>             = <name>parser</name></expr>;</expr_stmt>
+
+        <comment type="block">/*
+         * Parse the classpath into it's individual elements and store the
+         * results in the "classpathElements" instance variable.
+         */</comment>
+        <decl_stmt><decl><type><name>List</name></type> <name>elements</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>classpath</name> != <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>StringTokenizer</name></type> <name>st</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><name>classpath</name></expr></argument>,
+                                                        <argument><expr><name><name>File</name>.<name>pathSeparator</name></name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>st</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <expr_stmt><expr><call><name><name>elements</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>st</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+            <expr_stmt><expr><name>classpathElements</name>
+                    = (<name><name>String</name><index>[]</index></name>) <call><name><name>elements</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>elements</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * If true, the Java source files which are generated by the
+     * ejbc process are retained.
+     *
+     * @param retainSource A boolean indicating if the Java source files for
+     *                     the stubs and skeletons should be retained.
+     * @todo This is not documented in the HTML. On purpose?
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRetainSource</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>retainSource</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>retainSource</name></name> = <name>retainSource</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * If true, enables debugging output when ejbc is executed.
+     *
+     * @param debugOutput A boolean indicating if debugging output should be
+     *                    generated
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDebugOutput</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>debugOutput</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>debugOutput</name></name> = <name>debugOutput</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Registers the location of a local DTD file or resource.  By registering
+     * a local DTD, EJB descriptors can be parsed even when the remote servers
+     * which contain the "public" DTDs cannot be accessed.
+     *
+     * @param publicID The public DTD identifier found in an XML document.
+     * @param location The file or resource name for the appropriate DTD stored
+     *                 on the local machine.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>registerDTD</name><parameter_list>(<param><decl><type><name>String</name></type> <name>publicID</name></decl></param>, <param><decl><type><name>String</name></type> <name>location</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>handler</name>.<name>registerDTD</name></name><argument_list>(<argument><expr><name>publicID</name></expr></argument>, <argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * May be used to specify the "home" directory for this iAS installation.
+     * The directory specified should typically be
+     * &lt;code&gt;[install-location]/iplanet/ias6/ias&lt;/code&gt;.
+     *
+     * @param iasHomeDir The home directory for the user's iAS installation.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIasHomeDir</name><parameter_list>(<param><decl><type><name>File</name></type> <name>iasHomeDir</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>iasHomeDir</name></name> = <name>iasHomeDir</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns a Hashtable which contains a list of EJB class files processed by
+     * the ejbc utility (both "source" class files as well as stubs and
+     * skeletons). The key for the Hashtable is a String representing the path
+     * to the class file (relative to the destination directory).  The value for
+     * the Hashtable is a File object which reference the actual class file.
+     *
+     * @return The list of EJB files processed by the ejbc utility.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Hashtable</name></type> <name>getEjbFiles</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>ejbFiles</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the display-name element read from the standard EJB descriptor.
+     *
+     * @return The EJB-JAR display name.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>getDisplayName</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>displayName</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the list of CMP descriptors referenced in the EJB descriptors.
+     *
+     * @return An array of CMP descriptors.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getCmpDescriptors</name><parameter_list>()</parameter_list> <block>{
+        <decl_stmt><decl><type><name>List</name></type> <name>returnList</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><name>EjbInfo</name><index>[]</index></type> <name>ejbs</name> =<init> <expr><call><name><name>handler</name>.<name>getEjbs</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>ejbs</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>List</name></type> <name>descriptors</name> =<init> <expr>(<name>List</name>) <name><name>ejbs</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>getCmpDescriptors</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>returnList</name>.<name>addAll</name></name><argument_list>(<argument><expr><name>descriptors</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <return>return <expr>(<name><name>String</name><index>[]</index></name>) <call><name><name>returnList</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>returnList</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Main application method for the iPlanet Application Server ejbc utility.
+     * If the application is run with no commandline arguments, a usage
+     * statement is printed for the user.
+     *
+     * @param args The commandline arguments passed to the application.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>void</name></type> <name>main</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>args</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>File</name></type>        <name>stdDescriptor</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type>        <name>iasDescriptor</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>File</name></type>        <name>destDirectory</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name></type>      <name>classpath</name>     =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>SAXParser</name></type>   <name>parser</name>        =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type>     <name>debug</name>         =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>boolean</name></type>     <name>retainSource</name>  =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>IPlanetEjbc</name></type> <name>ejbc</name></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr>(<name><name>args</name>.<name>length</name></name> &lt; <name>MIN_NUM_ARGS</name>) || (<name><name>args</name>.<name>length</name></name> &gt; <name>MAX_NUM_ARGS</name>)</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>usage</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></then></if>
+
+        <expr_stmt><expr><name>stdDescriptor</name> = new <call><name>File</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr><name><name>args</name>.<name>length</name></name> - 2</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>iasDescriptor</name> = new <call><name>File</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr><name><name>args</name>.<name>length</name></name> - 1</expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>args</name>.<name>length</name></name> - 2</expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <if>if <condition>(<expr><name><name>args</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>equals</name><argument_list>(<argument><expr>"-classpath"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>classpath</name> = <name><name>args</name><index>[<expr>++<name>i</name></expr>]</index></name></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name><name>args</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>equals</name><argument_list>(<argument><expr>"-d"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>destDirectory</name> = new <call><name>File</name><argument_list>(<argument><expr><name><name>args</name><index>[<expr>++<name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name><name>args</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>equals</name><argument_list>(<argument><expr>"-debug"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>debug</name> = true</expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><name><name>args</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>equals</name><argument_list>(<argument><expr>"-keepsource"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>retainSource</name> = true</expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>usage</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></else></if></else></if></else></if></else></if>
+        }</block></for>
+
+        <comment type="block">/* If the -classpath flag isn't specified, use the system classpath */</comment>
+        <if>if <condition>(<expr><name>classpath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Properties</name></type> <name>props</name> =<init> <expr><call><name><name>System</name>.<name>getProperties</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>classpath</name> = <call><name><name>props</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"java.class.path"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="block">/*
+         * If the -d flag isn't specified, use the working directory as the
+         * destination directory
+         */</comment>
+        <if>if <condition>(<expr><name>destDirectory</name> == <name>null</name></expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>Properties</name></type> <name>props</name> =<init> <expr><call><name><name>System</name>.<name>getProperties</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>destDirectory</name> = new <call><name>File</name><argument_list>(<argument><expr><call><name><name>props</name>.<name>getProperty</name></name><argument_list>(<argument><expr>"user.dir"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="block">/* Construct a SAXParser used to process the descriptors */</comment>
+        <decl_stmt><decl><type><name>SAXParserFactory</name></type> <name>parserFactory</name> =<init> <expr><call><name><name>SAXParserFactory</name>.<name>newInstance</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>parserFactory</name>.<name>setValidating</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <try>try <block>{
+            <expr_stmt><expr><name>parser</name> = <call><name><name>parserFactory</name>.<name>newSAXParser</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>Exception</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// SAXException or ParserConfigurationException may be thrown</comment>
+            <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"An exception was generated while trying to "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"create a new SAXParser."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>e</name>.<name>printStackTrace</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></catch></try>
+
+        <comment type="block">/* Build and populate an instance of the ejbc utility */</comment>
+        <expr_stmt><expr><name>ejbc</name> = new <call><name>IPlanetEjbc</name><argument_list>(<argument><expr><name>stdDescriptor</name></expr></argument>, <argument><expr><name>iasDescriptor</name></expr></argument>, <argument><expr><name>destDirectory</name></expr></argument>,
+                                <argument><expr><name>classpath</name></expr></argument>, <argument><expr><name>parser</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>ejbc</name>.<name>setDebugOutput</name></name><argument_list>(<argument><expr><name>debug</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>ejbc</name>.<name>setRetainSource</name></name><argument_list>(<argument><expr><name>retainSource</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="block">/* Execute the ejbc utility -- stubs/skeletons are rebuilt, if needed */</comment>
+        <try>try <block>{
+            <expr_stmt><expr><call><name><name>ejbc</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"An IOException has occurred while reading the "
+                    + "XML descriptors (" + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call> + ")."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></catch> <catch>catch (<param><decl><type><name>SAXException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"A SAXException has occurred while reading the "
+                    + "XML descriptors (" + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call> + ")."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></catch> <catch>catch (<param><decl><type><name><name>IPlanetEjbc</name>.<name>EjbcException</name></name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"An error has occurred while executing the ejbc "
+                    + "utility (" + <call><name><name>e</name>.<name>getMessage</name></name><argument_list>()</argument_list></call> + ")."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Print a usage statement.
+     */</comment>
+    <function><type><specifier>private</specifier> <specifier>static</specifier> <name>void</name></type> <name>usage</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"java org.apache.tools.ant.taskdefs.optional.ejb.IPlanetEjbc \\"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"  [OPTIONS] [EJB 1.1 descriptor] [iAS EJB descriptor]"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Where OPTIONS are:"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"  -debug -- for additional debugging output"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"  -keepsource -- to retain Java source files generated"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"  -classpath [classpath] -- classpath used for compilation"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"  -d [destination directory] -- directory for compiled classes"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"If a classpath is not specified, the system classpath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"will be used.  If a destination directory is not specified,"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"the current working directory will be used (classes will"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"still be placed in subfolders which correspond to their"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"package name)."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>""</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"The EJB home interface, remote interface, and implementation"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"class must be found in the destination directory.  In"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"addition, the destination will look for the stubs and skeletons"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"in the destination directory to ensure they are up to date."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Compiles the stub and skeletons for the specified EJBs, if they need to
+     * be updated.
+     *
+     * @throws EjbcException If the ejbc utility cannot be correctly configured
+     *                       or if one or more of the EJB "source" classes
+     *                       cannot be found in the destination directory
+     * @throws IOException   If the parser encounters a problem reading the XML
+     *                       file
+     * @throws SAXException  If the parser encounters a problem processing the
+     *                       XML descriptor (it may wrap another exception)
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>EjbcException</name></expr></argument>, <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+
+        <expr_stmt><expr><call><name>checkConfiguration</name><argument_list>()</argument_list></call></expr>;</expr_stmt>   <comment type="line">// Throws EjbcException if unsuccessful</comment>
+
+        <decl_stmt><decl><type><name>EjbInfo</name><index>[]</index></type> <name>ejbs</name> =<init> <expr><call><name>getEjbs</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt> <comment type="line">// Returns list of EJBs for processing</comment>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>ejbs</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"EJBInfo..."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name><name>ejbs</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>toString</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>ejbs</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>EjbInfo</name></type> <name>ejb</name> =<init> <expr><name><name>ejbs</name><index>[<expr><name>i</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><call><name><name>ejb</name>.<name>checkConfiguration</name></name><argument_list>(<argument><expr><name>destDirectory</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>  <comment type="line">// Throws EjbcException</comment>
+
+            <if>if <condition>(<expr><call><name><name>ejb</name>.<name>mustBeRecompiled</name></name><argument_list>(<argument><expr><name>destDirectory</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>ejb</name>.<name>getName</name></name><argument_list>()</argument_list></call> + " must be recompiled using ejbc."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>arguments</name> =<init> <expr><call><name>buildArgumentList</name><argument_list>(<argument><expr><name>ejb</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name>callEjbc</name><argument_list>(<argument><expr><name>arguments</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><call><name><name>ejb</name>.<name>getName</name></name><argument_list>()</argument_list></call> + " is up to date."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></for>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Executes the iPlanet Application Server ejbc command-line utility.
+     *
+     * @param arguments Command line arguments to be passed to the ejbc utility.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>callEjbc</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>arguments</name></decl></param>)</parameter_list> <block>{
+
+        <comment type="block">/* Concatenate all of the command line arguments into a single String */</comment>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>args</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>arguments</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <expr_stmt><expr><call><name><name>args</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>arguments</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call>.<call><name>append</name><argument_list>(<argument><expr>" "</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+
+        <comment type="block">/* If an iAS home directory is specified, prepend it to the commmand */</comment>
+        <decl_stmt><decl><type><name>String</name></type> <name>command</name></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>iasHomeDir</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>command</name> = ""</expr>;</expr_stmt>
+        }</block></then> <else>else <block>{
+            <expr_stmt><expr><name>command</name> = <call><name><name>iasHomeDir</name>.<name>toString</name></name><argument_list>()</argument_list></call> + <name><name>File</name>.<name>separator</name></name> + "bin"
+                                                        + <name><name>File</name>.<name>separator</name></name></expr>;</expr_stmt>
+        }</block></else></if>
+        <expr_stmt><expr><name>command</name> += "ejbc "</expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>command</name> + <name>args</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="block">/*
+         * Use the Runtime object to execute an external command.  Use the
+         * RedirectOutput inner class to direct the standard and error output
+         * from the command to the JRE's standard output
+         */</comment>
+        <try>try <block>{
+            <decl_stmt><decl><type><name>Process</name></type> <name>p</name> =<init> <expr><call><name><name>Runtime</name>.<name>getRuntime</name></name><argument_list>()</argument_list></call>.<call><name>exec</name><argument_list>(<argument><expr><name>command</name> + <name>args</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>RedirectOutput</name></type> <name>output</name> =<init> <expr>new <call><name>RedirectOutput</name><argument_list>(<argument><expr><call><name><name>p</name>.<name>getInputStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>RedirectOutput</name></type> <name>error</name>  =<init> <expr>new <call><name>RedirectOutput</name><argument_list>(<argument><expr><call><name><name>p</name>.<name>getErrorStream</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>output</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>error</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>p</name>.<name>waitFor</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>p</name>.<name>destroy</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"An IOException has occurred while trying to execute ejbc."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>e</name>.<name>printStackTrace</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></catch> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">// Do nothing</comment>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Verifies that the user selections are valid.
+     *
+     * @throws EjbcException If the user selections are invalid.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>checkConfiguration</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>EjbcException</name></expr></argument></throws> <block>{
+
+        <decl_stmt><decl><type><name>String</name></type> <name>msg</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>stdDescriptor</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>msg</name> += "A standard XML descriptor file must be specified.  "</expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>iasDescriptor</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>msg</name> += "An iAS-specific XML descriptor file must be specified.  "</expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>classpath</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>msg</name> += "A classpath must be specified.    "</expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>parser</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>msg</name> += "An XML parser must be specified.    "</expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>destDirectory</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>msg</name> += "A destination directory must be specified.  "</expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>destDirectory</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>msg</name> += "The destination directory specified does not exist.  "</expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr>!<call><name><name>destDirectory</name>.<name>isDirectory</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>msg</name> += "The destination specified is not a directory.  "</expr>;</expr_stmt>
+        }</block></then></if></else></if></else></if>
+
+        <if>if <condition>(<expr><call><name><name>msg</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>EjbcException</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Parses the EJB descriptors and returns a list of EJBs which may need to
+     * be compiled.
+     *
+     * @return               An array of objects which describe the EJBs to be
+     *                       processed.
+     * @throws IOException   If the parser encounters a problem reading the XML
+     *                       files
+     * @throws SAXException  If the parser encounters a problem processing the
+     *                       XML descriptor (it may wrap another exception)
+     */</comment>
+    <function><type><specifier>private</specifier> <name>EjbInfo</name><index>[]</index></type> <name>getEjbs</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument>, <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+        <decl_stmt><decl><type><name>EjbInfo</name><index>[]</index></type> <name>ejbs</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+        <comment type="block">/*
+         * The EJB information is gathered from the standard XML EJB descriptor
+         * and the iAS-specific XML EJB descriptor using a SAX parser.
+         */</comment>
+
+        <expr_stmt><expr><call><name><name>parser</name>.<name>parse</name></name><argument_list>(<argument><expr><name>stdDescriptor</name></expr></argument>, <argument><expr><name>handler</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>parser</name>.<name>parse</name></name><argument_list>(<argument><expr><name>iasDescriptor</name></expr></argument>, <argument><expr><name>handler</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>ejbs</name> = <call><name><name>handler</name>.<name>getEjbs</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <return>return <expr><name>ejbs</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Based on this object's instance variables as well as the EJB to be
+     * processed, the correct flags and parameters are set for the ejbc
+     * command-line utility.
+     * @param ejb The EJB for which stubs and skeletons will be compiled.
+     * @return    An array of Strings which are the command-line parameters for
+     *            for the ejbc utility.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>buildArgumentList</name><parameter_list>(<param><decl><type><name>EjbInfo</name></type> <name>ejb</name></decl></param>)</parameter_list> <block>{
+
+        <decl_stmt><decl><type><name>List</name></type> <name>arguments</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <comment type="block">/* OPTIONAL COMMAND LINE PARAMETERS */</comment>
+
+        <if>if <condition>(<expr><name>debugOutput</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr>"-debug"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="block">/* No beantype flag is needed for an entity bean */</comment>
+        <if>if <condition>(<expr><call><name><name>ejb</name>.<name>getBeantype</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name>STATELESS_SESSION</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr>"-sl"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then> <else>else <if>if <condition>(<expr><call><name><name>ejb</name>.<name>getBeantype</name></name><argument_list>()</argument_list></call>.<call><name>equals</name><argument_list>(<argument><expr><name>STATEFUL_SESSION</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr>"-sf"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if></else></if>
+
+        <if>if <condition>(<expr><call><name><name>ejb</name>.<name>getIiop</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr>"-iiop"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name><name>ejb</name>.<name>getCmp</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr>"-cmp"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><name>retainSource</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr>"-gs"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <if>if <condition>(<expr><call><name><name>ejb</name>.<name>getHasession</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr>"-fo"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="block">/* REQUIRED COMMAND LINE PARAMETERS */</comment>
+
+        <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr>"-classpath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr><name>classpath</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr>"-d"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>destDirectory</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>ejb</name>.<name>getHome</name></name><argument_list>()</argument_list></call>.<call><name>getQualifiedClassName</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>ejb</name>.<name>getRemote</name></name><argument_list>()</argument_list></call>.<call><name>getQualifiedClassName</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>arguments</name>.<name>add</name></name><argument_list>(<argument><expr><call><name><name>ejb</name>.<name>getImplementation</name></name><argument_list>()</argument_list></call>.<call><name>getQualifiedClassName</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="block">/* Convert the List into an Array and return it */</comment>
+        <return>return <expr>(<name><name>String</name><index>[]</index></name>) <call><name><name>arguments</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>arguments</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convenience method used to print messages to the user if debugging
+     * messages are enabled.
+     *
+     * @param msg The String to print to standard output.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>log</name><parameter_list>(<param><decl><type><name>String</name></type> <name>msg</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>debugOutput</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+
+    <comment type="block">/* Inner classes follow */</comment>
+
+
+    <comment type="javadoc">/**
+     * This inner class is used to signal any problems during the execution of
+     * the ejbc compiler.
+     *
+     */</comment>
+    <class><specifier>public</specifier> class <name>EjbcException</name> <super><extends>extends <name>Exception</name></extends></super> <block>{
+
+        <comment type="javadoc">/**
+         * Constructs an exception with the given descriptive message.
+         *
+         * @param msg Description of the exception which has occurred.
+         */</comment>
+        <constructor><specifier>public</specifier> <name>EjbcException</name><parameter_list>(<param><decl><type><name>String</name></type> <name>msg</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>msg</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+    }</block></class>  <comment type="line">// End of EjbcException inner class</comment>
+
+
+    <comment type="javadoc">/**
+     * This inner class is an XML document handler that can be used to parse EJB
+     * descriptors (both the standard EJB descriptor as well as the iAS-specific
+     * descriptor that stores additional values for iAS).  Once the descriptors
+     * have been processed, the list of EJBs found can be obtained by calling
+     * the &lt;code&gt;getEjbs()&lt;/code&gt; method.
+     *
+     * @see    IPlanetEjbc.EjbInfo
+     */</comment>
+    <class><specifier>private</specifier> class <name>EjbcHandler</name> <super><extends>extends <name>HandlerBase</name></extends></super> <block>{
+        <comment type="javadoc">/** EJB 1.1 ID */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>PUBLICID_EJB11</name> =<init>
+            <expr>"-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN"</expr></init></decl>;</decl_stmt>
+        <comment type="javadoc">/** IPlanet ID */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>PUBLICID_IPLANET_EJB_60</name> =<init>
+            <expr>"-//Sun Microsystems, Inc.//DTD iAS Enterprise JavaBeans 1.0//EN"</expr></init></decl>;</decl_stmt>
+        <comment type="javadoc">/** EJB 1.1 location */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_IAS60_EJB11_DTD_LOCATION</name> =<init>
+            <expr>"ejb-jar_1_1.dtd"</expr></init></decl>;</decl_stmt>
+        <comment type="javadoc">/** IAS60 location */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>DEFAULT_IAS60_DTD_LOCATION</name> =<init>
+            <expr>"IASEjb_jar_1_0.dtd"</expr></init></decl>;</decl_stmt>
+
+        <comment type="block">/*
+         * Two Maps are used to track local DTDs that will be used in case the
+         * remote copies of these DTDs cannot be accessed.  The key for the Map
+         * is the DTDs public ID and the value is the local location for the DTD
+         */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Map</name></type>       <name>resourceDtds</name> =<init> <expr>new <call><name>HashMap</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Map</name></type>       <name>fileDtds</name> =<init> <expr>new <call><name>HashMap</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Map</name></type>       <name>ejbs</name> =<init> <expr>new <call><name>HashMap</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>      <comment type="line">// List of EJBs found in XML</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>EjbInfo</name></type>   <name>currentEjb</name></decl>;</decl_stmt>             <comment type="line">// One item within the Map</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type>   <name>iasDescriptor</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>  <comment type="line">// Is doc iAS or EJB descriptor</comment>
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>    <name>currentLoc</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>        <comment type="line">// Tracks current element</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>    <name>currentText</name></decl>;</decl_stmt>            <comment type="line">// Tracks current text data</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>    <name>ejbType</name></decl>;</decl_stmt>                <comment type="line">// "session" or "entity"</comment>
+
+        <comment type="javadoc">/**
+         * Constructs a new instance of the handler and registers local copies
+         * of the standard EJB 1.1 descriptor DTD as well as iAS's EJB
+         * descriptor DTD.
+         */</comment>
+        <constructor><specifier>public</specifier> <name>EjbcHandler</name><parameter_list>()</parameter_list> <block>{
+            <expr_stmt><expr><call><name>registerDTD</name><argument_list>(<argument><expr><name>PUBLICID_EJB11</name></expr></argument>, <argument><expr><name>DEFAULT_IAS60_EJB11_DTD_LOCATION</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>registerDTD</name><argument_list>(<argument><expr><name>PUBLICID_IPLANET_EJB_60</name></expr></argument>, <argument><expr><name>DEFAULT_IAS60_DTD_LOCATION</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Returns the list of EJB objects found during the processing of the
+         * standard EJB 1.1 descriptor and iAS-specific EJB descriptor.
+         *
+         * @return An array of EJBs which were found during the descriptor
+         *         parsing.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>EjbInfo</name><index>[]</index></type> <name>getEjbs</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr>(<name><name>EjbInfo</name><index>[]</index></name>) <call><name><name>ejbs</name>.<name>values</name></name><argument_list>()</argument_list></call>.<call><name>toArray</name><argument_list>(<argument><expr>new <name><name>EjbInfo</name><index>[<expr><call><name><name>ejbs</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Returns the value of the display-name element found in the standard
+         * EJB 1.1 descriptor.
+         *
+         * @return String display-name value.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getDisplayName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>displayName</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Registers a local DTD that will be used when parsing an EJB
+         * descriptor.  When the DTD's public identifier is found in an XML
+         * document, the parser will reference the local DTD rather than the
+         * remote DTD.  This enables XML documents to be processed even when the
+         * public DTD isn't available.
+         *
+         * @param publicID The DTD's public identifier.
+         * @param location The location of the local DTD copy -- the location
+         *                 may either be a resource found on the classpath or a
+         *                 local file.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>registerDTD</name><parameter_list>(<param><decl><type><name>String</name></type> <name>publicID</name></decl></param>, <param><decl><type><name>String</name></type> <name>location</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Registering: " + <name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr>(<name>publicID</name> == <name>null</name>) || (<name>location</name> == <name>null</name>)</expr>)</condition><then> <block>{
+                <return>return;</return>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><call><name><name>ClassLoader</name>.<name>getSystemResource</name></name><argument_list>(<argument><expr><name>location</name></expr></argument>)</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found resource: " + <name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>resourceDtds</name>.<name>put</name></name><argument_list>(<argument><expr><name>publicID</name></expr></argument>, <argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <decl_stmt><decl><type><name>File</name></type> <name>dtdFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>location</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><call><name><name>dtdFile</name>.<name>exists</name></name><argument_list>()</argument_list></call> &amp;&amp; <call><name><name>dtdFile</name>.<name>isFile</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr>"Found file: " + <name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>fileDtds</name>.<name>put</name></name><argument_list>(<argument><expr><name>publicID</name></expr></argument>, <argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></else></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Resolves an external entity found during XML processing.  If a public
+         * ID is found that has been registered with the handler, an &lt;code&gt;
+         * InputSource&lt;/code&gt; will be returned which refers to the local copy.
+         * If the public ID hasn't been registered or if an error occurs, the
+         * superclass implementation is used.
+         *
+         * @param publicId The DTD's public identifier.
+         * @param systemId The location of the DTD, as found in the XML document.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>InputSource</name></type> <name>resolveEntity</name><parameter_list>(<param><decl><type><name>String</name></type> <name>publicId</name></decl></param>, <param><decl><type><name>String</name></type> <name>systemId</name></decl></param>)</parameter_list>
+                <throws>throws <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+            <decl_stmt><decl><type><name>InputStream</name></type> <name>inputStream</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+
+            <try>try <block>{
+
+                <comment type="block">/* Search the resource Map and (if not found) file Map */</comment>
+
+                <decl_stmt><decl><type><name>String</name></type> <name>location</name> =<init> <expr>(<name>String</name>) <call><name><name>resourceDtds</name>.<name>get</name></name><argument_list>(<argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>location</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>inputStream</name>
+                        = <call><name><name>ClassLoader</name>.<name>getSystemResource</name></name><argument_list>(<argument><expr><name>location</name></expr></argument>)</argument_list></call>.<call><name>openStream</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block></then> <else>else <block>{
+                    <expr_stmt><expr><name>location</name> = (<name>String</name>) <call><name><name>fileDtds</name>.<name>get</name></name><argument_list>(<argument><expr><name>publicId</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <if>if <condition>(<expr><name>location</name> != <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>inputStream</name> = new <call><name>FileInputStream</name><argument_list>(<argument><expr><name>location</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    }</block></then></if>
+                }</block></else></if>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <return>return <expr><call><name><name>super</name>.<name>resolveEntity</name></name><argument_list>(<argument><expr><name>publicId</name></expr></argument>, <argument><expr><name>systemId</name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></catch></try>
+
+            <if>if <condition>(<expr><name>inputStream</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><call><name><name>super</name>.<name>resolveEntity</name></name><argument_list>(<argument><expr><name>publicId</name></expr></argument>, <argument><expr><name>systemId</name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></then> <else>else <block>{
+                <return>return <expr>new <call><name>InputSource</name><argument_list>(<argument><expr><name>inputStream</name></expr></argument>)</argument_list></call></expr>;</return>
+            }</block></else></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Receive notification that the start of an XML element has been found.
+         *
+         * @param name String name of the element found.
+         * @param atts AttributeList of the attributes included with the element
+         *             (if any).
+         * @throws SAXException If the parser cannot process the document.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>startElement</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>AttributeList</name></type> <name>atts</name></decl></param>)</parameter_list>
+                <throws>throws <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+
+            <comment type="block">/*
+             * I need to "push" the element onto the String (currentLoc) which
+             * always represents the current location in the XML document.
+             */</comment>
+            <expr_stmt><expr><name>currentLoc</name> += "\\" + <name>name</name></expr>;</expr_stmt>
+
+            <comment type="block">/* A new element has started, so reset the text being captured */</comment>
+            <expr_stmt><expr><name>currentText</name> = ""</expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr>"\\ejb-jar"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>iasDescriptor</name> = false</expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr>"\\ias-ejb-jar"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>iasDescriptor</name> = true</expr>;</expr_stmt>
+            }</block></then></if></else></if>
+
+            <if>if <condition>(<expr>(<call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr>"session"</expr></argument>)</argument_list></call>) || (<call><name><name>name</name>.<name>equals</name></name><argument_list>(<argument><expr>"entity"</expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>ejbType</name> = <name>name</name></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Receive notification that character data has been found in the XML
+         * document
+         *
+         * @param ch Array of characters which have been found in the document.
+         * @param start Starting index of the data found in the document.
+         * @param len The number of characters found in the document.
+         * @throws SAXException If the parser cannot process the document.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>characters</name><parameter_list>(<param><decl><type><name><name>char</name><index>[]</index></name></type> <name>ch</name></decl></param>, <param><decl><type><name>int</name></type> <name>start</name></decl></param>, <param><decl><type><name>int</name></type> <name>len</name></decl></param>)</parameter_list>
+                <throws>throws <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+
+            <expr_stmt><expr><name>currentText</name> += new <call><name>String</name><argument_list>(<argument><expr><name>ch</name></expr></argument>)</argument_list></call>.<call><name>substring</name><argument_list>(<argument><expr><name>start</name></expr></argument>, <argument><expr><name>start</name> + <name>len</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Receive notification that the end of an XML element has been found.
+         *
+         * @param name String name of the element.
+         * @throws SAXException If the parser cannot process the document.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>endElement</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>SAXException</name></expr></argument></throws> <block>{
+
+            <comment type="block">/*
+             * If this is a standard EJB 1.1 descriptor, we are looking for one
+             * set of data, while if this is an iAS-specific descriptor, we're
+             * looking for different set of data.  Hand the processing off to
+             * the appropriate method.
+             */</comment>
+            <if>if <condition>(<expr><name>iasDescriptor</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name>iasCharacters</name><argument_list>(<argument><expr><name>currentText</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>stdCharacters</name><argument_list>(<argument><expr><name>currentText</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <comment type="block">/*
+             * I need to "pop" the element off the String (currentLoc) which
+             * always represents my current location in the XML document.
+             */</comment>
+
+            <decl_stmt><decl><type><name>int</name></type> <name>nameLength</name> =<init> <expr><call><name><name>name</name>.<name>length</name></name><argument_list>()</argument_list></call> + 1</expr></init></decl>;</decl_stmt> <comment type="line">// Add one for the "\"</comment>
+            <decl_stmt><decl><type><name>int</name></type> <name>locLength</name>  =<init> <expr><call><name><name>currentLoc</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><name>currentLoc</name> = <call><name><name>currentLoc</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>locLength</name> - <name>nameLength</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Receive notification that character data has been found in a standard
+         * EJB 1.1 descriptor.  We're interested in retrieving the home
+         * interface, remote interface, implementation class, the type of bean,
+         * and if the bean uses CMP.
+         *
+         * @param value String data found in the XML document.
+         */</comment>
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>stdCharacters</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+
+            <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr>"\\ejb-jar\\display-name"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>displayName</name> = <name>value</name></expr>;</expr_stmt>
+                <return>return;</return>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>String</name></type> <name>base</name> =<init> <expr>"\\ejb-jar\\enterprise-beans\\" + <name>ejbType</name></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr><name>base</name> + "\\ejb-name"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>currentEjb</name> = (<name>EjbInfo</name>) <call><name><name>ejbs</name>.<name>get</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>currentEjb</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>currentEjb</name> = new <call><name>EjbInfo</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>ejbs</name>.<name>put</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>, <argument><expr><name>currentEjb</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr><name>base</name> + "\\home"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>currentEjb</name>.<name>setHome</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr><name>base</name> + "\\remote"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>currentEjb</name>.<name>setRemote</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr><name>base</name> + "\\ejb-class"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>currentEjb</name>.<name>setImplementation</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr><name>base</name> + "\\prim-key-class"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>currentEjb</name>.<name>setPrimaryKey</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr><name>base</name> + "\\session-type"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>currentEjb</name>.<name>setBeantype</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr><name>base</name> + "\\persistence-type"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>currentEjb</name>.<name>setCmp</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if></else></if></else></if></else></if></else></if></else></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Receive notification that character data has been found in an
+         * iAS-specific descriptor.  We're interested in retrieving data
+         * indicating whether the bean must support RMI/IIOP access, whether
+         * the bean must provide highly available stubs and skeletons (in the
+         * case of stateful session beans), and if this bean uses additional
+         * CMP XML descriptors (in the case of entity beans with CMP).
+         *
+         * @param value String data found in the XML document.
+         */</comment>
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>iasCharacters</name><parameter_list>(<param><decl><type><name>String</name></type> <name>value</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>base</name> =<init> <expr>"\\ias-ejb-jar\\enterprise-beans\\" + <name>ejbType</name></expr></init></decl>;</decl_stmt>
+
+            <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr><name>base</name> + "\\ejb-name"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>currentEjb</name> = (<name>EjbInfo</name>) <call><name><name>ejbs</name>.<name>get</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>currentEjb</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>currentEjb</name> = new <call><name>EjbInfo</name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>ejbs</name>.<name>put</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>, <argument><expr><name>currentEjb</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr><name>base</name> + "\\iiop"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>currentEjb</name>.<name>setIiop</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr><name>base</name> + "\\failover-required"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>currentEjb</name>.<name>setHasession</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <if>if <condition>(<expr><call><name><name>currentLoc</name>.<name>equals</name></name><argument_list>(<argument><expr><name>base</name> + "\\persistence-manager"
+                                              + "\\properties-file-location"</expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>currentEjb</name>.<name>addCmpDescriptor</name></name><argument_list>(<argument><expr><name>value</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if></else></if></else></if></else></if>
+        }</block></function>
+    }</block></class>  <comment type="line">// End of EjbcHandler inner class</comment>
+
+
+    <comment type="javadoc">/**
+     * This inner class represents an EJB that will be compiled using ejbc.
+     *
+     */</comment>
+    <class><specifier>private</specifier> class <name>EjbInfo</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>     <name>name</name></decl>;</decl_stmt>              <comment type="line">// EJB's display name</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Classname</name></type>  <name>home</name></decl>;</decl_stmt>              <comment type="line">// EJB's home interface name</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Classname</name></type>  <name>remote</name></decl>;</decl_stmt>            <comment type="line">// EJB's remote interface name</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Classname</name></type>  <name>implementation</name></decl>;</decl_stmt>      <comment type="line">// EJB's implementation class</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Classname</name></type>  <name>primaryKey</name></decl>;</decl_stmt>        <comment type="line">// EJB's primary key class</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>  <name>beantype</name> =<init> <expr>"entity"</expr></init></decl>;</decl_stmt>  <comment type="line">// or "stateful" or "stateless"</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>cmp</name>       =<init> <expr>false</expr></init></decl>;</decl_stmt>      <comment type="line">// Does this EJB support CMP?</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>iiop</name>      =<init> <expr>false</expr></init></decl>;</decl_stmt>      <comment type="line">// Does this EJB support IIOP?</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>hasession</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>      <comment type="line">// Does this EJB require failover?</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>List</name></type> <name>cmpDescriptors</name> =<init> <expr>new <call><name>ArrayList</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>  <comment type="line">// CMP descriptor list</comment>
+
+        <comment type="javadoc">/**
+         * Construct a new EJBInfo object with the given name.
+         *
+         * @param name The display name for the EJB.
+         */</comment>
+        <constructor><specifier>public</specifier> <name>EjbInfo</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>name</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Returns the display name of the EJB.  If a display name has not been
+         * set, it returns the EJB implementation classname (if the
+         * implementation class is not set, it returns "[unnamed]").
+         *
+         * @return The display name for the EJB.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getName</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>name</name> == <name>null</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><name>implementation</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <return>return <expr>"[unnamed]"</expr>;</return>
+                }</block></then> <else>else <block>{
+                    <return>return <expr><call><name><name>implementation</name>.<name>getClassName</name></name><argument_list>()</argument_list></call></expr>;</return>
+                }</block></else></if>
+            }</block></then></if>
+            <return>return <expr><name>name</name></expr>;</return>
+        }</block></function>
+
+        <comment type="block">/*
+         * Below are getter's and setter's for each of the instance variables.
+         * Note that (in addition to supporting setters with the same type as
+         * the instance variable) a setter is provided with takes a String
+         * argument -- this are provided so the XML document handler can set
+         * the EJB values using the Strings it parses.
+         */</comment>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setHome</name><parameter_list>(<param><decl><type><name>String</name></type> <name>home</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>setHome</name><argument_list>(<argument><expr>new <call><name>Classname</name><argument_list>(<argument><expr><name>home</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setHome</name><parameter_list>(<param><decl><type><name>Classname</name></type> <name>home</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>home</name></name> = <name>home</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>Classname</name></type> <name>getHome</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>home</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setRemote</name><parameter_list>(<param><decl><type><name>String</name></type> <name>remote</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>setRemote</name><argument_list>(<argument><expr>new <call><name>Classname</name><argument_list>(<argument><expr><name>remote</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setRemote</name><parameter_list>(<param><decl><type><name>Classname</name></type> <name>remote</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>remote</name></name> = <name>remote</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>Classname</name></type> <name>getRemote</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>remote</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setImplementation</name><parameter_list>(<param><decl><type><name>String</name></type> <name>implementation</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>setImplementation</name><argument_list>(<argument><expr>new <call><name>Classname</name><argument_list>(<argument><expr><name>implementation</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setImplementation</name><parameter_list>(<param><decl><type><name>Classname</name></type> <name>implementation</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>implementation</name></name> = <name>implementation</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>Classname</name></type> <name>getImplementation</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>implementation</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setPrimaryKey</name><parameter_list>(<param><decl><type><name>String</name></type> <name>primaryKey</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>setPrimaryKey</name><argument_list>(<argument><expr>new <call><name>Classname</name><argument_list>(<argument><expr><name>primaryKey</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setPrimaryKey</name><parameter_list>(<param><decl><type><name>Classname</name></type> <name>primaryKey</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>primaryKey</name></name> = <name>primaryKey</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>Classname</name></type> <name>getPrimaryKey</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>primaryKey</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setBeantype</name><parameter_list>(<param><decl><type><name>String</name></type> <name>beantype</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>beantype</name></name> = <call><name><name>beantype</name>.<name>toLowerCase</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getBeantype</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>beantype</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setCmp</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>cmp</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>cmp</name></name> = <name>cmp</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setCmp</name><parameter_list>(<param><decl><type><name>String</name></type> <name>cmp</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>setCmp</name><argument_list>(<argument><expr><call><name><name>cmp</name>.<name>equals</name></name><argument_list>(<argument><expr>"Container"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getCmp</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>cmp</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setIiop</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>iiop</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>iiop</name></name> = <name>iiop</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setIiop</name><parameter_list>(<param><decl><type><name>String</name></type> <name>iiop</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>setIiop</name><argument_list>(<argument><expr><call><name><name>iiop</name>.<name>equals</name></name><argument_list>(<argument><expr>"true"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getIiop</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>iiop</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setHasession</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>hasession</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>hasession</name></name> = <name>hasession</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setHasession</name><parameter_list>(<param><decl><type><name>String</name></type> <name>hasession</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>setHasession</name><argument_list>(<argument><expr><call><name><name>hasession</name>.<name>equals</name></name><argument_list>(<argument><expr>"true"</expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>getHasession</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>hasession</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>addCmpDescriptor</name><parameter_list>(<param><decl><type><name>String</name></type> <name>descriptor</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name><name>cmpDescriptors</name>.<name>add</name></name><argument_list>(<argument><expr><name>descriptor</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>public</specifier> <name>List</name></type> <name>getCmpDescriptors</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>cmpDescriptors</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Verifies that the EJB is valid--if it is invalid, an exception is
+         * thrown
+         *
+         *
+         * @param buildDir The directory where the EJB remote interface, home
+         *                 interface, and implementation class must be found.
+         * @throws EjbcException If the EJB is invalid.
+         */</comment>
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>checkConfiguration</name><parameter_list>(<param><decl><type><name>File</name></type> <name>buildDir</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>EjbcException</name></expr></argument></throws>  <block>{
+
+            <comment type="block">/* Check that the specified instance variables are valid */</comment>
+            <if>if <condition>(<expr><name>home</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>EjbcException</name><argument_list>(<argument><expr>"A home interface was not found "
+                            + "for the " + <name>name</name> + " EJB."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>remote</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>EjbcException</name><argument_list>(<argument><expr>"A remote interface was not found "
+                            + "for the " + <name>name</name> + " EJB."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>implementation</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>EjbcException</name><argument_list>(<argument><expr>"An EJB implementation class was not "
+                            + "found for the " + <name>name</name> + " EJB."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <if>if <condition>(<expr>(!<call><name><name>beantype</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ENTITY_BEAN</name></expr></argument>)</argument_list></call>)
+                        &amp;&amp; (!<call><name><name>beantype</name>.<name>equals</name></name><argument_list>(<argument><expr><name>STATELESS_SESSION</name></expr></argument>)</argument_list></call>)
+                        &amp;&amp; (!<call><name><name>beantype</name>.<name>equals</name></name><argument_list>(<argument><expr><name>STATEFUL_SESSION</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>EjbcException</name><argument_list>(<argument><expr>"The beantype found (" + <name>beantype</name> + ") "
+                            + "isn't valid in the " + <name>name</name> + " EJB."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>cmp</name> &amp;&amp; (!<call><name><name>beantype</name>.<name>equals</name></name><argument_list>(<argument><expr><name>ENTITY_BEAN</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"CMP stubs and skeletons may not be generated"
+                    + " for a Session Bean -- the \"cmp\" attribute will be"
+                    + " ignoredfor the " + <name>name</name> + " EJB."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <if>if <condition>(<expr><name>hasession</name> &amp;&amp; (!<call><name><name>beantype</name>.<name>equals</name></name><argument_list>(<argument><expr><name>STATEFUL_SESSION</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"Highly available stubs and skeletons may "
+                    + "only be generated for a Stateful Session Bean -- the "
+                    + "\"hasession\" attribute will be ignored for the "
+                    + <name>name</name> + " EJB."</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <comment type="block">/* Check that the EJB "source" classes all exist */</comment>
+            <if>if <condition>(<expr>!<call><name><name>remote</name>.<name>getClassFile</name></name><argument_list>(<argument><expr><name>buildDir</name></expr></argument>)</argument_list></call>.<call><name>exists</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>EjbcException</name><argument_list>(<argument><expr>"The remote interface "
+                            + <call><name><name>remote</name>.<name>getQualifiedClassName</name></name><argument_list>()</argument_list></call> + " could not be "
+                            + "found."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr>!<call><name><name>home</name>.<name>getClassFile</name></name><argument_list>(<argument><expr><name>buildDir</name></expr></argument>)</argument_list></call>.<call><name>exists</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>EjbcException</name><argument_list>(<argument><expr>"The home interface "
+                            + <call><name><name>home</name>.<name>getQualifiedClassName</name></name><argument_list>()</argument_list></call> + " could not be "
+                            + "found."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr>!<call><name><name>implementation</name>.<name>getClassFile</name></name><argument_list>(<argument><expr><name>buildDir</name></expr></argument>)</argument_list></call>.<call><name>exists</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>EjbcException</name><argument_list>(<argument><expr>"The EJB implementation class "
+                            + <call><name><name>implementation</name>.<name>getQualifiedClassName</name></name><argument_list>()</argument_list></call> + " could "
+                            + "not be found."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Determines if the ejbc utility needs to be run or not.  If the stubs
+         * and skeletons can all be found in the destination directory AND all
+         * of their timestamps are more recent than the EJB source classes
+         * (home, remote, and implementation classes), the method returns
+         * &lt;code&gt;false&lt;/code&gt;.  Otherwise, the method returns &lt;code&gt;true&lt;/code&gt;.
+         *
+         * @param destDir The directory where the EJB source classes, stubs and
+         *                skeletons are located.
+         * @return A boolean indicating whether or not the ejbc utility needs to
+         *         be run to bring the stubs and skeletons up to date.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>mustBeRecompiled</name><parameter_list>(<param><decl><type><name>File</name></type> <name>destDir</name></decl></param>)</parameter_list> <block>{
+
+            <decl_stmt><decl><type><name>long</name></type> <name>sourceModified</name> =<init> <expr><call><name>sourceClassesModified</name><argument_list>(<argument><expr><name>destDir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>long</name></type> <name>destModified</name> =<init> <expr><call><name>destClassesModified</name><argument_list>(<argument><expr><name>destDir</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+            <return>return <expr>(<name>destModified</name> &lt; <name>sourceModified</name>)</expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Examines each of the EJB source classes (home, remote, and
+         * implementation) and returns the modification timestamp for the
+         * "oldest" class.
+         *
+         * @param classpath The classpath to be used to find the source EJB
+         *                  classes.  If &lt;code&gt;null&lt;/code&gt;, the system classpath
+         *                  is used.
+         * @return The modification timestamp for the "oldest" EJB source class.
+         * @throws BuildException If one of the EJB source classes cannot be
+         *                        found on the classpath.
+         */</comment>
+        <function><type><specifier>private</specifier> <name>long</name></type> <name>sourceClassesModified</name><parameter_list>(<param><decl><type><name>File</name></type> <name>buildDir</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>long</name></type> <name>latestModified</name></decl>;</decl_stmt> <comment type="line">// The timestamp of the "newest" class</comment>
+            <decl_stmt><decl><type><name>long</name></type> <name>modified</name></decl>;</decl_stmt>       <comment type="line">// Timestamp for a given class</comment>
+            <decl_stmt><decl><type><name>File</name></type> <name>remoteFile</name></decl>;</decl_stmt>     <comment type="line">// File for the remote interface class</comment>
+            <decl_stmt><decl><type><name>File</name></type> <name>homeFile</name></decl>;</decl_stmt>       <comment type="line">// File for the home interface class</comment>
+            <decl_stmt><decl><type><name>File</name></type> <name>implFile</name></decl>;</decl_stmt>       <comment type="line">// File for the EJB implementation class</comment>
+            <decl_stmt><decl><type><name>File</name></type> <name>pkFile</name></decl>;</decl_stmt>         <comment type="line">// File for the EJB primary key class</comment>
+
+            <comment type="block">/* Check the timestamp on the remote interface */</comment>
+            <expr_stmt><expr><name>remoteFile</name> = <call><name><name>remote</name>.<name>getClassFile</name></name><argument_list>(<argument><expr><name>buildDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>modified</name> = <call><name><name>remoteFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>modified</name> == -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"The class "
+                                + <call><name><name>remote</name>.<name>getQualifiedClassName</name></name><argument_list>()</argument_list></call> + " couldn't "
+                                + "be found on the classpath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>-1</expr>;</return>
+            }</block></then></if>
+            <expr_stmt><expr><name>latestModified</name> = <name>modified</name></expr>;</expr_stmt>
+
+            <comment type="block">/* Check the timestamp on the home interface */</comment>
+            <expr_stmt><expr><name>homeFile</name> = <call><name><name>home</name>.<name>getClassFile</name></name><argument_list>(<argument><expr><name>buildDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>modified</name> = <call><name><name>homeFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>modified</name> == -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"The class "
+                                + <call><name><name>home</name>.<name>getQualifiedClassName</name></name><argument_list>()</argument_list></call> + " couldn't be "
+                                + "found on the classpath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>-1</expr>;</return>
+            }</block></then></if>
+            <expr_stmt><expr><name>latestModified</name> = <call><name><name>Math</name>.<name>max</name></name><argument_list>(<argument><expr><name>latestModified</name></expr></argument>, <argument><expr><name>modified</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="block">/* Check the timestamp of the primary key class */</comment>
+            <if>if <condition>(<expr><name>primaryKey</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>pkFile</name> = <call><name><name>primaryKey</name>.<name>getClassFile</name></name><argument_list>(<argument><expr><name>buildDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>modified</name> = <call><name><name>pkFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>modified</name> == -1</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"The class "
+                                    + <call><name><name>primaryKey</name>.<name>getQualifiedClassName</name></name><argument_list>()</argument_list></call> + "couldn't be "
+                                    + "found on the classpath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <return>return <expr>-1</expr>;</return>
+                }</block></then></if>
+                <expr_stmt><expr><name>latestModified</name> = <call><name><name>Math</name>.<name>max</name></name><argument_list>(<argument><expr><name>latestModified</name></expr></argument>, <argument><expr><name>modified</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>pkFile</name> = <name>null</name></expr>;</expr_stmt>
+            }</block></else></if>
+
+            <comment type="block">/* Check the timestamp on the EJB implementation class.
+             *
+             * Note that if ONLY the implementation class has changed, it's not
+             * necessary to rebuild the EJB stubs and skeletons.  For this
+             * reason, we ensure the file exists (using lastModified above), but
+             * we DON'T compare it's timestamp with the timestamps of the home
+             * and remote interfaces (because it's irrelevant in determining if
+             * ejbc must be run)
+             */</comment>
+            <expr_stmt><expr><name>implFile</name> = <call><name><name>implementation</name>.<name>getClassFile</name></name><argument_list>(<argument><expr><name>buildDir</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>modified</name> = <call><name><name>implFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>modified</name> == -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr>"The class "
+                                + <call><name><name>implementation</name>.<name>getQualifiedClassName</name></name><argument_list>()</argument_list></call>
+                                + " couldn't be found on the classpath"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <return>return <expr>-1</expr>;</return>
+            }</block></then></if>
+
+            <decl_stmt><decl><type><name>String</name></type> <name>pathToFile</name> =<init> <expr><call><name><name>remote</name>.<name>getQualifiedClassName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name>pathToFile</name> = <call><name><name>pathToFile</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call> + ".class"</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>pathToFile</name></expr></argument>, <argument><expr><name>remoteFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><name>pathToFile</name> = <call><name><name>home</name>.<name>getQualifiedClassName</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>pathToFile</name> = <call><name><name>pathToFile</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call> + ".class"</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>pathToFile</name></expr></argument>, <argument><expr><name>homeFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <expr_stmt><expr><name>pathToFile</name> = <call><name><name>implementation</name>.<name>getQualifiedClassName</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>pathToFile</name> = <call><name><name>pathToFile</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call> + ".class"</expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>pathToFile</name></expr></argument>, <argument><expr><name>implFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr><name>pkFile</name> != <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>pathToFile</name> = <call><name><name>primaryKey</name>.<name>getQualifiedClassName</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>pathToFile</name> = <call><name><name>pathToFile</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call> + ".class"</expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>pathToFile</name></expr></argument>, <argument><expr><name>pkFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <return>return <expr><name>latestModified</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Examines each of the EJB stubs and skeletons in the destination
+         * directory and returns the modification timestamp for the "oldest"
+         * class. If one of the stubs or skeletons cannot be found, &lt;code&gt;-1
+         * &lt;/code&gt; is returned.
+         *
+         * @param dest The directory in which the EJB stubs and skeletons are
+         *             stored.
+         * @return The modification timestamp for the "oldest" EJB stub or
+         *         skeleton.  If one of the classes cannot be found, &lt;code&gt;-1
+         *         &lt;/code&gt; is returned.
+         * @throws BuildException If the canonical path of the destination
+         *                        directory cannot be found.
+         */</comment>
+        <function><type><specifier>private</specifier> <name>long</name></type> <name>destClassesModified</name><parameter_list>(<param><decl><type><name>File</name></type> <name>destDir</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>classnames</name> =<init> <expr><call><name>classesToGenerate</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt> <comment type="line">// List of all stubs &amp; skels</comment>
+            <decl_stmt><decl><type><name>long</name></type> <name>destClassesModified</name> =<init> <expr>new <call><name>Date</name><argument_list>()</argument_list></call>.<call><name>getTime</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt> <comment type="line">// Earliest mod time</comment>
+            <decl_stmt><decl><type><name>boolean</name></type> <name>allClassesFound</name>  =<init> <expr>true</expr></init></decl>;</decl_stmt>           <comment type="line">// Has each been found?</comment>
+
+            <comment type="block">/*
+             * Loop through each stub/skeleton class that must be generated, and
+             * determine (if all exist) which file has the most recent timestamp
+             */</comment>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>classnames</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+
+                <decl_stmt><decl><type><name>String</name></type> <name>pathToClass</name> =<init>
+                        <expr><name><name>classnames</name><index>[<expr><name>i</name></expr>]</index></name>.<call><name>replace</name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call> + ".class"</expr></init></decl>;</decl_stmt>
+                <decl_stmt><decl><type><name>File</name></type> <name>classFile</name> =<init> <expr>new <call><name>File</name><argument_list>(<argument><expr><name>destDir</name></expr></argument>, <argument><expr><name>pathToClass</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                <comment type="block">/*
+                 * Add each stub/skeleton class to the list of EJB files.  Note
+                 * that each class is added even if it doesn't exist now.
+                 */</comment>
+                <expr_stmt><expr><call><name><name>ejbFiles</name>.<name>put</name></name><argument_list>(<argument><expr><name>pathToClass</name></expr></argument>, <argument><expr><name>classFile</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+                <expr_stmt><expr><name>allClassesFound</name> = <name>allClassesFound</name> &amp;&amp; <call><name><name>classFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+                <if>if <condition>(<expr><name>allClassesFound</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>long</name></type> <name>fileMod</name> =<init> <expr><call><name><name>classFile</name>.<name>lastModified</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+                    <comment type="block">/* Keep track of the oldest modification timestamp */</comment>
+                    <expr_stmt><expr><name>destClassesModified</name> = <call><name><name>Math</name>.<name>min</name></name><argument_list>(<argument><expr><name>destClassesModified</name></expr></argument>, <argument><expr><name>fileMod</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+
+            <return>return <expr>(<name>allClassesFound</name>) ? <name>destClassesModified</name> : -1</expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Builds an array of class names which represent the stubs and
+         * skeletons which need to be generated for a given EJB.  The class
+         * names are fully qualified.  Nine classes are generated for all EJBs
+         * while an additional six classes are generated for beans requiring
+         * RMI/IIOP access.
+         *
+         * @return An array of Strings representing the fully-qualified class
+         *         names for the stubs and skeletons to be generated.
+         */</comment>
+        <function><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>classesToGenerate</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>classnames</name> =<init> <expr>(<name>iiop</name>)
+                ? new <name><name>String</name><index>[<expr><name>NUM_CLASSES_WITH_IIOP</name></expr>]</index></name>
+                : new <name><name>String</name><index>[<expr><name>NUM_CLASSES_WITHOUT_IIOP</name></expr>]</index></name></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>remotePkg</name>     =<init> <expr><call><name><name>remote</name>.<name>getPackageName</name></name><argument_list>()</argument_list></call> + "."</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>remoteClass</name>   =<init> <expr><call><name><name>remote</name>.<name>getClassName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>homePkg</name>       =<init> <expr><call><name><name>home</name>.<name>getPackageName</name></name><argument_list>()</argument_list></call> + "."</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>homeClass</name>     =<init> <expr><call><name><name>home</name>.<name>getClassName</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>implPkg</name>       =<init> <expr><call><name><name>implementation</name>.<name>getPackageName</name></name><argument_list>()</argument_list></call> + "."</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><specifier>final</specifier> <name>String</name></type> <name>implFullClass</name> =<init> <expr><call><name><name>implementation</name>.<name>getQualifiedWithUnderscores</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = <name>implPkg</name> + "ejb_fac_" + <name>implFullClass</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = <name>implPkg</name> + "ejb_home_" + <name>implFullClass</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = <name>implPkg</name> + "ejb_skel_" + <name>implFullClass</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = <name>remotePkg</name> + "ejb_kcp_skel_" + <name>remoteClass</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = <name>homePkg</name> + "ejb_kcp_skel_" + <name>homeClass</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = <name>remotePkg</name> + "ejb_kcp_stub_" + <name>remoteClass</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = <name>homePkg</name> + "ejb_kcp_stub_" + <name>homeClass</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = <name>remotePkg</name> + "ejb_stub_" + <name>remoteClass</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = <name>homePkg</name> + "ejb_stub_" + <name>homeClass</name></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr>!<name>iiop</name></expr>)</condition><then> <block>{
+                <return>return <expr><name>classnames</name></expr>;</return>
+            }</block></then></if>
+
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = "org.omg.stub." + <name>remotePkg</name> + "_"
+                                    + <name>remoteClass</name> + "_Stub"</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = "org.omg.stub." + <name>homePkg</name> + "_"
+                                    + <name>homeClass</name> + "_Stub"</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = "org.omg.stub." + <name>remotePkg</name>
+                                    + "_ejb_RmiCorbaBridge_"
+                                    + <name>remoteClass</name> + "_Tie"</expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = "org.omg.stub." + <name>homePkg</name>
+                                    + "_ejb_RmiCorbaBridge_"
+                                    + <name>homeClass</name> + "_Tie"</expr>;</expr_stmt>
+
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = <name>remotePkg</name> + "ejb_RmiCorbaBridge_"
+                                                        + <name>remoteClass</name></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>classnames</name><index>[<expr><name>index</name>++</expr>]</index></name> = <name>homePkg</name> + "ejb_RmiCorbaBridge_" + <name>homeClass</name></expr>;</expr_stmt>
+
+            <return>return <expr><name>classnames</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Convenience method which creates a String representation of all the
+         * instance variables of an EjbInfo object.
+         *
+         * @return A String representing the EjbInfo instance.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>s</name> =<init> <expr>"EJB name: " + <name>name</name>
+                        + "\n\r              home:      " + <name>home</name>
+                        + "\n\r              remote:    " + <name>remote</name>
+                        + "\n\r              impl:      " + <name>implementation</name>
+                        + "\n\r              primaryKey: " + <name>primaryKey</name>
+                        + "\n\r              beantype:  " + <name>beantype</name>
+                        + "\n\r              cmp:       " + <name>cmp</name>
+                        + "\n\r              iiop:      " + <name>iiop</name>
+                        + "\n\r              hasession: " + <name>hasession</name></expr></init></decl>;</decl_stmt>
+
+            <decl_stmt><decl><type><name>Iterator</name></type> <name>i</name> =<init> <expr><call><name><name>cmpDescriptors</name>.<name>iterator</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <expr_stmt><expr><name>s</name> += "\n\r              CMP Descriptor: " + <call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+
+            <return>return <expr><name>s</name></expr>;</return>
+        }</block></function>
+
+    }</block></class> <comment type="line">// End of EjbInfo inner class</comment>
+
+    <comment type="javadoc">/**
+     * Convenience class used to represent the fully qualified name of a Java
+     * class.  It provides an easy way to retrieve components of the class name
+     * in a format that is convenient for building iAS stubs and skeletons.
+     *
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>Classname</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>qualifiedName</name></decl>;</decl_stmt>  <comment type="line">// Fully qualified name of the Java class</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>packageName</name></decl>;</decl_stmt>    <comment type="line">// Name of the package for this class</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>className</name></decl>;</decl_stmt>      <comment type="line">// Name of the class without the package</comment>
+
+        <comment type="javadoc">/**
+         * This constructor builds an object which represents the name of a Java
+         * class.
+         *
+         * @param qualifiedName String representing the fully qualified class
+         *                      name of the Java class.
+         */</comment>
+        <constructor><specifier>public</specifier> <name>Classname</name><parameter_list>(<param><decl><type><name>String</name></type> <name>qualifiedName</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>qualifiedName</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return;</return>
+            }</block></then></if>
+
+            <expr_stmt><expr><name><name>this</name>.<name>qualifiedName</name></name> = <name>qualifiedName</name></expr>;</expr_stmt>
+
+            <decl_stmt><decl><type><name>int</name></type> <name>index</name> =<init> <expr><call><name><name>qualifiedName</name>.<name>lastIndexOf</name></name><argument_list>(<argument><expr>'.'</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>index</name> == -1</expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>className</name> = <name>qualifiedName</name></expr>;</expr_stmt>
+                <expr_stmt><expr><name>packageName</name> = ""</expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><name>packageName</name> = <call><name><name>qualifiedName</name>.<name>substring</name></name><argument_list>(<argument><expr>0</expr></argument>, <argument><expr><name>index</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>className</name>   = <call><name><name>qualifiedName</name>.<name>substring</name></name><argument_list>(<argument><expr><name>index</name> + 1</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Gets the fully qualified name of the Java class.
+         *
+         * @return String representing the fully qualified class name.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getQualifiedClassName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>qualifiedName</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Gets the package name for the Java class.
+         *
+         * @return String representing the package name for the class.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getPackageName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>packageName</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Gets the Java class name without the package structure.
+         *
+         * @return String representing the name for the class.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getClassName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>className</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Gets the fully qualified name of the Java class with underscores
+         * separating the components of the class name rather than periods.
+         * This format is used in naming some of the stub and skeleton classes
+         * for the iPlanet Application Server.
+         *
+         * @return String representing the fully qualified class name using
+         *         underscores instead of periods.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getQualifiedWithUnderscores</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name><name>qualifiedName</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr>'_'</expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Returns a File which references the class relative to the specified
+         * directory.  Note that the class file may or may not exist.
+         *
+         * @param  directory A File referencing the base directory containing
+         *                   class files.
+         * @return File referencing this class.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>File</name></type> <name>getClassFile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>directory</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>pathToFile</name> =<init> <expr><call><name><name>qualifiedName</name>.<name>replace</name></name><argument_list>(<argument><expr>'.'</expr></argument>, <argument><expr><name><name>File</name>.<name>separatorChar</name></name></expr></argument>)</argument_list></call>
+                                            + ".class"</expr></init></decl>;</decl_stmt>
+            <return>return <expr>new <call><name>File</name><argument_list>(<argument><expr><name>directory</name></expr></argument>, <argument><expr><name>pathToFile</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * String representation of this class name.  It returns the fully
+         * qualified class name.
+         *
+         * @return String representing the fully qualified class name.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><call><name>getQualifiedClassName</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>  <comment type="line">// End of Classname inner class</comment>
+
+
+    <comment type="javadoc">/**
+     * Thread class used to redirect output from an &lt;code&gt;InputStream&lt;/code&gt; to
+     * the JRE standard output.  This class may be used to redirect output from
+     * an external process to the standard output.
+     *
+     */</comment>
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>RedirectOutput</name> <super><extends>extends <name>Thread</name></extends></super> <block>{
+
+        <decl_stmt><decl><type><specifier>private</specifier> <name>InputStream</name></type> <name>stream</name></decl>;</decl_stmt>  <comment type="line">// Stream to read and redirect to standard output</comment>
+
+        <comment type="javadoc">/**
+         * Constructs a new instance that will redirect output from the
+         * specified stream to the standard output.
+         *
+         * @param stream InputStream which will be read and redirected to the
+         *               standard output.
+         */</comment>
+        <constructor><specifier>public</specifier> <name>RedirectOutput</name><parameter_list>(<param><decl><type><name>InputStream</name></type> <name>stream</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>stream</name></name> = <name>stream</name></expr>;</expr_stmt>
+        }</block></constructor>
+
+        <comment type="javadoc">/**
+         * Reads text from the input stream and redirects it to standard output
+         * using a separate thread.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>run</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>BufferedReader</name></type> <name>reader</name> =<init> <expr>new <call><name>BufferedReader</name><argument_list>(
+                                            <argument><expr>new <call><name>InputStreamReader</name><argument_list>(<argument><expr><name>stream</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>String</name></type> <name>text</name></decl>;</decl_stmt>
+            <try>try <block>{
+                <while>while <condition>(<expr>(<name>text</name> = <call><name><name>reader</name>.<name>readLine</name></name><argument_list>()</argument_list></call>) != <name>null</name></expr>)</condition> <block>{
+                    <expr_stmt><expr><call><name><name>System</name>.<name>out</name>.<name>println</name></name><argument_list>(<argument><expr><name>text</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></while>
+            }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                <expr_stmt><expr><call><name><name>e</name>.<name>printStackTrace</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></catch> <finally>finally <block>{
+                <try>try <block>{
+                    <expr_stmt><expr><call><name><name>reader</name>.<name>close</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>e</name></decl></param>) <block>{
+                    <comment type="line">// Do nothing</comment>
+                }</block></catch></try>
+            }</block></finally></try>
+        }</block></function>
+    }</block></class>  <comment type="line">// End of RedirectOutput inner class</comment>
+
+}</block></class>
+</unit>

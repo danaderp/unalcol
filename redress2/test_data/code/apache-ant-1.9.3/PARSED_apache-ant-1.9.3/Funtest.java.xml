@@ -1,0 +1,579 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\taskdefs\optional\testing\Funtest.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>optional</name>.<name>testing</name></name>;</package>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Task</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>TaskAdapter</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>WorkerAnt</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>Condition</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>condition</name>.<name>ConditionBase</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Parallel</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>Sequential</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>taskdefs</name>.<name>WaitFor</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Task to provide functional testing under Ant, with a fairly complex workflow of:
+ *
+ * &lt;ul&gt;
+ * &lt;li&gt;Conditional execution&lt;/li&gt;
+ * &lt;li&gt;Application to start&lt;/li&gt;
+ * &lt;li&gt;A probe to "waitfor" before running tests&lt;/li&gt;
+ * &lt;li&gt;A tests sequence&lt;/li&gt;
+ * &lt;li&gt;A reporting sequence that runs after the tests have finished&lt;/li&gt;
+ * &lt;li&gt;A "teardown" clause that runs after the rest.&lt;/li&gt;
+ * &lt;li&gt;Automated termination of the program it executes, if a timeout is not met&lt;/li&gt;
+ * &lt;li&gt;Checking of a failure property and automatic raising of a fault
+ *     (with the text in failureText)
+ * if test shutdown and reporting succeeded&lt;/li&gt;
+ *  &lt;/ul&gt;
+ *
+ * The task is designed to be framework neutral; it will work with JUnit,
+ *  TestNG and other test frameworks That can be
+ * executed from Ant. It bears a resemblance to the FunctionalTest task from
+ * SmartFrog, as the attribute names were
+ * chosen to make migration easier. However, this task benefits from the
+ * ability to tweak Ant's internals, and so
+ * simplify the workflow, and from the experience of using the SmartFrog task.
+ * No code has been shared.
+ *
+ * @since Ant 1.8
+ */</comment>
+
+<class><specifier>public</specifier> class <name>Funtest</name> <super><extends>extends <name>Task</name></extends></super> <block>{
+
+    <comment type="javadoc">/**
+     * A condition that must be true before the tests are run. This makes it
+     * easier to define complex tests that only
+     * run if certain conditions are met, such as OS or network state.
+     */</comment>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>NestedCondition</name></type> <name>condition</name></decl>;</decl_stmt>
+
+
+    <comment type="javadoc">/**
+     * Used internally to set the workflow up
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Parallel</name></type> <name>timedTests</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Setup runs if the condition is met. Once setup is complete, teardown
+     * will be run when the task finishes
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Sequential</name></type> <name>setup</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * The application to run
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Sequential</name></type> <name>application</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * A block that halts the tests until met.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>BlockFor</name></type> <name>block</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Tests to run
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Sequential</name></type> <name>tests</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Reporting only runs if the tests were executed. If the block stopped
+     * them, reporting is skipped.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Sequential</name></type> <name>reporting</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Any teardown operations.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Sequential</name></type> <name>teardown</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * time for the tests to time out
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>timeout</name></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>timeoutUnitMultiplier</name> =<init> <expr><name><name>WaitFor</name>.<name>ONE_MILLISECOND</name></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * time for the execution to time out.
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>shutdownTime</name> =<init> <expr>10 * <name><name>WaitFor</name>.<name>ONE_SECOND</name></name></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>long</name></type> <name>shutdownUnitMultiplier</name> =<init> <expr><name><name>WaitFor</name>.<name>ONE_MILLISECOND</name></name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Name of a property to look for
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>failureProperty</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Message to send when tests failed
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>failureMessage</name> =<init> <expr>"Tests failed"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Flag to set to true if you don't care about any shutdown errors.
+     * &lt;p/&gt;
+     * In that situation, errors raised during teardown are logged but not
+     * turned into BuildFault events. Similar to catching and ignoring
+     * &lt;code&gt;finally {}&lt;/code&gt; clauses in Java/
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>failOnTeardownErrors</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+
+    <comment type="javadoc">/**
+     * What was thrown in the test run (including reporting)
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>BuildException</name></type> <name>testException</name></decl>;</decl_stmt>
+    <comment type="javadoc">/**
+     * What got thrown during teardown
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>BuildException</name></type> <name>teardownException</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Did the application throw an exception
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>BuildException</name></type> <name>applicationException</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Did the task throw an exception
+     */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>BuildException</name></type> <name>taskException</name></decl>;</decl_stmt>
+
+    <comment type="javadoc">/** {@value} */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>WARN_OVERRIDING</name> =<init> <expr>"Overriding previous definition of "</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** {@value} */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>APPLICATION_FORCIBLY_SHUT_DOWN</name> =<init> <expr>"Application forcibly shut down"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** {@value} */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>SHUTDOWN_INTERRUPTED</name> =<init> <expr>"Shutdown interrupted"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** {@value} */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>SKIPPING_TESTS</name>
+        =<init> <expr>"Condition failed -skipping tests"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Application exception : {@value} */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>APPLICATION_EXCEPTION</name> =<init> <expr>"Application Exception"</expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** Teardown exception : {@value} */</comment>
+    <decl_stmt><decl><type><specifier>public</specifier> <specifier>static</specifier> <specifier>final</specifier> <name>String</name></type> <name>TEARDOWN_EXCEPTION</name> =<init> <expr>"Teardown Exception"</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Log if the definition is overriding something
+     *
+     * @param name       what is being defined
+     * @param definition what should be null if you don't want a warning
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>logOverride</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>, <param><decl><type><name>Object</name></type> <name>definition</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>definition</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>WARN_OVERRIDING</name> + '&lt;' + <name>name</name> + '&gt;'</expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_INFO</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+      * Add a condition element.
+      * @return &lt;code&gt;ConditionBase&lt;/code&gt;.
+      * @since Ant 1.6.2
+      */</comment>
+     <function><type><specifier>public</specifier> <name>ConditionBase</name></type> <name>createCondition</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>logOverride</name><argument_list>(<argument><expr>"condition"</expr></argument>, <argument><expr><name>condition</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>condition</name> = new <call><name>NestedCondition</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>condition</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add an application.
+     * @param sequence the application to add.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addApplication</name><parameter_list>(<param><decl><type><name>Sequential</name></type> <name>sequence</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>logOverride</name><argument_list>(<argument><expr>"application"</expr></argument>, <argument><expr><name>application</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>application</name> = <name>sequence</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a setup sequence.
+     * @param sequence the setup sequence to add.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addSetup</name><parameter_list>(<param><decl><type><name>Sequential</name></type> <name>sequence</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>logOverride</name><argument_list>(<argument><expr>"setup"</expr></argument>, <argument><expr><name>setup</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>setup</name> = <name>sequence</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a block.
+     * @param sequence the block for to add.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addBlock</name><parameter_list>(<param><decl><type><name>BlockFor</name></type> <name>sequence</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>logOverride</name><argument_list>(<argument><expr>"block"</expr></argument>, <argument><expr><name>block</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>block</name> = <name>sequence</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add tests.
+     * @param sequence a sequence to add.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addTests</name><parameter_list>(<param><decl><type><name>Sequential</name></type> <name>sequence</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>logOverride</name><argument_list>(<argument><expr>"tests"</expr></argument>, <argument><expr><name>tests</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>tests</name> = <name>sequence</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * set reporting sequence of tasks.
+     * @param sequence a reporting sequence to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addReporting</name><parameter_list>(<param><decl><type><name>Sequential</name></type> <name>sequence</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>logOverride</name><argument_list>(<argument><expr>"reporting"</expr></argument>, <argument><expr><name>reporting</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>reporting</name> = <name>sequence</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * set teardown sequence of tasks.
+     * @param sequence a teardown sequence to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addTeardown</name><parameter_list>(<param><decl><type><name>Sequential</name></type> <name>sequence</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>logOverride</name><argument_list>(<argument><expr>"teardown"</expr></argument>, <argument><expr><name>teardown</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>teardown</name> = <name>sequence</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the failOnTeardownErrors attribute.
+     * @param failOnTeardownErrors the value to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFailOnTeardownErrors</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>failOnTeardownErrors</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>failOnTeardownErrors</name></name> = <name>failOnTeardownErrors</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the failureMessage attribute.
+     * @param failureMessage the value to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFailureMessage</name><parameter_list>(<param><decl><type><name>String</name></type> <name>failureMessage</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>failureMessage</name></name> = <name>failureMessage</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the failureProperty attribute.
+     * @param failureProperty the value to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setFailureProperty</name><parameter_list>(<param><decl><type><name>String</name></type> <name>failureProperty</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>failureProperty</name></name> = <name>failureProperty</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the shutdownTime attribute.
+     * @param shutdownTime the value to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setShutdownTime</name><parameter_list>(<param><decl><type><name>long</name></type> <name>shutdownTime</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>shutdownTime</name></name> = <name>shutdownTime</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the timeout attribute.
+     * @param timeout the value to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTimeout</name><parameter_list>(<param><decl><type><name>long</name></type> <name>timeout</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>timeout</name></name> = <name>timeout</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the timeoutunit attribute.
+     * @param unit the value to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setTimeoutUnit</name><parameter_list>(<param><decl><type><name><name>WaitFor</name>.<name>Unit</name></name></type> <name>unit</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>timeoutUnitMultiplier</name> = <call><name><name>unit</name>.<name>getMultiplier</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the shutdownunit attribute.
+     * @param unit the value to use.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setShutdownUnit</name><parameter_list>(<param><decl><type><name><name>WaitFor</name>.<name>Unit</name></name></type> <name>unit</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name>shutdownUnitMultiplier</name> = <call><name><name>unit</name>.<name>getMultiplier</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="javadoc">/**
+     * Get the application exception.
+     * @return the application exception.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>BuildException</name></type> <name>getApplicationException</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>applicationException</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the teardown exception.
+     * @return the teardown exception.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>BuildException</name></type> <name>getTeardownException</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>teardownException</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the test exception.
+     * @return the test exception.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>BuildException</name></type> <name>getTestException</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>testException</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the task exception.
+     * @return the task exception.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>BuildException</name></type> <name>getTaskException</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr><name>taskException</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Bind and initialise a task
+     * @param task task to bind
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>bind</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>task</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>task</name>.<name>bindToOwner</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>task</name>.<name>init</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a newly bound parallel instance
+     * @param parallelTimeout timeout
+     * @return a bound and initialised parallel instance.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Parallel</name></type> <name>newParallel</name><parameter_list>(<param><decl><type><name>long</name></type> <name>parallelTimeout</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Parallel</name></type> <name>par</name> =<init> <expr>new <call><name>Parallel</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>bind</name><argument_list>(<argument><expr><name>par</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>par</name>.<name>setFailOnAny</name></name><argument_list>(<argument><expr>true</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>par</name>.<name>setTimeout</name></name><argument_list>(<argument><expr><name>parallelTimeout</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>par</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a newly bound parallel instance with one child
+     * @param parallelTimeout timeout
+     * @param child task
+     * @return a bound and initialised parallel instance.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>Parallel</name></type> <name>newParallel</name><parameter_list>(<param><decl><type><name>long</name></type> <name>parallelTimeout</name></decl></param>, <param><decl><type><name>Task</name></type> <name>child</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>Parallel</name></type> <name>par</name> =<init> <expr><call><name>newParallel</name><argument_list>(<argument><expr><name>parallelTimeout</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>par</name>.<name>addTask</name></name><argument_list>(<argument><expr><name>child</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>par</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add any task validation needed to ensure internal code quality
+     * @param task task
+     * @param role role of the task
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>validateTask</name><parameter_list>(<param><decl><type><name>Task</name></type> <name>task</name></decl></param>, <param><decl><type><name>String</name></type> <name>role</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name>task</name>!=<name>null</name> &amp;&amp; <call><name><name>task</name>.<name>getProject</name></name><argument_list>()</argument_list></call> == <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>role</name> + " task is not bound to the project" + <name>task</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Run the functional test sequence.
+     * &lt;p/&gt;
+     * This is a fairly complex workflow -what is going on is that we try to clean up
+     * no matter how the run ended, and to retain the innermost exception that got thrown
+     * during cleanup. That is, if teardown fails after the tests themselves failed, it is the
+     * test failing that is more important.
+     * @throws BuildException if something was caught during the run or teardown.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>execute</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <comment type="line">//validation</comment>
+        <expr_stmt><expr><call><name>validateTask</name><argument_list>(<argument><expr><name>setup</name></expr></argument>, <argument><expr>"setup"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>validateTask</name><argument_list>(<argument><expr><name>application</name></expr></argument>, <argument><expr>"application"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>validateTask</name><argument_list>(<argument><expr><name>tests</name></expr></argument>, <argument><expr>"tests"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>validateTask</name><argument_list>(<argument><expr><name>reporting</name></expr></argument>, <argument><expr>"reporting"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>validateTask</name><argument_list>(<argument><expr><name>teardown</name></expr></argument>, <argument><expr>"teardown"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//check the condition</comment>
+        <comment type="line">//and bail out if it is defined but not true</comment>
+        <if>if <condition>(<expr><name>condition</name> != <name>null</name> &amp;&amp; !<call><name><name>condition</name>.<name>eval</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <comment type="line">//we are skipping the test</comment>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>SKIPPING_TESTS</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return;</return>
+        }</block></then></if>
+
+        <decl_stmt><decl><type><name>long</name></type> <name>timeoutMillis</name> =<init> <expr><name>timeout</name> * <name>timeoutUnitMultiplier</name></expr></init></decl>;</decl_stmt>
+
+        <comment type="line">//set up the application to run in a separate thread</comment>
+        <decl_stmt><decl><type><name>Parallel</name></type> <name>applicationRun</name> =<init> <expr><call><name>newParallel</name><argument_list>(<argument><expr><name>timeoutMillis</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <comment type="line">//with a worker which we can use to manage it</comment>
+        <decl_stmt><decl><type><name>WorkerAnt</name></type> <name>worker</name> =<init> <expr>new <call><name>WorkerAnt</name><argument_list>(<argument><expr><name>applicationRun</name></expr></argument>, <argument><expr><name>null</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>application</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>applicationRun</name>.<name>addTask</name></name><argument_list>(<argument><expr><name>application</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">//The test run consists of the block followed by the tests.</comment>
+        <decl_stmt><decl><type><name>long</name></type> <name>testRunTimeout</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>Sequential</name></type> <name>testRun</name> =<init> <expr>new <call><name>Sequential</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name>bind</name><argument_list>(<argument><expr><name>testRun</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>block</name> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">//waitfor is not a task, it needs to be adapted</comment>
+            <decl_stmt><decl><type><name>TaskAdapter</name></type> <name>ta</name> =<init> <expr>new <call><name>TaskAdapter</name><argument_list>(<argument><expr><name>block</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>ta</name>.<name>bindToOwner</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>validateTask</name><argument_list>(<argument><expr><name>ta</name></expr></argument>, <argument><expr>"block"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>testRun</name>.<name>addTask</name></name><argument_list>(<argument><expr><name>ta</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//add the block time to the total test run timeout</comment>
+            <expr_stmt><expr><name>testRunTimeout</name> = <call><name><name>block</name>.<name>calculateMaxWaitMillis</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">//add the tests and more delay</comment>
+        <if>if <condition>(<expr><name>tests</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>testRun</name>.<name>addTask</name></name><argument_list>(<argument><expr><name>tests</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>testRunTimeout</name> += <name>timeoutMillis</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <comment type="line">//add the reporting and more delay</comment>
+        <if>if <condition>(<expr><name>reporting</name> != <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>testRun</name>.<name>addTask</name></name><argument_list>(<argument><expr><name>reporting</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>testRunTimeout</name> += <name>timeoutMillis</name></expr>;</expr_stmt>
+        }</block></then></if>
+
+        <comment type="line">//wrap this in a parallel purely to set up timeouts for the</comment>
+        <comment type="line">//test run</comment>
+        <expr_stmt><expr><name>timedTests</name> = <call><name>newParallel</name><argument_list>(<argument><expr><name>testRunTimeout</name></expr></argument>, <argument><expr><name>testRun</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+        <try>try <block>{
+            <comment type="line">//run any setup task</comment>
+            <if>if <condition>(<expr><name>setup</name> != <name>null</name></expr>)</condition><then> <block>{
+                <decl_stmt><decl><type><name>Parallel</name></type> <name>setupRun</name> =<init> <expr><call><name>newParallel</name><argument_list>(<argument><expr><name>timeoutMillis</name></expr></argument>, <argument><expr><name>setup</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><call><name><name>setupRun</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <comment type="line">//start the worker thread and leave it running</comment>
+            <expr_stmt><expr><call><name><name>worker</name>.<name>start</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <comment type="line">//start the probe+test sequence</comment>
+            <expr_stmt><expr><call><name><name>timedTests</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//Record the exception and continue</comment>
+            <expr_stmt><expr><name>testException</name> = <name>e</name></expr>;</expr_stmt>
+        }</block></catch> <finally>finally <block>{
+            <comment type="line">//teardown always runs; its faults are filed away</comment>
+            <if>if <condition>(<expr><name>teardown</name> != <name>null</name></expr>)</condition><then> <block>{
+                <try>try <block>{
+                    <decl_stmt><decl><type><name>Parallel</name></type> <name>teardownRun</name> =<init> <expr><call><name>newParallel</name><argument_list>(<argument><expr><name>timeoutMillis</name></expr></argument>, <argument><expr><name>teardown</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <expr_stmt><expr><call><name><name>teardownRun</name>.<name>execute</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                }</block> <catch>catch (<param><decl><type><name>BuildException</name></type> <name>e</name></decl></param>) <block>{
+                    <expr_stmt><expr><name>teardownException</name> = <name>e</name></expr>;</expr_stmt>
+                }</block></catch></try>
+            }</block></then></if>
+        }</block></finally></try>
+
+        <comment type="line">//we get here whether or not the tests/teardown have thrown a BuildException.</comment>
+        <comment type="line">//do a forced shutdown of the running application, before processing the faults</comment>
+
+        <try>try <block>{
+            <comment type="line">//wait for the worker to have finished</comment>
+            <decl_stmt><decl><type><name>long</name></type> <name>shutdownTimeMillis</name> =<init> <expr><name>shutdownTime</name> * <name>shutdownUnitMultiplier</name></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>worker</name>.<name>waitUntilFinished</name></name><argument_list>(<argument><expr><name>shutdownTimeMillis</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><call><name><name>worker</name>.<name>isAlive</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                <comment type="line">//then, if it is still running, interrupt it a second time.</comment>
+                <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>APPLICATION_FORCIBLY_SHUT_DOWN</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>worker</name>.<name>interrupt</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><call><name><name>worker</name>.<name>waitUntilFinished</name></name><argument_list>(<argument><expr><name>shutdownTimeMillis</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block> <catch>catch (<param><decl><type><name>InterruptedException</name></type> <name>e</name></decl></param>) <block>{
+            <comment type="line">//success, something interrupted the shutdown. There may be a leaked</comment>
+            <comment type="line">//worker;</comment>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>SHUTDOWN_INTERRUPTED</name></expr></argument>, <argument><expr><name>e</name></expr></argument>, <argument><expr><name><name>Project</name>.<name>MSG_VERBOSE</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></catch></try>
+        <expr_stmt><expr><name>applicationException</name> = <call><name><name>worker</name>.<name>getBuildException</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+        <comment type="line">//Now faults are analysed</comment>
+
+        <expr_stmt><expr><call><name>processExceptions</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Now faults are analysed.
+     * &lt;p&gt; The priority is
+     * &lt;ol&gt;
+     * &lt;li&gt;testexceptions, except those indicating a build timeout when the application itself
+     failed.&lt;br&gt;
+     (because often it is the application fault that is more interesting than the probe
+     failure, which is usually triggered by the application not starting
+     &lt;/li&gt;&lt;li&gt;
+     Application exceptions (above test timeout exceptions)
+     &lt;/li&gt;&lt;li&gt;
+     Teardown exceptions -except when they are being ignored
+     &lt;/li&gt;&lt;li&gt;
+     Test failures as indicated by the failure property
+     &lt;/li&gt;&lt;/ol&gt;
+
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>processExceptions</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><name>taskException</name> = <name>testException</name></expr>;</expr_stmt>
+
+        <comment type="line">//look for an application fault</comment>
+        <if>if <condition>(<expr><name>applicationException</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>taskException</name> == <name>null</name> || <name>taskException</name> <name>instanceof</name> <name>BuildTimeoutException</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>taskException</name> = <name>applicationException</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name>ignoringThrowable</name><argument_list>(<argument><expr><name>APPLICATION_EXCEPTION</name></expr></argument>, <argument><expr><name>applicationException</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+
+        <comment type="line">//now look for teardown faults, which may be ignored</comment>
+        <if>if <condition>(<expr><name>teardownException</name> != <name>null</name></expr>)</condition><then> <block>{
+            <if>if <condition>(<expr><name>taskException</name> == <name>null</name> &amp;&amp; <name>failOnTeardownErrors</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>taskException</name> = <name>teardownException</name></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <comment type="line">//don't let the cleanup exception get in the way of any other failure</comment>
+                <expr_stmt><expr><call><name>ignoringThrowable</name><argument_list>(<argument><expr><name>TEARDOWN_EXCEPTION</name></expr></argument>, <argument><expr><name>teardownException</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+        }</block></then></if>
+
+        <comment type="line">//now, analyse the tests</comment>
+        <if>if <condition>(<expr><name>failureProperty</name> != <name>null</name>
+             &amp;&amp; <call><name>getProject</name><argument_list>()</argument_list></call>.<call><name>getProperty</name><argument_list>(<argument><expr><name>failureProperty</name></expr></argument>)</argument_list></call> != <name>null</name></expr>)</condition><then> <block>{
+            <comment type="line">//we've failed</comment>
+            <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>failureMessage</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>taskException</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>taskException</name> = new <call><name>BuildException</name><argument_list>(<argument><expr><name>failureMessage</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></then></if>
+
+        <comment type="line">//at this point taskException is null or not.</comment>
+        <comment type="line">//if not, throw the exception</comment>
+        <if>if <condition>(<expr><name>taskException</name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr><name>taskException</name></expr>;</throw>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * log that we are ignoring something rather than rethrowing it.
+     * @param type name of exception
+     * @param thrown what was thrown
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>void</name></type> <name>ignoringThrowable</name><parameter_list>(<param><decl><type><name>String</name></type> <name>type</name></decl></param>, <param><decl><type><name>Throwable</name></type> <name>thrown</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>log</name><argument_list>(<argument><expr><name>type</name> + ": " + <call><name><name>thrown</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr></argument>,
+                <argument><expr><name>thrown</name></expr></argument>,
+                <argument><expr><name><name>Project</name>.<name>MSG_WARN</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> class <name>NestedCondition</name> <super><extends>extends <name>ConditionBase</name></extends> <implements>implements <name>Condition</name></implements></super> <block>{
+        <function><type><specifier>public</specifier> <name>boolean</name></type> <name>eval</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><call><name>countConditions</name><argument_list>()</argument_list></call> != 1</expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(
+                    <argument><expr>"A single nested condition is required."</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <return>return <expr>(<call>(<name>Condition</name>) <argument_list>(<argument><expr><call><name>getConditions</name><argument_list>()</argument_list></call>.<call><name>nextElement</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call>).<call><name>eval</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>
+}</block></class>
+</unit>

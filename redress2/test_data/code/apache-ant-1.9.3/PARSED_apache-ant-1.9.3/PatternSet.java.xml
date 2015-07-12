@@ -1,0 +1,542 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\types\PatternSet.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>BufferedReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>FileReader</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>ArrayList</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>List</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>StringTokenizer</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>PropertyHelper</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileUtils</name></name>;</import>
+
+<comment type="javadoc">/**
+ * Named collection of include/exclude tags.
+ *
+ * &lt;p&gt;Moved out of MatchingTask to make it a standalone object that
+ * could be referenced (by scripts for example).
+ *
+ */</comment>
+<class><specifier>public</specifier> class <name>PatternSet</name> <super><extends>extends <name>DataType</name></extends> <implements>implements <name>Cloneable</name></implements></super> <block>{
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>List</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name></type> <name>includeList</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>List</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name></type> <name>excludeList</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>List</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name></type> <name>includesFileList</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>List</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name></type> <name>excludesFileList</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * inner class to hold a name on list.  "If" and "Unless" attributes
+     * may be used to invalidate the entry based on the existence of a
+     * property (typically set thru the use of the Available task)
+     * or value of an expression.
+     */</comment>
+    <class><specifier>public</specifier> class <name>NameEntry</name> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>name</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>ifCond</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Object</name></type> <name>unlessCond</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Sets the name pattern.
+         *
+         * @param name The pattern string.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setName</name><parameter_list>(<param><decl><type><name>String</name></type> <name>name</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>name</name></name> = <name>name</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Sets the if attribute. This attribute and the "unless"
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
+         *
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to false or no property of
+         *             its value is present, the name is invalid.
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setIf</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>cond</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>ifCond</name> = <name>cond</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Sets the if attribute. This attribute and the "unless"
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
+         *
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to false or no property of
+         *             its value is present, the name is invalid.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setIf</name><parameter_list>(<param><decl><type><name>String</name></type> <name>cond</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>setIf</name><argument_list>(<argument><expr>(<name>Object</name>) <name>cond</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Sets the unless attribute. This attribute and the "if"
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
+         *
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to true or a property of
+         *             its value is present, the name is invalid.
+         * @since Ant 1.8.0
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setUnless</name><parameter_list>(<param><decl><type><name>Object</name></type> <name>cond</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name>unlessCond</name> = <name>cond</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Sets the unless attribute. This attribute and the "if"
+         * attribute are used to validate the name, based on the
+         * existence of the property or the value of the evaluated
+         * property expression.
+         *
+         * @param cond A property name or expression.  If the
+         *             expression evaluates to true or a property of
+         *             its value is present, the name is invalid.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setUnless</name><parameter_list>(<param><decl><type><name>String</name></type> <name>cond</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>setUnless</name><argument_list>(<argument><expr>(<name>Object</name>) <name>cond</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @return the name attribute.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>getName</name><parameter_list>()</parameter_list> <block>{
+            <return>return <expr><name>name</name></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * This validates the name - checks the if and unless
+         * properties.
+         *
+         * @param p the current project, used to check the presence or
+         *          absence of a property.
+         * @return  the name attribute or null if the "if" or "unless"
+         *          properties are not/are set.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>evalName</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+            <return>return <expr><call><name>valid</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call> ? <name>name</name> : <name>null</name></expr>;</return>
+        }</block></function>
+
+        <function><type><specifier>private</specifier> <name>boolean</name></type> <name>valid</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>PropertyHelper</name></type> <name>ph</name> =<init> <expr><call><name><name>PropertyHelper</name>.<name>getPropertyHelper</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <return>return <expr><call><name><name>ph</name>.<name>testIfCondition</name></name><argument_list>(<argument><expr><name>ifCond</name></expr></argument>)</argument_list></call>
+                &amp;&amp; <call><name><name>ph</name>.<name>testUnlessCondition</name></name><argument_list>(<argument><expr><name>unlessCond</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @return a printable form of this object.
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+            <decl_stmt><decl><type><name>StringBuffer</name></type> <name>buf</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>name</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>"noname"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then> <else>else <block>{
+                <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><name>name</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></else></if>
+            <if>if <condition>(<expr>(<name>ifCond</name> != <name>null</name>) || (<name>unlessCond</name> != <name>null</name>)</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>":"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <decl_stmt><decl><type><name>String</name></type> <name>connector</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+
+                <if>if <condition>(<expr><name>ifCond</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>"if-&gt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><name>ifCond</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><name>connector</name> = ";"</expr>;</expr_stmt>
+                }</block></then></if>
+                <if>if <condition>(<expr><name>unlessCond</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><name>connector</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr>"unless-&gt;"</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name><name>buf</name>.<name>append</name></name><argument_list>(<argument><expr><name>unlessCond</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></then></if>
+            <return>return <expr><call><name><name>buf</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <class><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> class <name>InvertedPatternSet</name> <super><extends>extends <name>PatternSet</name></extends></super> <block>{
+        <constructor><specifier>private</specifier> <name>InvertedPatternSet</name><parameter_list>(<param><decl><type><name>PatternSet</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>setProject</name><argument_list>(<argument><expr><call><name><name>p</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name>addConfiguredPatternset</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></constructor>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getIncludePatterns</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+            <return>return <expr><call><name><name>super</name>.<name>getExcludePatterns</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+        <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getExcludePatterns</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+            <return>return <expr><call><name><name>super</name>.<name>getIncludePatterns</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Creates a new &lt;code&gt;PatternSet&lt;/code&gt; instance.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>PatternSet</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Makes this instance in effect a reference to another PatternSet
+     * instance.
+     *
+     * &lt;p&gt;You must not set another attribute or nest elements inside
+     * this element if you make it a reference.&lt;/p&gt;
+     * @param r the reference to another patternset.
+     * @throws BuildException on error.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRefid</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr>!<call><name><name>includeList</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call> || !<call><name><name>excludeList</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>super</name>.<name>setRefid</name></name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * This is a patternset nested element.
+     *
+     * @param p a configured patternset nested element.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredPatternset</name><parameter_list>(<param><decl><type><name>PatternSet</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>nestedIncludes</name> =<init> <expr><call><name><name>p</name>.<name>getIncludePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>nestedExcludes</name> =<init> <expr><call><name><name>p</name>.<name>getExcludePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+
+        <if>if <condition>(<expr><name>nestedIncludes</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>nestedIncludes</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name>createInclude</name><argument_list>()</argument_list></call>.<call><name>setName</name><argument_list>(<argument><expr><name><name>nestedIncludes</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>nestedExcludes</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>nestedExcludes</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name>createExclude</name><argument_list>()</argument_list></call>.<call><name>setName</name><argument_list>(<argument><expr><name><name>nestedExcludes</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add a name entry on the include list
+     * @return a nested include element to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>NameEntry</name></type> <name>createInclude</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><call><name>addPatternToList</name><argument_list>(<argument><expr><name>includeList</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add a name entry on the include files list
+     * @return a nested includesfile element to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>NameEntry</name></type> <name>createIncludesFile</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><call><name>addPatternToList</name><argument_list>(<argument><expr><name>includesFileList</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add a name entry on the exclude list
+     * @return a nested exclude element to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>NameEntry</name></type> <name>createExclude</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><call><name>addPatternToList</name><argument_list>(<argument><expr><name>excludeList</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add a name entry on the exclude files list
+     * @return a nested excludesfile element to be configured.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>NameEntry</name></type> <name>createExcludesFile</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <return>return <expr><call><name>addPatternToList</name><argument_list>(<argument><expr><name>excludesFileList</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Appends &lt;code&gt;includes&lt;/code&gt; to the current list of include patterns.
+     * Patterns may be separated by a comma or a space.
+     *
+     * @param includes the string containing the include patterns
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setIncludes</name><parameter_list>(<param><decl><type><name>String</name></type> <name>includes</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>includes</name> != <name>null</name> &amp;&amp; <call><name><name>includes</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>StringTokenizer</name></type> <name>tok</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><name>includes</name></expr></argument>, <argument><expr>", "</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>tok</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <expr_stmt><expr><call><name>createInclude</name><argument_list>()</argument_list></call>.<call><name>setName</name><argument_list>(<argument><expr><call><name><name>tok</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Appends &lt;code&gt;excludes&lt;/code&gt; to the current list of exclude patterns.
+     * Patterns may be separated by a comma or a space.
+     *
+     * @param excludes the string containing the exclude patterns
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setExcludes</name><parameter_list>(<param><decl><type><name>String</name></type> <name>excludes</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>excludes</name> != <name>null</name> &amp;&amp; <call><name><name>excludes</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <decl_stmt><decl><type><name>StringTokenizer</name></type> <name>tok</name> =<init> <expr>new <call><name>StringTokenizer</name><argument_list>(<argument><expr><name>excludes</name></expr></argument>, <argument><expr>", "</expr></argument>, <argument><expr>false</expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><call><name><name>tok</name>.<name>hasMoreTokens</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+                <expr_stmt><expr><call><name>createExclude</name><argument_list>()</argument_list></call>.<call><name>setName</name><argument_list>(<argument><expr><call><name><name>tok</name>.<name>nextToken</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add a name entry to the given list
+     */</comment>
+    <function><type><specifier>private</specifier> <name>NameEntry</name></type> <name>addPatternToList</name><parameter_list>(<param><decl><type><name><name>List</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name></type> <name>list</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>NameEntry</name></type> <name>result</name> =<init> <expr>new <call><name>NameEntry</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>list</name>.<name>add</name></name><argument_list>(<argument><expr><name>result</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the name of the file containing the includes patterns.
+     *
+     * @param includesFile The file to fetch the include patterns from.
+     * @throws BuildException on error.
+     */</comment>
+     <function><type><specifier>public</specifier> <name>void</name></type> <name>setIncludesfile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>includesFile</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+         <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+             <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+         }</block></then></if>
+         <expr_stmt><expr><call><name>createIncludesFile</name><argument_list>()</argument_list></call>.<call><name>setName</name><argument_list>(<argument><expr><call><name><name>includesFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+     }</block></function>
+
+    <comment type="javadoc">/**
+     * Sets the name of the file containing the excludes patterns.
+     *
+     * @param excludesFile The file to fetch the exclude patterns from.
+     * @throws BuildException on error.
+     */</comment>
+     <function><type><specifier>public</specifier> <name>void</name></type> <name>setExcludesfile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>excludesFile</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+         <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+             <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+         }</block></then></if>
+         <expr_stmt><expr><call><name>createExcludesFile</name><argument_list>()</argument_list></call>.<call><name>setName</name><argument_list>(<argument><expr><call><name><name>excludesFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+     }</block></function>
+
+    <comment type="javadoc">/**
+     *  Reads path matching patterns from a file and adds them to the
+     *  includes or excludes list (as appropriate).
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>readPatterns</name><parameter_list>(<param><decl><type><name>File</name></type> <name>patternfile</name></decl></param>, <param><decl><type><name><name>List</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name></type> <name>patternlist</name></decl></param>, <param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list>
+            <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+
+        <decl_stmt><decl><type><name>BufferedReader</name></type> <name>patternReader</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+        <try>try <block>{
+            <comment type="line">// Get a FileReader</comment>
+            <expr_stmt><expr><name>patternReader</name> = new <call><name>BufferedReader</name><argument_list>(<argument><expr>new <call><name>FileReader</name><argument_list>(<argument><expr><name>patternfile</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+
+            <comment type="line">// Create one NameEntry in the appropriate pattern list for each</comment>
+            <comment type="line">// line in the file.</comment>
+            <decl_stmt><decl><type><name>String</name></type> <name>line</name> =<init> <expr><call><name><name>patternReader</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><name>line</name> != <name>null</name></expr>)</condition> <block>{
+                <if>if <condition>(<expr><call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><name>line</name> = <call><name><name>p</name>.<name>replaceProperties</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                    <expr_stmt><expr><call><name>addPatternToList</name><argument_list>(<argument><expr><name>patternlist</name></expr></argument>)</argument_list></call>.<call><name>setName</name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+                <expr_stmt><expr><name>line</name> = <call><name><name>patternReader</name>.<name>readLine</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+        }</block> <catch>catch (<param><decl><type><name>IOException</name></type> <name>ioe</name></decl></param>)  <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"An error occurred while reading from pattern file: "
+                    + <name>patternfile</name></expr></argument>, <argument><expr><name>ioe</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch> <finally>finally <block>{
+            <expr_stmt><expr><call><name><name>FileUtils</name>.<name>close</name></name><argument_list>(<argument><expr><name>patternReader</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></finally></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Adds the patterns of the other instance to this set.
+     * @param other the other PatternSet instance.
+     * @param p the current project.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>append</name><parameter_list>(<param><decl><type><name>PatternSet</name></type> <name>other</name></decl></param>, <param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Cannot append to a reference"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>incl</name> =<init> <expr><call><name><name>other</name>.<name>getIncludePatterns</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>incl</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>incl</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name>createInclude</name><argument_list>()</argument_list></call>.<call><name>setName</name><argument_list>(<argument><expr><name><name>incl</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>excl</name> =<init> <expr><call><name><name>other</name>.<name>getExcludePatterns</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>excl</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>excl</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name>createExclude</name><argument_list>()</argument_list></call>.<call><name>setName</name><argument_list>(<argument><expr><name><name>excl</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the filtered include patterns.
+     * @param p the current project.
+     * @return the filtered included patterns.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getIncludePatterns</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>.<call><name>getIncludePatterns</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>readFiles</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name>makeArray</name><argument_list>(<argument><expr><name>includeList</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Returns the filtered include patterns.
+     * @param p the current project.
+     * @return the filtered excluded patterns.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>getExcludePatterns</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>.<call><name>getExcludePatterns</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>readFiles</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name>makeArray</name><argument_list>(<argument><expr><name>excludeList</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Helper for FileSet classes.
+     * Check if there are patterns defined.
+     * @param p the current project.
+     * @return true if there are patterns.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>hasPatterns</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>.<call><name>hasPatterns</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>includesFileList</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0 || <call><name><name>excludesFileList</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0
+                || <call><name><name>includeList</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0 || <call><name><name>excludeList</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Performs the check for circular references and returns the
+     * referenced PatternSet.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>PatternSet</name></type> <name>getRef</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr>(<name>PatternSet</name>) <call><name>getCheckedRef</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Convert a vector of NameEntry elements into an array of Strings.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>String</name><index>[]</index></type> <name>makeArray</name><parameter_list>(<param><decl><type><name><name>List</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name></type> <name>list</name></decl></param>, <param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>list</name>.<name>size</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name><name>ArrayList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name></type> <name>tmpNames</name> =<init> <expr>new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>String</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>NameEntry</name></type> <name>ne</name> :<range> <expr><name>list</name></expr></range></decl></init>) <block>{
+            <decl_stmt><decl><type><name>String</name></type> <name>pattern</name> =<init> <expr><call><name><name>ne</name>.<name>evalName</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr><name>pattern</name> != <name>null</name> &amp;&amp; <call><name><name>pattern</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>tmpNames</name>.<name>add</name></name><argument_list>(<argument><expr><name>pattern</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr><call><name><name>tmpNames</name>.<name>toArray</name></name><argument_list>(<argument><expr>new <name><name>String</name><index>[<expr><call><name><name>tmpNames</name>.<name>size</name></name><argument_list>()</argument_list></call></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Read includesfile ot excludesfile if not already done so.
+     */</comment>
+    <function><type><specifier>private</specifier> <name>void</name></type> <name>readFiles</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name><name>includesFileList</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>NameEntry</name></type> <name>ne</name> :<range> <expr><name>includesFileList</name></expr></range></decl></init>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>fileName</name> =<init> <expr><call><name><name>ne</name>.<name>evalName</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>fileName</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>inclFile</name> =<init> <expr><call><name><name>p</name>.<name>resolveFile</name></name><argument_list>(<argument><expr><name>fileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr>!<call><name><name>inclFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Includesfile " + <call><name><name>inclFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>
+                                + " not found."</expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then></if>
+                    <expr_stmt><expr><call><name>readPatterns</name><argument_list>(<argument><expr><name>inclFile</name></expr></argument>, <argument><expr><name>includeList</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+            <expr_stmt><expr><call><name><name>includesFileList</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name><name>excludesFileList</name>.<name>size</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>NameEntry</name></type> <name>ne</name> :<range> <expr><name>excludesFileList</name></expr></range></decl></init>) <block>{
+                <decl_stmt><decl><type><name>String</name></type> <name>fileName</name> =<init> <expr><call><name><name>ne</name>.<name>evalName</name></name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr><name>fileName</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <decl_stmt><decl><type><name>File</name></type> <name>exclFile</name> =<init> <expr><call><name><name>p</name>.<name>resolveFile</name></name><argument_list>(<argument><expr><name>fileName</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                    <if>if <condition>(<expr>!<call><name><name>exclFile</name>.<name>exists</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+                        <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Excludesfile " + <call><name><name>exclFile</name>.<name>getAbsolutePath</name></name><argument_list>()</argument_list></call>
+                                + " not found."</expr></argument>)</argument_list></call></expr>;</throw>
+                    }</block></then></if>
+                    <expr_stmt><expr><call><name>readPatterns</name><argument_list>(<argument><expr><name>exclFile</name></expr></argument>, <argument><expr><name>excludeList</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+            <expr_stmt><expr><call><name><name>excludesFileList</name>.<name>clear</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @return a printable form of this object.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>"patternSet{ includes: " + <name>includeList</name> + " excludes: " + <name>excludeList</name> + " }"</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * @since Ant 1.6
+     * @return a clone of this patternset.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+        <try>try <block>{
+            <decl_stmt><decl><type><name>PatternSet</name></type> <name>ps</name> =<init> <expr>(<name>PatternSet</name>) <call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><name><name>ps</name>.<name>includeList</name></name> = new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>includeList</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>ps</name>.<name>excludeList</name></name> = new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>excludeList</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>ps</name>.<name>includesFileList</name></name> = new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>includesFileList</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name><name>ps</name>.<name>excludesFileList</name></name> = new <call><name><name>ArrayList</name><argument_list>&lt;<argument><name>NameEntry</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><name>excludesFileList</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>ps</name></expr>;</return>
+        }</block> <catch>catch (<param><decl><type><name>CloneNotSupportedException</name></type> <name>e</name></decl></param>) <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr><name>e</name></expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></catch></try>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add an inverted patternset.
+     * @param p the pattern to invert and add.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addConfiguredInvert</name><parameter_list>(<param><decl><type><name>PatternSet</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>addConfiguredPatternset</name><argument_list>(<argument><expr>new <call><name>InvertedPatternSet</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+}</block></class>
+</unit>

@@ -1,0 +1,713 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\filters\TokenFilter.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>filters</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>IOException</name></name>;</import>
+<import>import <name><name>java</name>.<name>io</name>.<name>Reader</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Enumeration</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>ProjectComponent</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>RegularExpression</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Substitution</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>Tokenizer</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>LineTokenizer</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringUtils</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>regexp</name>.<name>Regexp</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>regexp</name>.<name>RegexpUtil</name></name>;</import>
+
+<comment type="javadoc">/**
+ * This splits up input into tokens and passes
+ * the tokens to a sequence of filters.
+ *
+ * @since Ant 1.6
+ * @see BaseFilterReader
+ * @see ChainableReader
+ * @see org.apache.tools.ant.DynamicConfigurator
+ */</comment>
+<class><specifier>public</specifier> class <name>TokenFilter</name> <super><extends>extends <name>BaseFilterReader</name></extends>
+    <implements>implements <name>ChainableReader</name></implements></super> <block>{
+    <comment type="javadoc">/**
+     * string filters implement this interface
+     */</comment>
+    <class type="interface"><specifier>public</specifier> interface <name>Filter</name> <block>{
+        <comment type="javadoc">/**
+         * filter and/of modify a string
+         *
+         * @param string the string to filter
+         * @return the modified string or null if the
+         *         string did not pass the filter
+         */</comment>
+        <function_decl><type><name>String</name></type> <name>filter</name><parameter_list>(<param><decl><type><name>String</name></type> <name>string</name></decl></param>)</parameter_list>;</function_decl>
+    }</block></class>
+
+
+    <comment type="javadoc">/** string filters */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>Filter</name></argument>&gt;</argument_list></name></type>    <name>filters</name>   =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>Filter</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** the tokenizer to use on the input stream */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>Tokenizer</name></type> <name>tokenizer</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** the output token termination */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>    <name>delimOutput</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** the current string token from the input stream */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>    <name>line</name>      =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+    <comment type="javadoc">/** the position in the current string token */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type>       <name>linePos</name>   =<init> <expr>0</expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Constructor for "dummy" instances.
+     *
+     * @see BaseFilterReader#BaseFilterReader()
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TokenFilter</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Creates a new filtered reader.
+     *
+     * @param in A Reader object providing the underlying stream.
+     *           Must not be &lt;code&gt;null&lt;/code&gt;.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>TokenFilter</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Reader</name></type> <name>in</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+
+    <comment type="javadoc">/**
+     * Returns the next character in the filtered stream, only including
+     * lines from the original stream which match all of the specified
+     * regular expressions.
+     *
+     * @return the next character in the resulting stream, or -1
+     * if the end of the resulting stream has been reached
+     *
+     * @exception IOException if the underlying stream throws an IOException
+     * during reading
+     */</comment>
+
+    <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list> <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><name>tokenizer</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>tokenizer</name> = new <call><name>LineTokenizer</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <while>while <condition>(<expr><name>line</name> == <name>null</name> || <call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call> == 0</expr>)</condition> <block>{
+            <expr_stmt><expr><name>line</name> = <call><name><name>tokenizer</name>.<name>getToken</name></name><argument_list>(<argument><expr><name>in</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>line</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr>-1</expr>;</return>
+            }</block></then></if>
+            <for>for (<init><decl><type><name><name>Enumeration</name><argument_list>&lt;<argument><name>Filter</name></argument>&gt;</argument_list></name></type> <name>e</name> =<init> <expr><call><name><name>filters</name>.<name>elements</name></name><argument_list>()</argument_list></call></expr></init></decl>;</init> <condition><expr><call><name><name>e</name>.<name>hasMoreElements</name></name><argument_list>()</argument_list></call></expr>;</condition><incr/>) <block>{
+                <decl_stmt><decl><type><name>Filter</name></type> <name>filter</name> =<init> <expr><call><name><name>e</name>.<name>nextElement</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                <expr_stmt><expr><name>line</name> = <call><name><name>filter</name>.<name>filter</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                <if>if <condition>(<expr><name>line</name> == <name>null</name></expr>)</condition><then> <block>{
+                    <break>break;</break>
+                }</block></then></if>
+            }</block></for>
+            <expr_stmt><expr><name>linePos</name> = 0</expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>line</name> != <name>null</name></expr>)</condition><then> <block>{
+                <if>if <condition>(<expr><call><name><name>tokenizer</name>.<name>getPostToken</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> != 0</expr>)</condition><then> <block>{
+                    <if>if <condition>(<expr><name>delimOutput</name> != <name>null</name></expr>)</condition><then> <block>{
+                        <expr_stmt><expr><name>line</name> = <name>line</name> + <name>delimOutput</name></expr>;</expr_stmt>
+                    }</block></then> <else>else <block>{
+                        <expr_stmt><expr><name>line</name> = <name>line</name> + <call><name><name>tokenizer</name>.<name>getPostToken</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                    }</block></else></if>
+                }</block></then></if>
+            }</block></then></if>
+        }</block></while>
+        <decl_stmt><decl><type><name>int</name></type> <name>ch</name> =<init> <expr><call><name><name>line</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>linePos</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name>linePos</name>++</expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>linePos</name> == <call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>line</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>ch</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Creates a new TokenFilter using the passed in
+     * Reader for instantiation.
+     *
+     * @param reader A Reader object providing the underlying stream.
+     *
+     * @return a new filter based on this configuration
+     */</comment>
+
+    <function><type><specifier>public</specifier> <specifier>final</specifier> <name>Reader</name></type> <name>chain</name><parameter_list>(<param><decl><type><specifier>final</specifier> <name>Reader</name></type> <name>reader</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>TokenFilter</name></type> <name>newFilter</name> =<init> <expr>new <call><name>TokenFilter</name><argument_list>(<argument><expr><name>reader</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name><name>newFilter</name>.<name>filters</name></name> = <name>filters</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>newFilter</name>.<name>tokenizer</name></name> = <name>tokenizer</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>newFilter</name>.<name>delimOutput</name></name> = <name>delimOutput</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>newFilter</name>.<name>setProject</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>newFilter</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * set the output delimiter.
+     * @param delimOutput replaces the delim string returned by the
+     *                    tokenizer, if present.
+     */</comment>
+
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setDelimOutput</name><parameter_list>(<param><decl><type><name>String</name></type> <name>delimOutput</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>delimOutput</name></name> = <call><name>resolveBackSlash</name><argument_list>(<argument><expr><name>delimOutput</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="line">// -----------------------------------------</comment>
+    <comment type="line">//  Predefined tokenizers</comment>
+    <comment type="line">// -----------------------------------------</comment>
+
+    <comment type="javadoc">/**
+     * add a line tokenizer - this is the default.
+     * @param tokenizer the line tokenizer
+     */</comment>
+
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addLineTokenizer</name><parameter_list>(<param><decl><type><name>LineTokenizer</name></type> <name>tokenizer</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>tokenizer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add a string tokenizer
+     * @param tokenizer the string tokenizer
+     */</comment>
+
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addStringTokenizer</name><parameter_list>(<param><decl><type><name>StringTokenizer</name></type> <name>tokenizer</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>tokenizer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add a file tokenizer
+     * @param tokenizer the file tokenizer
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addFileTokenizer</name><parameter_list>(<param><decl><type><name>FileTokenizer</name></type> <name>tokenizer</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>add</name><argument_list>(<argument><expr><name>tokenizer</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * add an arbitrary tokenizer
+     * @param tokenizer the tokenizer to all, only one allowed
+     */</comment>
+
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>Tokenizer</name></type> <name>tokenizer</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><name><name>this</name>.<name>tokenizer</name></name> != <name>null</name></expr>)</condition><then> <block>{
+            <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Only one tokenizer allowed"</expr></argument>)</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name><name>this</name>.<name>tokenizer</name></name> = <name>tokenizer</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="line">// -----------------------------------------</comment>
+    <comment type="line">//  Predefined filters</comment>
+    <comment type="line">// -----------------------------------------</comment>
+
+    <comment type="javadoc">/**
+     * replace string filter
+     * @param filter the replace string filter
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addReplaceString</name><parameter_list>(<param><decl><type><name>ReplaceString</name></type> <name>filter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filters</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>filter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * contains string filter
+     * @param filter the contains string filter
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addContainsString</name><parameter_list>(<param><decl><type><name>ContainsString</name></type> <name>filter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filters</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>filter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * replace regex filter
+     * @param filter the replace regex filter
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addReplaceRegex</name><parameter_list>(<param><decl><type><name>ReplaceRegex</name></type> <name>filter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filters</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>filter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * contains regex filter
+     * @param filter the contains regex filter
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addContainsRegex</name><parameter_list>(<param><decl><type><name>ContainsRegex</name></type> <name>filter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filters</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>filter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * trim filter
+     * @param filter the trim filter
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addTrim</name><parameter_list>(<param><decl><type><name>Trim</name></type> <name>filter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filters</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>filter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * ignore blank filter
+     * @param filter the ignore blank filter
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addIgnoreBlank</name><parameter_list>(<param><decl><type><name>IgnoreBlank</name></type> <name>filter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filters</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>filter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * delete chars
+     * @param filter the delete characters filter
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>addDeleteCharacters</name><parameter_list>(<param><decl><type><name>DeleteCharacters</name></type> <name>filter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filters</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>filter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add an arbitrary filter
+     * @param filter the filter to add
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>add</name><parameter_list>(<param><decl><type><name>Filter</name></type> <name>filter</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name><name>filters</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>filter</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+
+    <comment type="line">// --------------------------------------------</comment>
+    <comment type="line">//</comment>
+    <comment type="line">//      Tokenizer Classes (impls moved to oata.util)</comment>
+    <comment type="line">//</comment>
+    <comment type="line">// --------------------------------------------</comment>
+
+    <comment type="javadoc">/**
+     * class to read the complete input into a string
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>FileTokenizer</name>
+        <super><extends>extends <name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>FileTokenizer</name></extends></super> <block>{
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * class to tokenize the input as areas separated
+     * by white space, or by a specified list of
+     * delim characters. Behaves like java.util.StringTokenizer.
+     * if the stream starts with delim characters, the first
+     * token will be an empty string (unless the treat delims
+     * as tokens flag is set).
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>StringTokenizer</name>
+        <super><extends>extends <name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>util</name>.<name>StringTokenizer</name></extends></super> <block>{
+    }</block></class>
+
+    <comment type="line">// --------------------------------------------</comment>
+    <comment type="line">//</comment>
+    <comment type="line">//      Filter classes</comment>
+    <comment type="line">//</comment>
+    <comment type="line">// --------------------------------------------</comment>
+
+    <comment type="javadoc">/**
+     * Abstract class that converts derived filter classes into
+     * ChainableReaderFilter's
+     */</comment>
+    <class><specifier>public</specifier> <specifier>abstract</specifier> <specifier>static</specifier> class <name>ChainableReaderFilter</name> <super><extends>extends <name>ProjectComponent</name></extends>
+        <implements>implements <name>ChainableReader</name>, <name>Filter</name></implements></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>byLine</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * set whether to use filetokenizer or line tokenizer
+         * @param byLine if true use a linetokenizer (default) otherwise
+         *               use a filetokenizer
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setByLine</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>byLine</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>byLine</name></name> = <name>byLine</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Chain a tokenfilter reader to a reader,
+         *
+         * @param reader the input reader object
+         * @return the chained reader object
+         */</comment>
+        <function><type><specifier>public</specifier> <name>Reader</name></type> <name>chain</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>reader</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>TokenFilter</name></type> <name>tokenFilter</name> =<init> <expr>new <call><name>TokenFilter</name><argument_list>(<argument><expr><name>reader</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <if>if <condition>(<expr>!<name>byLine</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>tokenFilter</name>.<name>add</name></name><argument_list>(<argument><expr>new <call><name>FileTokenizer</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>tokenFilter</name>.<name>add</name></name><argument_list>(<argument><expr><name>this</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <return>return <expr><name>tokenFilter</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Simple replace string filter.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>ReplaceString</name> <super><extends>extends <name>ChainableReaderFilter</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>from</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>to</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * the from attribute
+         *
+         * @param from the string to replace
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setFrom</name><parameter_list>(<param><decl><type><name>String</name></type> <name>from</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>from</name></name> = <name>from</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * the to attribute
+         *
+         * @param to the string to replace 'from' with
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setTo</name><parameter_list>(<param><decl><type><name>String</name></type> <name>to</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>to</name></name> = <name>to</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Filter a string 'line' replacing from with to
+         * (C&amp;P from the Replace task)
+         * @param line the string to be filtered
+         * @return the filtered line
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>filter</name><parameter_list>(<param><decl><type><name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>from</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Missing from in stringreplace"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <decl_stmt><decl><type><name>StringBuffer</name></type> <name>ret</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>start</name> =<init> <expr>0</expr></init></decl>;</decl_stmt>
+            <decl_stmt><decl><type><name>int</name></type> <name>found</name> =<init> <expr><call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>from</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <while>while <condition>(<expr><name>found</name> &gt;= 0</expr>)</condition> <block>{
+                <comment type="line">// write everything up to the from</comment>
+                <if>if <condition>(<expr><name>found</name> &gt; <name>start</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>ret</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>start</name></expr></argument>, <argument><expr><name>found</name></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <comment type="line">// write the replacement to</comment>
+                <if>if <condition>(<expr><name>to</name> != <name>null</name></expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>ret</name>.<name>append</name></name><argument_list>(<argument><expr><name>to</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+
+                <comment type="line">// search again</comment>
+                <expr_stmt><expr><name>start</name> = <name>found</name> + <call><name><name>from</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+                <expr_stmt><expr><name>found</name> = <call><name><name>line</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>from</name></expr></argument>, <argument><expr><name>start</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></while>
+
+            <comment type="line">// write the remaining characters</comment>
+            <if>if <condition>(<expr><call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; <name>start</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>ret</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>line</name>.<name>substring</name></name><argument_list>(<argument><expr><name>start</name></expr></argument>, <argument><expr><call><name><name>line</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+
+            <return>return <expr><call><name><name>ret</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Simple filter to filter lines contains strings
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>ContainsString</name> <super><extends>extends <name>ProjectComponent</name></extends>
+        <implements>implements <name>Filter</name></implements></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>contains</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * the contains attribute
+         * @param contains the string that the token should contain
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setContains</name><parameter_list>(<param><decl><type><name>String</name></type> <name>contains</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>contains</name></name> = <name>contains</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * Filter strings that contain the contains attribute
+         *
+         * @param string the string to be filtered
+         * @return null if the string does not contain "contains",
+         *              string otherwise
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>filter</name><parameter_list>(<param><decl><type><name>String</name></type> <name>string</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><name>contains</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Missing contains in containsstring"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <if>if <condition>(<expr><call><name><name>string</name>.<name>indexOf</name></name><argument_list>(<argument><expr><name>contains</name></expr></argument>)</argument_list></call> &gt; -1</expr>)</condition><then> <block>{
+                <return>return <expr><name>string</name></expr>;</return>
+            }</block></then></if>
+            <return>return <expr><name>null</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * filter to replace regex.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>ReplaceRegex</name> <super><extends>extends <name>ChainableReaderFilter</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>             <name>from</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>             <name>to</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>RegularExpression</name></type>  <name>regularExpression</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Substitution</name></type>       <name>substitution</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type>            <name>initialized</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>             <name>flags</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type>                <name>options</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Regexp</name></type>             <name>regexp</name></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * the from attribute
+         * @param from the regex string
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setPattern</name><parameter_list>(<param><decl><type><name>String</name></type> <name>from</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>from</name></name> = <name>from</name></expr>;</expr_stmt>
+        }</block></function>
+        <comment type="javadoc">/**
+         * the to attribute
+         * @param to the replacement string
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setReplace</name><parameter_list>(<param><decl><type><name>String</name></type> <name>to</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>to</name></name> = <name>to</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @param flags the regex flags
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setFlags</name><parameter_list>(<param><decl><type><name>String</name></type> <name>flags</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>flags</name></name> = <name>flags</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>initialize</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>initialized</name></expr>)</condition><then> <block>{
+                <return>return;</return>
+            }</block></then></if>
+            <expr_stmt><expr><name>options</name> = <call><name>convertRegexOptions</name><argument_list>(<argument><expr><name>flags</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>from</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Missing pattern in replaceregex"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><name>regularExpression</name> = new <call><name>RegularExpression</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>regularExpression</name>.<name>setPattern</name></name><argument_list>(<argument><expr><name>from</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>regexp</name> = <call><name><name>regularExpression</name>.<name>getRegexp</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>to</name> == <name>null</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><name>to</name> = ""</expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><name>substitution</name> = new <call><name>Substitution</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>substitution</name>.<name>setExpression</name></name><argument_list>(<argument><expr><name>to</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @param line the string to modify
+         * @return the modified string
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>filter</name><parameter_list>(<param><decl><type><name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>initialize</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+
+            <if>if <condition>(<expr>!<call><name><name>regexp</name>.<name>matches</name></name><argument_list>(<argument><expr><name>line</name></expr></argument>, <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>line</name></expr>;</return>
+            }</block></then></if>
+            <return>return <expr><call><name><name>regexp</name>.<name>substitute</name></name><argument_list>(
+                <argument><expr><name>line</name></expr></argument>, <argument><expr><call><name><name>substitution</name>.<name>getExpression</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * filter to filter tokens matching regular expressions.
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>ContainsRegex</name> <super><extends>extends <name>ChainableReaderFilter</name></extends></super> <block>{
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>             <name>from</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>             <name>to</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>RegularExpression</name></type>  <name>regularExpression</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Substitution</name></type>       <name>substitution</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type>            <name>initialized</name> =<init> <expr>false</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type>             <name>flags</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>int</name></type>                <name>options</name></decl>;</decl_stmt>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>Regexp</name></type>             <name>regexp</name></decl>;</decl_stmt>
+
+
+        <comment type="javadoc">/**
+         * @param from the regex pattern
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setPattern</name><parameter_list>(<param><decl><type><name>String</name></type> <name>from</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>from</name></name> = <name>from</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @param to the replacement string
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setReplace</name><parameter_list>(<param><decl><type><name>String</name></type> <name>to</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>to</name></name> = <name>to</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * @param flags the regex flags
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setFlags</name><parameter_list>(<param><decl><type><name>String</name></type> <name>flags</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>flags</name></name> = <name>flags</name></expr>;</expr_stmt>
+        }</block></function>
+
+        <function><type><specifier>private</specifier> <name>void</name></type> <name>initialize</name><parameter_list>()</parameter_list> <block>{
+            <if>if <condition>(<expr><name>initialized</name></expr>)</condition><then> <block>{
+                <return>return;</return>
+            }</block></then></if>
+            <expr_stmt><expr><name>options</name> = <call><name>convertRegexOptions</name><argument_list>(<argument><expr><name>flags</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>from</name> == <name>null</name></expr>)</condition><then> <block>{
+                <throw>throw <expr>new <call><name>BuildException</name><argument_list>(<argument><expr>"Missing from in containsregex"</expr></argument>)</argument_list></call></expr>;</throw>
+            }</block></then></if>
+            <expr_stmt><expr><name>regularExpression</name> = new <call><name>RegularExpression</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>regularExpression</name>.<name>setPattern</name></name><argument_list>(<argument><expr><name>from</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><name>regexp</name> = <call><name><name>regularExpression</name>.<name>getRegexp</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>to</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return;</return>
+            }</block></then></if>
+            <expr_stmt><expr><name>substitution</name> = new <call><name>Substitution</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>substitution</name>.<name>setExpression</name></name><argument_list>(<argument><expr><name>to</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * apply regex and substitution on a string
+         * @param string the string to apply filter on
+         * @return the filtered string
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>filter</name><parameter_list>(<param><decl><type><name>String</name></type> <name>string</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><call><name>initialize</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr>!<call><name><name>regexp</name>.<name>matches</name></name><argument_list>(<argument><expr><name>string</name></expr></argument>, <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></then></if>
+            <if>if <condition>(<expr><name>substitution</name> == <name>null</name></expr>)</condition><then> <block>{
+                <return>return <expr><name>string</name></expr>;</return>
+            }</block></then></if>
+            <return>return <expr><call><name><name>regexp</name>.<name>substitute</name></name><argument_list>(
+                <argument><expr><name>string</name></expr></argument>, <argument><expr><call><name><name>substitution</name>.<name>getExpression</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>, <argument><expr><name>options</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/** Filter to trim white space */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>Trim</name> <super><extends>extends <name>ChainableReaderFilter</name></extends></super> <block>{
+        <comment type="javadoc">/**
+         * @param line the string to be trimmed
+         * @return the trimmed string
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>filter</name><parameter_list>(<param><decl><type><name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+            <return>return <expr><call><name><name>line</name>.<name>trim</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+
+
+    <comment type="javadoc">/** Filter remove empty tokens */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>IgnoreBlank</name> <super><extends>extends <name>ChainableReaderFilter</name></extends></super> <block>{
+        <comment type="javadoc">/**
+         * @param line the line to modify
+         * @return the trimmed line
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>filter</name><parameter_list>(<param><decl><type><name>String</name></type> <name>line</name></decl></param>)</parameter_list> <block>{
+            <if>if <condition>(<expr><call><name><name>line</name>.<name>trim</name></name><argument_list>()</argument_list></call>.<call><name>length</name><argument_list>()</argument_list></call> == 0</expr>)</condition><then> <block>{
+                <return>return <expr><name>null</name></expr>;</return>
+            }</block></then></if>
+            <return>return <expr><name>line</name></expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="javadoc">/**
+     * Filter to delete characters
+     */</comment>
+    <class><specifier>public</specifier> <specifier>static</specifier> class <name>DeleteCharacters</name> <super><extends>extends <name>ProjectComponent</name></extends>
+        <implements>implements <name>Filter</name>, <name>ChainableReader</name></implements></super> <block>{
+        <comment type="line">// Attributes</comment>
+        <comment type="javadoc">/** the list of characters to remove from the input */</comment>
+        <decl_stmt><decl><type><specifier>private</specifier> <name>String</name></type> <name>deleteChars</name> =<init> <expr>""</expr></init></decl>;</decl_stmt>
+
+        <comment type="javadoc">/**
+         * Set the list of characters to delete
+         * @param deleteChars the list of characters
+         */</comment>
+        <function><type><specifier>public</specifier> <name>void</name></type> <name>setChars</name><parameter_list>(<param><decl><type><name>String</name></type> <name>deleteChars</name></decl></param>)</parameter_list> <block>{
+            <expr_stmt><expr><name><name>this</name>.<name>deleteChars</name></name> = <call><name>resolveBackSlash</name><argument_list>(<argument><expr><name>deleteChars</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * remove characters from a string
+         * @param string the string to remove the characters from
+         * @return the converted string
+         */</comment>
+        <function><type><specifier>public</specifier> <name>String</name></type> <name>filter</name><parameter_list>(<param><decl><type><name>String</name></type> <name>string</name></decl></param>)</parameter_list> <block>{
+            <decl_stmt><decl><type><name>StringBuffer</name></type> <name>output</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>(<argument><expr><call><name><name>string</name>.<name>length</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <call><name><name>string</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr>++<name>i</name></expr></incr>) <block>{
+                <decl_stmt><decl><type><name>char</name></type> <name>ch</name> =<init> <expr><call><name><name>string</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+                <if>if <condition>(<expr>!(<call><name>isDeleteCharacter</name><argument_list>(<argument><expr><name>ch</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                    <expr_stmt><expr><call><name><name>output</name>.<name>append</name></name><argument_list>(<argument><expr><name>ch</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+                }</block></then></if>
+            }</block></for>
+            <return>return <expr><call><name><name>output</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         * factory method to provide a reader that removes
+         * the characters from a reader as part of a filter
+         * chain
+         * @param reader the reader object
+         * @return the chained reader object
+         */</comment>
+        <function><type><specifier>public</specifier> <name>Reader</name></type> <name>chain</name><parameter_list>(<param><decl><type><name>Reader</name></type> <name>reader</name></decl></param>)</parameter_list> <block>{
+            <return>return <expr>new <class><super><name>BaseFilterReader</name></super><argument_list>(<argument><expr><name>reader</name></expr></argument>)</argument_list> <block>{
+                <comment type="javadoc">/**
+                 * @return the next non delete character
+                 */</comment>
+                <function><type><specifier>public</specifier> <name>int</name></type> <name>read</name><parameter_list>()</parameter_list>
+                    <throws>throws <argument><expr><name>IOException</name></expr></argument></throws> <block>{
+                    <while>while <condition>(<expr>true</expr>)</condition> <block>{
+                        <decl_stmt><decl><type><name>int</name></type> <name>c</name> =<init> <expr><call><name><name>in</name>.<name>read</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+                        <if>if <condition>(<expr><name>c</name> == -1</expr>)</condition><then> <block>{
+                            <return>return <expr><name>c</name></expr>;</return>
+                        }</block></then></if>
+                        <if>if <condition>(<expr>!(<call><name>isDeleteCharacter</name><argument_list>(<argument><expr>(<name>char</name>) <name>c</name></expr></argument>)</argument_list></call>)</expr>)</condition><then> <block>{
+                            <return>return <expr><name>c</name></expr>;</return>
+                        }</block></then></if>
+                    }</block></while>
+                }</block></function>
+            }</block></class></expr>;</return>
+        }</block></function>
+
+        <comment type="javadoc">/**
+         *  check if the character c is to be deleted
+         *
+         * @param c char to test
+         * @return true if the supplied char is in the list to be stripped.
+         */</comment>
+        <function><type><specifier>private</specifier> <name>boolean</name></type> <name>isDeleteCharacter</name><parameter_list>(<param><decl><type><name>char</name></type> <name>c</name></decl></param>)</parameter_list> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>d</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>d</name> &lt; <call><name><name>deleteChars</name>.<name>length</name></name><argument_list>()</argument_list></call></expr>;</condition> <incr><expr>++<name>d</name></expr></incr>) <block>{
+                <if>if <condition>(<expr><call><name><name>deleteChars</name>.<name>charAt</name></name><argument_list>(<argument><expr><name>d</name></expr></argument>)</argument_list></call> ==  <name>c</name></expr>)</condition><then> <block>{
+                    <return>return <expr>true</expr>;</return>
+                }</block></then></if>
+            }</block></for>
+            <return>return <expr>false</expr>;</return>
+        }</block></function>
+    }</block></class>
+
+    <comment type="line">// --------------------------------------------------------</comment>
+    <comment type="line">//  static utility methods - could be placed somewhere else</comment>
+    <comment type="line">// --------------------------------------------------------</comment>
+
+    <comment type="javadoc">/**
+     * xml does not do "c" like interpretation of strings.
+     * i.e. \n\r\t etc.
+     * this method processes \n, \r, \t, \f, \\
+     * also subs \s -&gt; " \n\r\t\f"
+     * a trailing '\' will be ignored
+     *
+     * @param input raw string with possible embedded '\'s
+     * @return converted string
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>String</name></type> <name>resolveBackSlash</name><parameter_list>(<param><decl><type><name>String</name></type> <name>input</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>StringUtils</name>.<name>resolveBackSlash</name></name><argument_list>(<argument><expr><name>input</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * convert regex option flag characters to regex options
+     * &lt;dl&gt;
+     *   &lt;li&gt;g -  Regexp.REPLACE_ALL&lt;/li&gt;
+     *   &lt;li&gt;i -  Regexp.MATCH_CASE_INSENSITIVE&lt;/li&gt;
+     *   &lt;li&gt;m -  Regexp.MATCH_MULTILINE&lt;/li&gt;
+     *   &lt;li&gt;s -  Regexp.MATCH_SINGLELINE&lt;/li&gt;
+     * &lt;/dl&gt;
+     * @param flags the string containing the flags
+     * @return the Regexp option bits
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>static</specifier> <name>int</name></type> <name>convertRegexOptions</name><parameter_list>(<param><decl><type><name>String</name></type> <name>flags</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name><name>RegexpUtil</name>.<name>asOptions</name></name><argument_list>(<argument><expr><name>flags</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+}</block></class>
+</unit>

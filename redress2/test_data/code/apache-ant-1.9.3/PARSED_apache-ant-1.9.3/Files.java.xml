@@ -1,0 +1,505 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<unit xmlns="http://www.sdml.info/srcML/src" language="Java" filename="C:\Users\ojcchar\Documents\Dropbox\Classes\W14\CSC7990 - Directed Study\Implementation\EclipseProject\redress2\test_data\code\apache-ant-1.9.3\src\main\org\apache\tools\ant\types\resources\Files.java"><comment type="block">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the "License"); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */</comment>
+<package>package <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>resources</name></name>;</package>
+
+<import>import <name><name>java</name>.<name>io</name>.<name>File</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Vector</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Iterator</name></name>;</import>
+<import>import <name><name>java</name>.<name>util</name>.<name>Collections</name></name>;</import>
+
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>Project</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>BuildException</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>DirectoryScanner</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Reference</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>PatternSet</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>Resource</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>ResourceCollection</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>selectors</name>.<name>FileSelector</name></name>;</import>
+<import>import <name><name>org</name>.<name>apache</name>.<name>tools</name>.<name>ant</name>.<name>types</name>.<name>selectors</name>.<name>AbstractSelectorContainer</name></name>;</import>
+
+<comment type="javadoc">/**
+ * ResourceCollection implementation; like AbstractFileSet with absolute paths.
+ * @since Ant 1.7
+ */</comment>
+<class><specifier>public</specifier> class <name>Files</name> <super><extends>extends <name>AbstractSelectorContainer</name></extends>
+    <implements>implements <name>ResourceCollection</name></implements></super> <block>{
+
+    <decl_stmt><decl><type><specifier>private</specifier> <specifier>static</specifier> <specifier>final</specifier> <name><name>Iterator</name><argument_list>&lt;<argument><name>Resource</name></argument>&gt;</argument_list></name></type> <name>EMPTY_ITERATOR</name>
+        =<init> <expr><name><name>Collections</name>.<name><name/></name></name>&lt;<name>Resource</name>&gt;<call><name>emptySet</name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>PatternSet</name></type> <name>defaultPatterns</name> =<init> <expr>new <call><name>PatternSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name><name>Vector</name><argument_list>&lt;<argument><name>PatternSet</name></argument>&gt;</argument_list></name></type> <name>additionalPatterns</name> =<init> <expr>new <call><name><name>Vector</name><argument_list>&lt;<argument><name>PatternSet</name></argument>&gt;</argument_list></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>useDefaultExcludes</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>caseSensitive</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>boolean</name></type> <name>followSymlinks</name> =<init> <expr>true</expr></init></decl>;</decl_stmt>
+
+    <comment type="block">/* cached DirectoryScanner instance */</comment>
+    <decl_stmt><decl><type><specifier>private</specifier> <name>DirectoryScanner</name></type> <name>ds</name> =<init> <expr><name>null</name></expr></init></decl>;</decl_stmt>
+
+    <comment type="javadoc">/**
+     * Construct a new &lt;code&gt;Files&lt;/code&gt; collection.
+     */</comment>
+    <constructor><specifier>public</specifier> <name>Files</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>super</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Construct a new &lt;code&gt;Files&lt;/code&gt; collection, shallowly cloned
+     * from the specified &lt;code&gt;Files&lt;/code&gt;.
+     * @param f the &lt;code&gt;Files&lt;/code&gt; to use as a template.
+     */</comment>
+    <constructor><specifier>protected</specifier> <name>Files</name><parameter_list>(<param><decl><type><name>Files</name></type> <name>f</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><name><name>this</name>.<name>defaultPatterns</name></name> = <name><name>f</name>.<name>defaultPatterns</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>additionalPatterns</name></name> = <name><name>f</name>.<name>additionalPatterns</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>useDefaultExcludes</name></name> = <name><name>f</name>.<name>useDefaultExcludes</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>caseSensitive</name></name> = <name><name>f</name>.<name>caseSensitive</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>followSymlinks</name></name> = <name><name>f</name>.<name>followSymlinks</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>ds</name></name> = <name><name>f</name>.<name>ds</name></name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setProject</name><argument_list>(<argument><expr><call><name><name>f</name>.<name>getProject</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></constructor>
+
+    <comment type="javadoc">/**
+     * Make this instance in effect a reference to another instance.
+     *
+     * &lt;p&gt;You must not set another attribute or nest elements inside
+     * this element if you make it a reference.&lt;/p&gt;
+     * @param r the &lt;code&gt;Reference&lt;/code&gt; to use.
+     * @throws BuildException if there is a problem.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>void</name></type> <name>setRefid</name><parameter_list>(<param><decl><type><name>Reference</name></type> <name>r</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <if>if <condition>(<expr><call><name>hasPatterns</name><argument_list>(<argument><expr><name>defaultPatterns</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>tooManyAttributes</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr>!<call><name><name>additionalPatterns</name>.<name>isEmpty</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <if>if <condition>(<expr><call><name>hasSelectors</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>super</name>.<name>setRefid</name></name><argument_list>(<argument><expr><name>r</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a nested patternset.
+     * @return &lt;code&gt;PatternSet&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>PatternSet</name></type> <name>createPatternSet</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>PatternSet</name></type> <name>patterns</name> =<init> <expr>new <call><name>PatternSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>additionalPatterns</name>.<name>addElement</name></name><argument_list>(<argument><expr><name>patterns</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name>setChecked</name><argument_list>(<argument><expr>false</expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><name>patterns</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a name entry to the include list.
+     * @return &lt;code&gt;PatternSet.NameEntry&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name><name>PatternSet</name>.<name>NameEntry</name></name></type> <name>createInclude</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>defaultPatterns</name>.<name>createInclude</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a name entry to the include files list.
+     * @return &lt;code&gt;PatternSet.NameEntry&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name><name>PatternSet</name>.<name>NameEntry</name></name></type> <name>createIncludesFile</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>defaultPatterns</name>.<name>createIncludesFile</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a name entry to the exclude list.
+     * @return &lt;code&gt;PatternSet.NameEntry&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name><name>PatternSet</name>.<name>NameEntry</name></name></type> <name>createExclude</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>defaultPatterns</name>.<name>createExclude</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a name entry to the excludes files list.
+     * @return &lt;code&gt;PatternSet.NameEntry&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name><name>PatternSet</name>.<name>NameEntry</name></name></type> <name>createExcludesFile</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>defaultPatterns</name>.<name>createExcludesFile</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Append &lt;code&gt;includes&lt;/code&gt; to the current list of include
+     * patterns.
+     *
+     * &lt;p&gt;Patterns may be separated by a comma or a space.&lt;/p&gt;
+     *
+     * @param includes the &lt;code&gt;String&lt;/code&gt; containing the include patterns.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setIncludes</name><parameter_list>(<param><decl><type><name>String</name></type> <name>includes</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>defaultPatterns</name>.<name>setIncludes</name></name><argument_list>(<argument><expr><name>includes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Append &lt;code&gt;includes&lt;/code&gt; to the current list of include
+     * patterns.
+     *
+     * @param includes array containing the include patterns.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>appendIncludes</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>includes</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>includes</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>includes</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>defaultPatterns</name>.<name>createInclude</name></name><argument_list>()</argument_list></call>.<call><name>setName</name><argument_list>(<argument><expr><name><name>includes</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Append &lt;code&gt;excludes&lt;/code&gt; to the current list of exclude
+     * patterns.
+     *
+     * &lt;p&gt;Patterns may be separated by a comma or a space.&lt;/p&gt;
+     *
+     * @param excludes the &lt;code&gt;String&lt;/code&gt; containing the exclude patterns.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setExcludes</name><parameter_list>(<param><decl><type><name>String</name></type> <name>excludes</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>defaultPatterns</name>.<name>setExcludes</name></name><argument_list>(<argument><expr><name>excludes</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Append &lt;code&gt;excludes&lt;/code&gt; to the current list of include
+     * patterns.
+     *
+     * @param excludes array containing the exclude patterns.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>appendExcludes</name><parameter_list>(<param><decl><type><name><name>String</name><index>[]</index></name></type> <name>excludes</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>excludes</name> != <name>null</name></expr>)</condition><then> <block>{
+            <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name><name>excludes</name>.<name>length</name></name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+                <expr_stmt><expr><call><name><name>defaultPatterns</name>.<name>createExclude</name></name><argument_list>()</argument_list></call>.<call><name>setName</name><argument_list>(<argument><expr><name><name>excludes</name><index>[<expr><name>i</name></expr>]</index></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></for>
+            <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the &lt;code&gt;File&lt;/code&gt; containing the includes patterns.
+     *
+     * @param incl &lt;code&gt;File&lt;/code&gt; instance.
+     * @throws BuildException if there is a problem.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setIncludesfile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>incl</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>defaultPatterns</name>.<name>setIncludesfile</name></name><argument_list>(<argument><expr><name>incl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set the &lt;code&gt;File&lt;/code&gt; containing the excludes patterns.
+     *
+     * @param excl &lt;code&gt;File&lt;/code&gt; instance.
+     * @throws BuildException if there is a problem.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setExcludesfile</name><parameter_list>(<param><decl><type><name>File</name></type> <name>excl</name></decl></param>)</parameter_list> <throws>throws <argument><expr><name>BuildException</name></expr></argument></throws> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>defaultPatterns</name>.<name>setExcludesfile</name></name><argument_list>(<argument><expr><name>excl</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether default exclusions should be used or not.
+     *
+     * @param useDefaultExcludes &lt;code&gt;boolean&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setDefaultexcludes</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>useDefaultExcludes</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>useDefaultExcludes</name></name> = <name>useDefaultExcludes</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get whether default exclusions should be used or not.
+     * @return the defaultexclusions value.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>boolean</name></type> <name>getDefaultexcludes</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>(<call><name>isReference</name><argument_list>()</argument_list></call>)
+            ? <call><name>getRef</name><argument_list>()</argument_list></call>.<call><name>getDefaultexcludes</name><argument_list>()</argument_list></call> : <name>useDefaultExcludes</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set case-sensitivity of the Files collection.
+     *
+     * @param caseSensitive &lt;code&gt;boolean&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setCaseSensitive</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>caseSensitive</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>caseSensitive</name></name> = <name>caseSensitive</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find out if this Files collection is case-sensitive.
+     *
+     * @return &lt;code&gt;boolean&lt;/code&gt; indicating whether the Files
+     * collection is case-sensitive.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>boolean</name></type> <name>isCaseSensitive</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>(<call><name>isReference</name><argument_list>()</argument_list></call>)
+            ? <call><name>getRef</name><argument_list>()</argument_list></call>.<call><name>isCaseSensitive</name><argument_list>()</argument_list></call> : <name>caseSensitive</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Set whether or not symbolic links should be followed.
+     *
+     * @param followSymlinks whether or not symbolic links should be followed.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>setFollowSymlinks</name><parameter_list>(<param><decl><type><name>boolean</name></type> <name>followSymlinks</name></decl></param>)</parameter_list> <block>{
+        <expr_stmt><expr><call><name>checkAttributesAllowed</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>this</name>.<name>followSymlinks</name></name> = <name>followSymlinks</name></expr>;</expr_stmt>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find out whether symbolic links should be followed.
+     *
+     * @return &lt;code&gt;boolean&lt;/code&gt; indicating whether symbolic links
+     *         should be followed.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>boolean</name></type> <name>isFollowSymlinks</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>(<call><name>isReference</name><argument_list>()</argument_list></call>)
+            ? <call><name>getRef</name><argument_list>()</argument_list></call>.<call><name>isFollowSymlinks</name><argument_list>()</argument_list></call> : <name>followSymlinks</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fulfill the ResourceCollection contract.
+     * @return an Iterator of Resources.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name><name>Iterator</name><argument_list>&lt;<argument><name>Resource</name></argument>&gt;</argument_list></name></type> <name>iterator</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>()</argument_list></call>.<call><name>iterator</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>ensureDirectoryScannerSetup</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>ds</name>.<name>scan</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>fct</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedFilesCount</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>int</name></type> <name>dct</name> =<init> <expr><call><name><name>ds</name>.<name>getIncludedDirsCount</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>fct</name> + <name>dct</name> == 0</expr>)</condition><then> <block>{
+            <return>return <expr><name>EMPTY_ITERATOR</name></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>FileResourceIterator</name></type> <name>result</name> =<init> <expr>new <call><name>FileResourceIterator</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr><name>fct</name> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>result</name>.<name>addFiles</name></name><argument_list>(<argument><expr><call><name><name>ds</name>.<name>getIncludedFiles</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <if>if <condition>(<expr><name>dct</name> &gt; 0</expr>)</condition><then> <block>{
+            <expr_stmt><expr><call><name><name>result</name>.<name>addFiles</name></name><argument_list>(<argument><expr><call><name><name>ds</name>.<name>getIncludedDirectories</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+        <return>return <expr><name>result</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Fulfill the ResourceCollection contract.
+     * @return number of elements as int.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>int</name></type> <name>size</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>()</argument_list></call>.<call><name>size</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>ensureDirectoryScannerSetup</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><call><name><name>ds</name>.<name>scan</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <return>return <expr><call><name><name>ds</name>.<name>getIncludedFilesCount</name></name><argument_list>()</argument_list></call> + <call><name><name>ds</name>.<name>getIncludedDirsCount</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Find out whether this Files collection has patterns.
+     *
+     * @return whether any patterns are in this container.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>boolean</name></type> <name>hasPatterns</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>()</argument_list></call>.<call><name>hasPatterns</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><call><name>hasPatterns</name><argument_list>(<argument><expr><name>defaultPatterns</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>true</expr>;</return>
+        }</block></then></if>
+        <for>for (<init><decl><type><name>PatternSet</name></type> <name>patternSet</name> :<range> <expr><name>additionalPatterns</name></expr></range></decl></init>) <block>{
+            <if>if <condition>(<expr><call><name>hasPatterns</name><argument_list>(<argument><expr><name>patternSet</name></expr></argument>)</argument_list></call></expr>)</condition><then> <block>{
+                <return>return <expr>true</expr>;</return>
+            }</block></then></if>
+        }</block></for>
+        <return>return <expr>false</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Add a new selector into this container.
+     *
+     * @param selector the new &lt;code&gt;FileSelector&lt;/code&gt; to add.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>appendSelector</name><parameter_list>(<param><decl><type><name>FileSelector</name></type> <name>selector</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <throw>throw <expr><call><name>noChildrenAllowed</name><argument_list>()</argument_list></call></expr>;</throw>
+        }</block></then></if>
+        <expr_stmt><expr><call><name><name>super</name>.<name>appendSelector</name></name><argument_list>(<argument><expr><name>selector</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name>ds</name> = <name>null</name></expr>;</expr_stmt>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Format this Files collection as a String.
+     * @return a descriptive &lt;code&gt;String&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name></type> <name>toString</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>()</argument_list></call>.<call><name>toString</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name><name>Iterator</name><argument_list>&lt;<argument><name>Resource</name></argument>&gt;</argument_list></name></type> <name>i</name> =<init> <expr><call><name>iterator</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <if>if <condition>(<expr>!<call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr>""</expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>StringBuffer</name></type> <name>sb</name> =<init> <expr>new <call><name>StringBuffer</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <while>while <condition>(<expr><call><name><name>i</name>.<name>hasNext</name></name><argument_list>()</argument_list></call></expr>)</condition> <block>{
+            <if>if <condition>(<expr><call><name><name>sb</name>.<name>length</name></name><argument_list>()</argument_list></call> &gt; 0</expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><name><name>File</name>.<name>pathSeparatorChar</name></name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>sb</name>.<name>append</name></name><argument_list>(<argument><expr><call><name><name>i</name>.<name>next</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></while>
+        <return>return <expr><call><name><name>sb</name>.<name>toString</name></name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Create a deep clone of this instance, except for the nested selectors
+     * (the list of selectors is a shallow clone of this instance's list).
+     * @return a cloned Object.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>Object</name></type> <name>clone</name><parameter_list>()</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>()</argument_list></call>.<call><name>clone</name><argument_list>()</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <decl_stmt><decl><type><name>Files</name></type> <name>f</name> =<init> <expr>(<name>Files</name>) <call><name><name>super</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><name><name>f</name>.<name>defaultPatterns</name></name> = (<name>PatternSet</name>) <call><name><name>defaultPatterns</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <expr_stmt><expr><name><name>f</name>.<name>additionalPatterns</name></name> = new <call><name><name>Vector</name><argument_list>&lt;<argument><name>PatternSet</name></argument>&gt;</argument_list></name><argument_list>(<argument><expr><call><name><name>additionalPatterns</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <for>for (<init><decl><type><name>PatternSet</name></type> <name>ps</name> :<range> <expr><name>additionalPatterns</name></expr></range></decl></init>) <block>{
+            <expr_stmt><expr><call><name><name>f</name>.<name>additionalPatterns</name>.<name>add</name></name><argument_list>(<argument><expr>(<name>PatternSet</name>) <call><name><name>ps</name>.<name>clone</name></name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>f</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the merged include patterns for this Files collection.
+     * @param p Project instance.
+     * @return the include patterns of the default pattern set and all
+     * nested patternsets.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>mergeIncludes</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>mergePatterns</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>.<call><name>getIncludePatterns</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the merged exclude patterns for this Files collection.
+     * @param p Project instance.
+     * @return the exclude patterns of the default pattern set and all
+     * nested patternsets.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>String</name><index>[]</index></type> <name>mergeExcludes</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <return>return <expr><call><name>mergePatterns</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call>.<call><name>getExcludePatterns</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Get the merged patterns for this Files collection.
+     * @param p Project instance.
+     * @return the default patternset merged with the additional sets
+     * in a new PatternSet instance.
+     */</comment>
+    <function><type><specifier>public</specifier> <specifier>synchronized</specifier> <name>PatternSet</name></type> <name>mergePatterns</name><parameter_list>(<param><decl><type><name>Project</name></type> <name>p</name></decl></param>)</parameter_list> <block>{
+        <if>if <condition>(<expr><call><name>isReference</name><argument_list>()</argument_list></call></expr>)</condition><then> <block>{
+            <return>return <expr><call><name>getRef</name><argument_list>()</argument_list></call>.<call><name>mergePatterns</name><argument_list>(<argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</return>
+        }</block></then></if>
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><name>PatternSet</name></type> <name>ps</name> =<init> <expr>new <call><name>PatternSet</name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <expr_stmt><expr><call><name><name>ps</name>.<name>append</name></name><argument_list>(<argument><expr><name>defaultPatterns</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        <decl_stmt><decl><type><specifier>final</specifier> <name>int</name></type> <name>count</name> =<init> <expr><call><name><name>additionalPatterns</name>.<name>size</name></name><argument_list>()</argument_list></call></expr></init></decl>;</decl_stmt>
+        <for>for (<init><decl><type><name>int</name></type> <name>i</name> =<init> <expr>0</expr></init></decl>;</init> <condition><expr><name>i</name> &lt; <name>count</name></expr>;</condition> <incr><expr><name>i</name>++</expr></incr>) <block>{
+            <decl_stmt><decl><type><name>Object</name></type> <name>o</name> =<init> <expr><call><name><name>additionalPatterns</name>.<name>elementAt</name></name><argument_list>(<argument><expr><name>i</name></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>ps</name>.<name>append</name></name><argument_list>(<argument><expr>(<name>PatternSet</name>) <name>o</name></expr></argument>, <argument><expr><name>p</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></for>
+        <return>return <expr><name>ps</name></expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Always returns true.
+     * @return true indicating that all elements of a Files collection
+     *              will be FileResources.
+     */</comment>
+    <function><type><specifier>public</specifier> <name>boolean</name></type> <name>isFilesystemOnly</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>true</expr>;</return>
+    }</block></function>
+
+    <comment type="javadoc">/**
+     * Perform the check for circular references and return the
+     * referenced Files collection.
+     * @return &lt;code&gt;FileCollection&lt;/code&gt;.
+     */</comment>
+    <function><type><specifier>protected</specifier> <name>Files</name></type> <name>getRef</name><parameter_list>()</parameter_list> <block>{
+        <return>return <expr>(<name>Files</name>) <call><name>getCheckedRef</name><argument_list>()</argument_list></call></expr>;</return>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <specifier>synchronized</specifier> <name>void</name></type> <name>ensureDirectoryScannerSetup</name><parameter_list>()</parameter_list> <block>{
+        <expr_stmt><expr><call><name>dieOnCircularReference</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+        <if>if <condition>(<expr><name>ds</name> == <name>null</name></expr>)</condition><then> <block>{
+            <expr_stmt><expr><name>ds</name> = new <call><name>DirectoryScanner</name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            <decl_stmt><decl><type><name>PatternSet</name></type> <name>ps</name> =<init> <expr><call><name>mergePatterns</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+            <expr_stmt><expr><call><name><name>ds</name>.<name>setIncludes</name></name><argument_list>(<argument><expr><call><name><name>ps</name>.<name>getIncludePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ds</name>.<name>setExcludes</name></name><argument_list>(<argument><expr><call><name><name>ps</name>.<name>getExcludePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ds</name>.<name>setSelectors</name></name><argument_list>(<argument><expr><call><name>getSelectors</name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <if>if <condition>(<expr><name>useDefaultExcludes</name></expr>)</condition><then> <block>{
+                <expr_stmt><expr><call><name><name>ds</name>.<name>addDefaultExcludes</name></name><argument_list>()</argument_list></call></expr>;</expr_stmt>
+            }</block></then></if>
+            <expr_stmt><expr><call><name><name>ds</name>.<name>setCaseSensitive</name></name><argument_list>(<argument><expr><name>caseSensitive</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+            <expr_stmt><expr><call><name><name>ds</name>.<name>setFollowSymlinks</name></name><argument_list>(<argument><expr><name>followSymlinks</name></expr></argument>)</argument_list></call></expr>;</expr_stmt>
+        }</block></then></if>
+    }</block></function>
+
+    <function><type><specifier>private</specifier> <name>boolean</name></type> <name>hasPatterns</name><parameter_list>(<param><decl><type><name>PatternSet</name></type> <name>ps</name></decl></param>)</parameter_list> <block>{
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>includePatterns</name> =<init> <expr><call><name><name>ps</name>.<name>getIncludePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <decl_stmt><decl><type><name>String</name><index>[]</index></type> <name>excludePatterns</name> =<init> <expr><call><name><name>ps</name>.<name>getExcludePatterns</name></name><argument_list>(<argument><expr><call><name>getProject</name><argument_list>()</argument_list></call></expr></argument>)</argument_list></call></expr></init></decl>;</decl_stmt>
+        <return>return <expr>(<name>includePatterns</name> != <name>null</name> &amp;&amp; <name><name>includePatterns</name>.<name>length</name></name> &gt; 0)
+            || (<name>includePatterns</name> != <name>null</name> &amp;&amp; <name><name>excludePatterns</name>.<name>length</name></name> &gt; 0)</expr>;</return>
+    }</block></function>
+
+}</block></class>
+</unit>
