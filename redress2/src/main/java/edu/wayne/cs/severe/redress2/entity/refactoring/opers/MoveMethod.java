@@ -24,6 +24,7 @@ import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.mm.MPCMoveMethod
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.mm.NOMMoveMethodPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.mm.RFCMoveMethodPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.json.JSONRefParam;
+import edu.wayne.cs.severe.redress2.entity.refactoring.json.OBSERVRefParam;
 import edu.wayne.cs.severe.redress2.exception.RefactoringException;
 import edu.wayne.cs.severe.redress2.utils.RefactoringUtils;
 
@@ -87,6 +88,13 @@ public class MoveMethod extends RefactoringType {
 	@Override
 	public String getAcronym() {
 		return "MM";
+	}
+
+	@Override
+	public HashMap<String, List<RefactoringParameter>> getOBSERVRefactoringParams(List<OBSERVRefParam> jsonParams)
+			throws RefactoringException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }// end MoveMethod

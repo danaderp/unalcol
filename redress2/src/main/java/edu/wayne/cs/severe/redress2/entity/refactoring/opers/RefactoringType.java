@@ -7,6 +7,7 @@ import edu.wayne.cs.severe.redress2.entity.TypeDeclaration;
 import edu.wayne.cs.severe.redress2.entity.refactoring.RefactoringParameter;
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.PredictionFormula;
 import edu.wayne.cs.severe.redress2.entity.refactoring.json.JSONRefParam;
+import edu.wayne.cs.severe.redress2.entity.refactoring.json.OBSERVRefParam;
 import edu.wayne.cs.severe.redress2.exception.RefactoringException;
 
 /**
@@ -35,5 +36,11 @@ public abstract class RefactoringType {
 
 	public abstract HashMap<String, List<RefactoringParameter>> getRefactoringParams(
 			List<JSONRefParam> jsonParams) throws RefactoringException;
+
+	//danaderp
+	//new method for controlling OBSERVRefParam
+	public abstract HashMap<String, List<RefactoringParameter>> getOBSERVRefactoringParams(
+			List<OBSERVRefParam> jsonParams) throws RefactoringException;
+
 
 }// end RefactoringType

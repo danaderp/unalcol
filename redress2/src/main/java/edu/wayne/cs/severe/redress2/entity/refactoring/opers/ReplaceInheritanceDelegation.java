@@ -19,6 +19,7 @@ import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.rid.LCOM5Replace
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.rid.LOCReplaceInhDelegPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.rid.NOCReplaceInhDelegPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.json.JSONRefParam;
+import edu.wayne.cs.severe.redress2.entity.refactoring.json.OBSERVRefParam;
 import edu.wayne.cs.severe.redress2.exception.RefactoringException;
 import edu.wayne.cs.severe.redress2.utils.RefactoringUtils;
 
@@ -70,6 +71,13 @@ public class ReplaceInheritanceDelegation extends RefactoringType {
 		params.put(tgtKey, refParams);
 
 		return params;
+	}
+
+	@Override
+	public HashMap<String, List<RefactoringParameter>> getOBSERVRefactoringParams(List<OBSERVRefParam> jsonParams)
+			throws RefactoringException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

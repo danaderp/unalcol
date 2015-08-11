@@ -26,6 +26,7 @@ import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.mf.MPCMoveFieldP
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.mf.NOMMoveFieldPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.mf.RFCMoveFieldPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.json.JSONRefParam;
+import edu.wayne.cs.severe.redress2.entity.refactoring.json.OBSERVRefParam;
 import edu.wayne.cs.severe.redress2.exception.RefactoringException;
 import edu.wayne.cs.severe.redress2.utils.RefactoringUtils;
 
@@ -88,6 +89,13 @@ public class MoveField extends RefactoringType {
 		params.put(key3, refParams);
 
 		return params;
+	}
+
+	@Override
+	public HashMap<String, List<RefactoringParameter>> getOBSERVRefactoringParams(List<OBSERVRefParam> jsonParams)
+			throws RefactoringException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }// end MoveField

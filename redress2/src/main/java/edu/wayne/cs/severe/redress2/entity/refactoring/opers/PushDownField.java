@@ -24,6 +24,7 @@ import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.pdf.LOCPushDownF
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.pdf.NOMPushDownFieldPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.pdf.RFCPushDownFieldPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.json.JSONRefParam;
+import edu.wayne.cs.severe.redress2.entity.refactoring.json.OBSERVRefParam;
 import edu.wayne.cs.severe.redress2.exception.RefactoringException;
 import edu.wayne.cs.severe.redress2.utils.RefactoringUtils;
 
@@ -85,6 +86,13 @@ public class PushDownField extends RefactoringType {
 		params.put(key3, refParams);
 
 		return params;
+	}
+
+	@Override
+	public HashMap<String, List<RefactoringParameter>> getOBSERVRefactoringParams(List<OBSERVRefParam> jsonParams)
+			throws RefactoringException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

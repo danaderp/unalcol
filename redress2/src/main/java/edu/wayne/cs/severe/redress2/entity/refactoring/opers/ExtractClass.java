@@ -26,6 +26,7 @@ import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.ec.MPCExctractCl
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.ec.NOMExctractClassPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.ec.RFCExctractClassPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.json.JSONRefParam;
+import edu.wayne.cs.severe.redress2.entity.refactoring.json.OBSERVRefParam;
 import edu.wayne.cs.severe.redress2.exception.RefactoringException;
 
 /**
@@ -67,5 +68,14 @@ public class ExtractClass extends RefactoringType {
 			List<JSONRefParam> params) throws RefactoringException {
 		return null;
 	}
+
+	@Override
+	public HashMap<String, List<RefactoringParameter>> getOBSERVRefactoringParams(List<OBSERVRefParam> jsonParams)
+			throws RefactoringException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
+	
 
 }// end ExtractClass

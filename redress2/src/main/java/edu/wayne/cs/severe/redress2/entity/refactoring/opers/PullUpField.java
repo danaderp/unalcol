@@ -17,6 +17,7 @@ import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.puf.LCOM2PullUpF
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.puf.LCOM5PullUpFieldPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.puf.LOCPullUpFieldPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.json.JSONRefParam;
+import edu.wayne.cs.severe.redress2.entity.refactoring.json.OBSERVRefParam;
 import edu.wayne.cs.severe.redress2.exception.RefactoringException;
 import edu.wayne.cs.severe.redress2.utils.RefactoringUtils;
 
@@ -72,6 +73,13 @@ public class PullUpField extends RefactoringType {
 		params.put(key3, refParams);
 
 		return params;
+	}
+
+	@Override
+	public HashMap<String, List<RefactoringParameter>> getOBSERVRefactoringParams(List<OBSERVRefParam> jsonParams)
+			throws RefactoringException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }// end PullUpField

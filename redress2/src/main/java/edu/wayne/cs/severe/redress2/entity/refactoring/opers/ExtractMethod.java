@@ -20,6 +20,7 @@ import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.em.LOCExtractMet
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.em.NOMExtractMethodPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.em.RFCExtractMethodPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.json.JSONRefParam;
+import edu.wayne.cs.severe.redress2.entity.refactoring.json.OBSERVRefParam;
 import edu.wayne.cs.severe.redress2.exception.RefactoringException;
 import edu.wayne.cs.severe.redress2.utils.RefactoringUtils;
 
@@ -70,6 +71,13 @@ public class ExtractMethod extends RefactoringType {
 		params.put(mtdKey, refParams);
 
 		return params;
+	}
+
+	@Override
+	public HashMap<String, List<RefactoringParameter>> getOBSERVRefactoringParams(List<OBSERVRefParam> jsonParams)
+			throws RefactoringException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

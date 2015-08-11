@@ -29,6 +29,7 @@ import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.rmmo.NOCReplaceM
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.rmmo.NOMReplaceMethodObjectPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.formulas.rmmo.RFCReplaceMethodObjectPF;
 import edu.wayne.cs.severe.redress2.entity.refactoring.json.JSONRefParam;
+import edu.wayne.cs.severe.redress2.entity.refactoring.json.OBSERVRefParam;
 import edu.wayne.cs.severe.redress2.exception.RefactoringException;
 import edu.wayne.cs.severe.redress2.utils.RefactoringUtils;
 
@@ -100,5 +101,12 @@ public class ReplaceMethodObject extends RefactoringType {
 		params.put(mtdKey, refParams);
 
 		return params;
+	}
+
+	@Override
+	public HashMap<String, List<RefactoringParameter>> getOBSERVRefactoringParams(List<OBSERVRefParam> jsonParams)
+			throws RefactoringException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }// end ReplaceMethodObject
