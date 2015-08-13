@@ -49,7 +49,7 @@ import unalcol.types.collection.bitarray.BitArray;
 public class BitArrayHAEATest {
     public static void main( String[] args ){
         // Reflection
-        ServiceProvider provider = ReflectUtil.getProvider("services/");
+        ServiceProvider provider = ReflectUtil.getProvider("services\\");
 
         // Search Space 
         int BITARRAYLENGTH = 900;

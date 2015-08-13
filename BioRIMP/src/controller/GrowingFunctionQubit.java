@@ -70,10 +70,64 @@ public class GrowingFunctionQubit
 		}
 		return oper;
 	}
-	/*
+	
+	//Params per Type of Refactoring
+	
 	private List<OBSERVRefParam> mappingParams(String type){
-		return new List<OBSERVRefParam>();
-	}*/
+		List<OBSERVRefParam> resultList = new ArrayList<OBSERVRefParam>();
+		
+		if(type.equals(Refactoring.pullUpField.name())
+				|| type.equals(Refactoring.moveField.name())
+				|| type.equals(Refactoring.pushDownField.name())
+			){
+			//Generating Source Class
+			//Generating Fields of Source Class
+			//Generating Target Class
+		    }else{
+		    	if(type.equals(Refactoring.moveMethod.name())
+						|| type.equals(Refactoring.replaceMethodObject.name())
+						|| type.equals(Refactoring.pushDownMethod.name())
+						|| type.equals(Refactoring.pullUpMethod.name())
+					){
+					//Generating Source Class
+		    		//Generating Methods of Source Class
+					//Generating Target Class
+				    }else{
+				    	if(type.equals(Refactoring.pullUpField.name())
+								|| type.equals(Refactoring.moveField.name())
+								|| type.equals(Refactoring.pushDownField.name())
+							){
+							//Generating Source Class
+				    		//Generating Methods of Source Class
+							
+						    }else{
+						    	if(type.equals(Refactoring.pullUpField.name())
+										|| type.equals(Refactoring.moveField.name())
+										|| type.equals(Refactoring.pushDownField.name())
+									){
+									//Generating Source Class
+									//Generating Fields of Source Class
+									//Generating Target Class
+								    }else{
+								    	if(type.equals(Refactoring.pullUpField.name())
+												|| type.equals(Refactoring.moveField.name())
+												|| type.equals(Refactoring.pushDownField.name())
+											){
+											//Generating Source Class
+											//Generating Fields of Source Class
+											//Generating Target Class
+										    }
+								    }
+						    }
+				    }
+		    }
+			
+		//Generating Source Class
+		//Generating Fields of Source Class
+		//Generating Methods of Source Class
+		//Generating Target Class
+		return resultList;
+	}
 	
 	private enum Refactoring{
 		pullUpField, moveMethod, replaceMethodObject, replaceDelegationInheritance,
